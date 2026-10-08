@@ -41,5 +41,24 @@ res=$(psql_ "$URL" -Atc "select count(*) || ',' || count(distinct ada_id) || ','
 expected="$((N_PROC * N_ROWS)),$((N_PROC * N_ROWS)),$((N_PROC * N_ROWS))"
 if [ "$res" = "$expected" ]; then echo "  $((N_PROC * N_ROWS)) parallel inserts: all ADA IDs unique and gap-free"; else echo "  FAIL concurrent ids: got $res expected $expected"; status=1; fi
 
+# Concurrency: a payment can never be allocated beyond its amount, nor an invoice beyond its total, however many sessions race.
+echo "== concurrent_allocations"
+psql_ "$URL" -f supabase/tests/concurrency/finance_setup.sql >/dev/null
+psql_ "$URL" -At -c "select string_agg(id::text, ',' order by created_at, id) from (select i.id, i.created_at from invoices i join clients c on c.id = i.client_id where c.name = 'Concurrency Client') q" > /tmp/conc_inv_$$.txt
+IFS=',' read -r -a INVS < /tmp/conc_inv_$$.txt
+SMALL=$(psql_ "$URL" -At -c "select p.id from payments p join clients c on c.id = p.client_id where c.name = 'Concurrency Client' and p.amount = 1000")
+mapfile -t SLICES < <(psql_ "$URL" -At -c "select p.id from payments p join clients c on c.id = p.client_id where c.name = 'Concurrency Client' and p.amount = 100 order by p.created_at, p.id")
+OKDIR=$(mktemp -d)
+for n in 0 1 2 3 4 5 6 7; do   # eight sessions race to spend the SAME 1000 payment on eight different invoices
+  ( psql -X -q -v ON_ERROR_STOP=1 "$URL" -c "insert into payment_allocations (payment_id, invoice_id, amount) values ('$SMALL', '${INVS[$n]}', 1000)" >/dev/null 2>&1 && touch "$OKDIR/small_$n" ) &
+done
+for n in $(seq 0 13); do       # fourteen sessions each pay 100 of the ninth invoice (total 1000) from their own 100 payment
+  ( psql -X -q -v ON_ERROR_STOP=1 "$URL" -c "insert into payment_allocations (payment_id, invoice_id, amount) values ('${SLICES[$n]}', '${INVS[8]}', 100)" >/dev/null 2>&1 && touch "$OKDIR/big_$n" ) &
+done
+wait
+res=$(psql_ "$URL" -At -c "select coalesce((select sum(amount) from payment_allocations where payment_id = '$SMALL' and status = 'active'), 0) || ',' || (select count(*) from payment_allocations where payment_id = '$SMALL') || ',' || coalesce((select sum(amount) from payment_allocations where invoice_id = '${INVS[8]}' and status = 'active'), 0)")
+rm -rf "$OKDIR" /tmp/conc_inv_$$.txt
+if [ "$res" = "1000.00,1,1000.00" ]; then echo "  22 racing allocations: the contested payment was spent exactly once and the invoice was never over-paid"; else echo "  FAIL concurrent allocations: got $res expected 1000.00,1,1000.00"; status=1; fi
+
 [ "$status" -eq 0 ] && echo "ALL TESTS PASSED" || echo "TESTS FAILED"
 exit $status
