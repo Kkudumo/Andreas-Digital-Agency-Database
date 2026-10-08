@@ -42,6 +42,15 @@ res=$(psql_ "$URL" -Atc "select count(*) || ',' || count(distinct ada_id) || ','
 expected="$((N_PROC * N_ROWS)),$((N_PROC * N_ROWS)),$((N_PROC * N_ROWS))"
 if [ "$res" = "$expected" ]; then echo "  $((N_PROC * N_ROWS)) parallel inserts: all ADA IDs unique and gap-free"; else echo "  FAIL concurrent ids: got $res expected $expected"; status=1; fi
 
+# Concurrency: ADA-AST IDs stay unique and gap-free when assets are registered in parallel from separate connections.
+echo "== concurrent_asset_ids"
+for i in $(seq 1 $N_PROC); do
+  psql_ "$URL" -c "insert into assets (name, category_id, division_id) select 'a$i-' || g, (select id from asset_categories where key = 'other'), (select id from divisions where key = 'web') from generate_series(1, $N_ROWS) g" >/dev/null &
+done
+wait
+res=$(psql_ "$URL" -Atc "select count(*) || ',' || count(distinct ada_id) || ',' || max(substring(ada_id from '[0-9]+\$')::int) from assets")
+if [ "$res" = "$expected" ]; then echo "  $((N_PROC * N_ROWS)) parallel asset registrations: all ADA-AST IDs unique and gap-free"; else echo "  FAIL concurrent asset ids: got $res expected $expected"; status=1; fi
+
 # Concurrency: a payment can never be allocated beyond its amount, nor an invoice beyond its total, however many sessions race.
 echo "== concurrent_allocations"
 psql_ "$URL" -f supabase/tests/concurrency/finance_setup.sql >/dev/null
