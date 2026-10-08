@@ -488,6 +488,199 @@ Row-level security is enabled on every table; the policies are in the migrations
 | `created_at` | timestamp with time zone | yes | now() |  |
 | `updated_at` | timestamp with time zone | yes | now() |  |
 
+## `communication_access`
+
+**Purpose:** explicit, named, expiring grants on one thread (to a person or a division) for view / read / attachment / comment only. A grant adds to the permission model; it never overrides classification. [class: restricted]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | uuid | yes | gen_random_uuid() |  |
+| `thread_id` | uuid | yes |  | `communication_threads` |
+| `staff_id` | uuid | no |  | `staff` |
+| `division_id` | uuid | no |  | `divisions` |
+| `actions` | text[] | yes |  |  |
+| `reason` | text | no |  |  |
+| `granted_by` | uuid | no |  | `staff` |
+| `granted_at` | timestamp with time zone | yes | now() |  |
+| `expires_at` | timestamp with time zone | no |  |  |
+| `revoked_at` | timestamp with time zone | no |  |  |
+| `revoked_by` | uuid | no |  | `staff` |
+
+## `communication_attachments`
+
+**Purpose:** an attachment IS a Document. This row only references it: the file, its SHA-256, versions, classification, retention and legal holds all stay in the Documents module, and opening the file goes through document_open. Removal is soft. [class: inherits the thread; visible only to callers who can also see the document]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | uuid | yes | gen_random_uuid() |  |
+| `thread_id` | uuid | yes |  | `communication_threads` |
+| `message_id` | uuid | yes |  | `communication_messages` |
+| `document_id` | uuid | yes |  | `documents` |
+| `attached_by` | uuid | no | current_staff_id() | `staff` |
+| `attached_at` | timestamp with time zone | yes | now() |  |
+| `removed_at` | timestamp with time zone | no |  |  |
+| `removed_by` | uuid | no |  | `staff` |
+| `removal_reason` | text | no |  |  |
+
+## `communication_comments`
+
+**Purpose:** internal notes on a thread or one of its messages (not part of the communication itself). CONTENT: readable only through communication_read. Append-only; body purged only by an approved disposal. [class: inherits the thread]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | uuid | yes | gen_random_uuid() |  |
+| `thread_id` | uuid | yes |  | `communication_threads` |
+| `message_id` | uuid | no |  | `communication_messages` |
+| `author_id` | uuid | no |  | `staff` |
+| `body` | text | no |  |  |
+| `purged_at` | timestamp with time zone | no |  |  |
+| `created_at` | timestamp with time zone | yes | now() |  |
+
+## `communication_disposals`
+
+**Purpose:** disposal workflow. A person requests (once retention has elapsed, no legal hold on the thread or any attached document, thread archived); a DIFFERENT person with communications.dispose approves; approval removes the content (subject, bodies, notes, address snapshots) and records how much was removed. Identity, metadata, relationships, hashes and history remain. [class: confidential]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | uuid | yes | gen_random_uuid() |  |
+| `thread_id` | uuid | yes |  | `communication_threads` |
+| `state` | text | yes | 'requested'::text |  |
+| `reason` | text | yes |  |  |
+| `requested_by` | uuid | no |  | `staff` |
+| `requested_at` | timestamp with time zone | yes | now() |  |
+| `decided_by` | uuid | no |  | `staff` |
+| `decided_at` | timestamp with time zone | no |  |  |
+| `decision_note` | text | no |  |  |
+| `purge_summary` | jsonb | no |  |  |
+
+## `communication_events`
+
+**Purpose:** append-only history of everything that happens to a thread - creation, each recorded message, metadata and classification changes (explicit and inherited), relationships, attachments, sharing, status changes, retention, holds, disposal and every READ of content - always with the acting staff member. Carries no content. [class: inherits the thread]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | bigint | yes |  |  |
+| `thread_id` | uuid | yes |  | `communication_threads` |
+| `message_id` | uuid | no |  | `communication_messages` |
+| `kind` | text | yes |  |  |
+| `actor_staff_id` | uuid | no |  | `staff` |
+| `occurred_at` | timestamp with time zone | yes | now() |  |
+| `detail` | jsonb | yes | '{}'::jsonb |  |
+
+## `communication_holds`
+
+**Purpose:** legal holds. While any hold is active the thread cannot be disposed, whatever its retention says. [class: confidential]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | uuid | yes | gen_random_uuid() |  |
+| `thread_id` | uuid | yes |  | `communication_threads` |
+| `reason` | text | yes |  |  |
+| `placed_by` | uuid | no |  | `staff` |
+| `placed_at` | timestamp with time zone | yes | now() |  |
+| `released_by` | uuid | no |  | `staff` |
+| `released_at` | timestamp with time zone | no |  |  |
+| `release_reason` | text | no |  |  |
+
+## `communication_links`
+
+**Purpose:** which authoritative entities a thread concerns (client, project, ticket, domain, contract, person, organization, staff, document ... any registered entity except another communication). References by institutional ID only. Removal is soft so "what was this thread about then" stays answerable. [class: inherits the thread; a link is visible only if the thread AND the target are visible to the caller]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | uuid | yes | gen_random_uuid() |  |
+| `thread_id` | uuid | yes |  | `communication_threads` |
+| `entity_institutional_id` | text | yes |  | `entity_registry` |
+| `role` | text | yes | 'subject'::text |  |
+| `linked_by` | uuid | no | current_staff_id() | `staff` |
+| `linked_at` | timestamp with time zone | yes | now() |  |
+| `removed_at` | timestamp with time zone | no |  |  |
+| `removed_by` | uuid | no |  | `staff` |
+| `removal_reason` | text | no |  |  |
+
+## `communication_messages`
+
+**Purpose:** one recorded email / call / meeting / message. Append-only for every caller: only a mirror of the thread's division / classification / status and an approved disposal's body purge ever change a row. Registered through attach_entity (its own permanent institutional ID). [class: inherits the thread]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | uuid | yes | gen_random_uuid() |  |
+| `thread_id` | uuid | yes |  | `communication_threads` |
+| `seq` | integer | yes |  |  |
+| `type_key` | text | yes |  | `communication_types` |
+| `direction` | text | yes |  |  |
+| `occurred_at` | timestamp with time zone | yes |  |  |
+| `ended_at` | timestamp with time zone | no |  |  |
+| `recorded_at` | timestamp with time zone | yes | now() |  |
+| `recorded_by` | uuid | no |  | `staff` |
+| `recorded_txid` | bigint | yes | txid_current() |  |
+| `in_reply_to_message_id` | uuid | no |  | `communication_messages` |
+| `body` | text | no |  |  |
+| `body_hash` | text | yes |  |  |
+| `body_purged_at` | timestamp with time zone | no |  |  |
+| `source_system` | text | no |  |  |
+| `source_reference` | text | no |  |  |
+| `division_id` | uuid | yes |  | `divisions` |
+| `effective_classification` | data_classification | yes | 'internal'::data_classification |  |
+| `status` | text | yes | 'recorded'::text |  |
+
+## `communication_participants`
+
+**Purpose:** who took part in a message, by REFERENCE to the registered person / organization / client / staff record. Names, e-mail addresses and phone numbers are not copied from those records. CONTENT: no table access for API users; reachable only through communication_read and the participant search. [class: inherits the thread]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | uuid | yes | gen_random_uuid() |  |
+| `message_id` | uuid | yes |  | `communication_messages` |
+| `thread_id` | uuid | yes |  | `communication_threads` |
+| `role` | text | yes |  |  |
+| `entity_institutional_id` | text | no |  | `entity_registry` |
+| `address_snapshot` | text | no |  |  |
+| `address_purged_at` | timestamp with time zone | no |  |  |
+
+## `communication_threads`
+
+**Purpose:** the institutional RECORD of a conversation: permanent identity (registry), owning division, classification, status, retention. The subject is content and is readable only through communication_read. Relationships live in communication_links / participants / attachments and REFERENCE registered entities. Registered through attach_entity. [class: internal; inherits the strictest classification of everything it is linked to]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | uuid | yes | gen_random_uuid() |  |
+| `subject` | text | no |  |  |
+| `subject_purged_at` | timestamp with time zone | no |  |  |
+| `division_id` | uuid | yes |  | `divisions` |
+| `owner_staff_id` | uuid | no |  | `staff` |
+| `classification` | data_classification | yes | 'internal'::data_classification |  |
+| `effective_classification` | data_classification | yes | 'internal'::data_classification |  |
+| `is_critical` | boolean | yes | false |  |
+| `effective_critical` | boolean | yes | false |  |
+| `client_deleted` | boolean | yes | false |  |
+| `status` | communication_status | yes | 'open'::communication_status |  |
+| `retention_class_id` | uuid | yes |  | `retention_classes` |
+| `retention_months` | integer | no |  |  |
+| `retention_start` | date | yes | CURRENT_DATE |  |
+| `review_date` | date | no |  |  |
+| `created_by` | uuid | no |  | `staff` |
+| `created_at` | timestamp with time zone | yes | now() |  |
+| `updated_at` | timestamp with time zone | yes | now() |  |
+| `last_activity_at` | timestamp with time zone | yes | now() |  |
+| `closed_at` | timestamp with time zone | no |  |  |
+| `archived_at` | timestamp with time zone | no |  |  |
+| `disposed_at` | timestamp with time zone | no |  |  |
+
+## `communication_types`
+
+**Purpose:** the approved kinds of communication (email, phone call, meeting, SMS, instant message, letter ...). body_required says whether a message of this kind must carry content (a call may be recorded with its facts only). A new kind is data, added by communications.configure. [class: internal]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | uuid | yes | gen_random_uuid() |  |
+| `key` | text | yes |  |  |
+| `name` | text | yes |  |  |
+| `body_required` | boolean | yes | true |  |
+| `default_classification` | data_classification | yes | 'internal'::data_classification |  |
+| `is_active` | boolean | yes | true |  |
+| `sort_order` | integer | yes | 100 |  |
+
 ## `contract_lines`
 
 **Purpose:** the agreed services and prices. unit_price/discount_amount are SNAPSHOTS of what was agreed (copied from the quote or stated with a reason); price_id records the catalogue version they came from. origin_line_id links a line to the same line in earlier versions so billing continues across amendments. [class: confidential]

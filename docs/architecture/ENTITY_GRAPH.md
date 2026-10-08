@@ -61,7 +61,7 @@
 
   Assets ride the same spine:   ASSET → (client, project, supplier, parent asset) ; ASSET ← assignments, maintenance, tickets, warranties, documents, finance links
 
-  Still to be attached to the SAME records: expenses, communications.
+  Still to be attached to the SAME records: expenses.
   Each will reference client / project / staff / person, never copy them.
 ```
 

@@ -33,6 +33,29 @@ select tests.mk_doc('ceo', 'rd3', 'Rehearsal critical file', 'report', 'web', nu
 select tests.add_ver('ceo', 'rd3', 'rd3v1', 'rehearsal critical content');
 SQL
 [ "$(psql_ "$SRC_URL" -Atc "select count(*) from documents")" = "3" ] || fail "demo documents were not created in the source"
+# committed demo communications: a thread with two messages (an email from a stranger, a call), a client link and an attached document; a restricted thread; a thread
+# under legal hold; a thread whose content was disposed of after retention (two-person approval)
+psql_ "$SRC_URL" >/dev/null <<'SQL'
+select tests.mk_thread('web_lead', 'rc1', 'Rehearsal enquiry thread');
+select tests.say('web_lead', 'rc1', 'rc1a', 'email', 'inbound', 'Rehearsal enquiry body', jsonb_build_array(jsonb_build_object('role', 'from', 'address', 'stranger@rehearsal.example')));
+select tests.say('web_lead', 'rc1', 'rc1b', 'phone_call', 'outbound', null);
+select tests.clink('web_lead', 'rc1', 'clients', 'client:C_web');
+select tests.scalar('web_lead', format($q$ select communication_attach_document(%L, %L)::text $q$, tests.id('msg:rc1a'), tests.id('doc:rd1')));
+select tests.mk_thread('ceo', 'rc2', 'Rehearsal restricted thread', 'web', 'restricted');
+select tests.say('ceo', 'rc2', 'rc2a', 'email', 'inbound', 'Rehearsal restricted body');
+select tests.mk_thread('ceo', 'rc3', 'Rehearsal held thread');
+select tests.say('ceo', 'rc3', 'rc3a', 'email', 'inbound', 'Rehearsal held body');
+select tests.scalar('ceo', format($q$ select communication_hold_place(%L, 'rehearsal hold')::text $q$, tests.id('thr:rc3')));
+select tests.mk_thread('ceo', 'rc4', 'Rehearsal disposed thread');
+select tests.say('ceo', 'rc4', 'rc4a', 'email', 'inbound', 'Rehearsal disposed body', jsonb_build_array(jsonb_build_object('role', 'from', 'address', 'gone@rehearsal.example')));
+select tests.try('ceo', format($q$ select communication_set_retention(%L, 'transient_1y', null, 'rehearsal') $q$, tests.id('thr:rc4')));
+select tests.try('ceo', format($q$ select communication_archive(%L, 'rehearsal') $q$, tests.id('thr:rc4')));
+select tests.backdate_thread('thr:rc4', interval '400 days');
+select tests.remember('disp:rc4', tests.scalar('admin', format($q$ select communication_request_disposal(%L, 'rehearsal disposal')::text $q$, tests.id('thr:rc4'))));
+select tests.scalar('ceo', format($q$ select communication_disposal_decide(%L, true, 'approved')$q$, tests.id('disp:rc4')));
+SQL
+[ "$(psql_ "$SRC_URL" -Atc "select count(*) from communication_threads")" = "4" ] || fail "demo communications were not created in the source"
+[ "$(psql_ "$SRC_URL" -Atc "select count(*) from communication_messages where body_purged_at is not null")" = "1" ] || fail "the demo disposal did not purge the content"
 # committed demo organizations: one company that is client + supplier + partner, plus an ambiguous look-alike pair awaiting human review
 psql_ "$SRC_URL" >/dev/null <<'SQL'
 insert into clients (name, registration_number) values ('Rehearsal Org Ltd', 'RO-1');
@@ -116,6 +139,20 @@ if psql_ "$DST_URL" -c "update domain_registrations set period_end = period_end 
 if psql_ "$DST_URL" -c "delete from domains" >/dev/null 2>&1; then fail "domains could be deleted after restore"; fi
 ok "retired-record, append-only ledger and never-delete rules still enforced after restore"
 
+echo "== communications survive the restore: records, messages and hashes, relationships, attachments, holds, disposal, history, immutability"
+[ "$(psql_ "$SRC_URL" -Atc "select communication_backup_manifest()::text")" = "$(psql_ "$DST_URL" -Atc "select communication_backup_manifest()::text")" ] || fail "communication backup manifest differs (threads / messages / hashes / links / attachments / history / registry)"
+ok "communication manifest identical (4 threads, 5 messages with their hashes, links, attachments, holds, disposal, events, registry entries)"
+[ "$(psql_ "$DST_URL" -Atc "select count(*) from communication_integrity_drift()")" = "0" ] || fail "message integrity drift after restore"
+[ "$(psql_ "$DST_URL" -Atc "select count(*) from communication_threads t join entity_registry r on r.table_name = 'communication_threads' and r.entity_id = t.id")" = "4" ] || fail "restored threads lost their registry entries"
+[ "$(psql_ "$DST_URL" -Atc "select count(*) from communication_messages t join entity_registry r on r.table_name = 'communication_messages' and r.entity_id = t.id")" = "5" ] || fail "restored messages lost their registry entries"
+ok "every restored thread and message has its permanent institutional ID; every undisposed body still matches its recorded SHA-256"
+if psql_ "$DST_URL" -c "update communication_messages set body = 'tampered' where body is not null" >/dev/null 2>&1; then fail "a message body was editable after restore"; fi
+if psql_ "$DST_URL" -c "delete from communication_messages" >/dev/null 2>&1; then fail "messages could be deleted after restore"; fi
+if psql_ "$DST_URL" -c "delete from communication_threads" >/dev/null 2>&1; then fail "threads could be deleted after restore"; fi
+if psql_ "$DST_URL" -c "update communication_threads set status = 'open' where status = 'disposed'" >/dev/null 2>&1; then fail "a disposed thread could be reopened after restore"; fi
+if psql_ "$DST_URL" -c "delete from communication_events" >/dev/null 2>&1; then fail "communication history could be deleted after restore"; fi
+ok "append-only messages, never-delete and closed-record rules still enforced after restore"
+
 echo "== verify the restored system behaves"
 before=$(psql_ "$SRC_URL" -Atc "select max(substring(ada_id from '[0-9]+\$')::int) from clients")
 psql_ "$DST_URL" -c "insert into clients (name) values ('Post-restore client')" >/dev/null
@@ -130,6 +167,17 @@ SQL
 )
 [ "$r1" = "$(psql_ "$SRC_URL" -Atc "select (current_date + 665)::text")|3|4" ] || fail "restored domain behaviour wrong: $r1 (expected renewal from the old end, web lead sees 3, CEO 4)"
 ok "after restore a renewal continues the ledger from where it ended; the hidden domain stays hidden from the web lead"
+c1=$(psql_ "$DST_URL" -At <<'SQL'
+select tests.scalar('web_lead', 'select count(*)::text from communication_threads') || '|' || tests.scalar('ceo', 'select count(*)::text from communication_threads') || '|' ||
+       tests.scalar('web_lead', format($q$ select (communication_read(%L) -> 'messages' -> 0 ->> 'body') $q$, (select id from communication_threads where subject = 'Rehearsal enquiry thread'))) || '|' ||
+       tests.scalar('web_lead', format($q$ select coalesce(communication_read(%L)::text, 'null') $q$, (select id from communication_threads where status = 'disposed'))) || '|' ||
+       tests.scalar('fin', format($q$ select coalesce(communication_read(%L)::text, 'null') $q$, (select id from communication_threads where subject = 'Rehearsal enquiry thread'))) || '|' ||
+       tests.scalar('web_lead', format($q$ select (communication_message_add(%L, 'email', 'outbound', now() - interval '1 minute', 'Post-restore reply') ->> 'seq') $q$, (select id from communication_threads where subject = 'Rehearsal enquiry thread'))) || '|' ||
+       tests.scalar('ceo', format($q$ select communication_request_disposal(%L, 'x')::text $q$, (select id from communication_threads where subject = 'Rehearsal held thread')));
+SQL
+)
+[ "$c1" = "3|4|Rehearsal enquiry body|null|null|3|ERR:42501" ] || fail "restored communication behaviour wrong: $c1 (expected: lead sees 3, CEO 4, body readable by the lead, disposed and metadata-only reads null, numbering continues at 3, the held thread is not yet archived)"
+ok "after restore: the restricted thread stays hidden from the lead, content is readable only by those who may read it, numbering continues, disposed content stays gone"
 c=$(psql_ "$DST_URL" -Atc "select tests.scalar('web_lead', 'select count(*)::text from clients')")
 [ "$c" = "1" ] || fail "web lead sees $c clients on the restored DB (expected 1: their own division's client, not the new organization-level one)"
 ok "row-level security still isolates divisions on the restored database"

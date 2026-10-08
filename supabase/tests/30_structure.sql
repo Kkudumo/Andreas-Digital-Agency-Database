@@ -96,7 +96,14 @@ select tests.check('authenticated can execute only the reviewed functions',
        -- domains
        'audit_domain_visible', 'domain_can_row', 'domain_can', 'domain_note_denied', 'domain_create', 'domain_activate', 'domain_renew', 'domain_transition', 'domain_mark_expired', 'domain_reregister',
        'domain_set_division', 'domain_update', 'domain_set_classification', 'domain_relation_end', 'domain_transfer_request', 'domain_transfer_decide', 'domain_transfer_complete',
-       'domain_transfer_cancel', 'domain_review_resolve', 'domains_of', 'domains_for_entity', 'domain_lookup', 'domain_360')), 'none');
+       'domain_transfer_cancel', 'domain_review_resolve', 'domains_of', 'domains_for_entity', 'domain_lookup', 'domain_360',
+       -- communications
+       'audit_communication_visible', 'communication_can_row', 'communication_can', 'communication_on_hold', 'communication_note_denied', 'communication_start', 'communication_message_record',
+       'communication_message_add', 'communication_read', 'communication_attachment_open', 'communication_update', 'communication_set_classification', 'communication_set_retention',
+       'communication_transfer', 'communication_close', 'communication_reopen', 'communication_archive', 'communication_restore', 'communication_link_add', 'communication_link_remove',
+       'communication_attach_document', 'communication_attachment_remove', 'communication_share', 'communication_unshare', 'communication_comment_add', 'communication_hold_place',
+       'communication_hold_release', 'communication_request_disposal', 'communication_disposal_decide', 'communications_of', 'communications_for_entity', 'communication_lookup',
+       'communication_participant_hits', 'communication_disposal_blockers', 'communication_360')), 'none');
 -- "Does this information already exist in ADA Core? Then REFERENCE it." Identity/contact columns may live only in
 -- these reviewed places; a new module that adds its own name/email/phone column fails here and must reference
 -- people / clients / staff instead.
@@ -124,7 +131,7 @@ select tests.check('every table that is not a link table has an updated_at trigg
 select tests.check('every business table is audited',
   (select coalesce(string_agg(c.relname, ','), 'none') from pg_class c
    where c.relnamespace = 'public'::regnamespace and c.relkind = 'r'
-     and c.relname not in ('audit_log', 'id_sequences', 'entity_registry', 'entity_types', 'permissions', 'events', 'event_deliveries', 'notifications', 'application_status_history', 'approval_requests', 'approval_decisions', 'contract_status_history', 'asset_history', 'id_settings', 'id_codebook', 'id_counters', 'entity_location_history', 'security_events', 'security_case_events', 'search_index', 'ticket_events', 'document_events', 'organization_mirror_columns', 'domain_events')
+     and c.relname not in ('audit_log', 'id_sequences', 'entity_registry', 'entity_types', 'permissions', 'events', 'event_deliveries', 'notifications', 'application_status_history', 'approval_requests', 'approval_decisions', 'contract_status_history', 'asset_history', 'id_settings', 'id_codebook', 'id_counters', 'entity_location_history', 'security_events', 'security_case_events', 'search_index', 'ticket_events', 'document_events', 'organization_mirror_columns', 'domain_events', 'communication_events')
      and not exists (select 1 from pg_trigger t where t.tgrelid = c.oid and t.tgname = 'zz_audit')), 'none');
 
 -- Permission matrix: CSV (reviewed design document) must equal the database.

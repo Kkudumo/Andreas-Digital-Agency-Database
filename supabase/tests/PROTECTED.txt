@@ -364,3 +364,50 @@ the registry mirrors status, classification and the current division of every do
 the domain counter equals the number of domain IDs issued
 the ledger and the expiry mirror agree for every domain
 domain access predicates never return NULL
+a recorded message is permanent for every caller
+API users cannot insert, update or delete threads, messages or participants directly
+participants are added only inside the transaction that recorded the message
+messages are numbered 1, 2, 3 ... in the order recorded
+the database computes the SHA-256 of the body
+tampering below the commands
+a message with a source reference is recorded once
+no name, email or phone of a registered party is copied
+a communication cannot be a participant
+attachments hold no file, name, size or hash of their own
+attaching the RESTRICTED document makes the whole thread restricted
+a legal hold on an ATTACHED DOCUMENT also blocks disposal
+the requester cannot approve their own request
+bodies, subject, notes and the stranger
+nothing of the removed content survives in the permanent audit log
+a disposed thread is a closed record
+opening an attachment goes through the Documents module
+the project's correspondence TODAY no longer includes the thread
+as it was a month ago
+who took part: the thread is found through the registered contact
+the web lead (their division)
+finance can DISCOVER the thread and its messages
+the subject, bodies, hashes, source references, participants and notes are not granted to table readers
+content leaves the database only through communication_read
+a metadata-only reader gets null, exactly as for a thread that does not exist
+participants are content: finance (metadata only) cannot find a thread by the contact who took part
+an expired grant grants nothing
+the thread linked to it AND the thread linked to its project inherit it
+every probe by an uncleared caller is indistinguishable from a random ID
+link, attach and participant INSERTs say nothing different either
+a hidden one answers exactly like one that never existed
+search has nothing to leak
+a soft-deleted client hides its correspondence
+the thread inherits the restriction from its participants too
+only a holder of communications.view_critical can start a critical communication
+a critical thread is visible to its owner
+a lookup of a critical thread is recorded EXACTLY like a lookup of nothing
+after attaching the critical document it becomes critical
+is shown only the attachment they can see
+a person with document rights but NO communication rights cannot see the thread
+an auditor without restricted clearance sees audit rows of ordinary threads
+there is no public API for communications at all
+the public (anonymous) role can read and execute nothing here
+the service role (no staff identity) cannot use any command
+every access predicate answers a definite true / false
+every thread and every message has exactly one registry row
+a refused recording leaves no registry row and no counter gap

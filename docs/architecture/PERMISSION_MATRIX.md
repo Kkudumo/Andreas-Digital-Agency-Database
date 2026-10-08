@@ -137,3 +137,16 @@ A role assignment is organization-wide or scoped to one division. **Division Lea
 | `domains.transfer` — Request complete and cancel transfers | restricted | x | x |  | x |  |  |  |
 | `domains.approve` — Approve domain transfers | restricted | x |  |  |  |  |  |  |
 | `domains.retire` — Retire domains and re-register retired ones | restricted | x | x |  |  |  |  |  |
+| `communications.view` — Discover communication threads and read their metadata (own division; no message content, subject or participants) | internal | x | x | x | x | x | x |  |
+| `communications.read` — Read message content, subject and participants of communications (separate from metadata) | restricted | x | x |  | x | x |  |  |
+| `communications.attachments` — Open attachments of communications (the attachment's own document rights also apply) | restricted | x | x |  | x | x |  |  |
+| `communications.create` — Start communication threads | internal | x | x |  | x | x |  |  |
+| `communications.append` — Record messages in a thread and attach documents | internal | x | x |  | x | x |  |  |
+| `communications.update` — Edit thread details and relationships; close and reopen threads | internal | x | x |  | x |  |  |  |
+| `communications.comment` — Add internal notes to a communication | internal | x | x |  | x | x |  |  |
+| `communications.share` — Share a communication with named people or divisions | restricted | x | x |  | x |  |  |  |
+| `communications.archive` — Archive and restore communications | restricted | x | x |  | x |  |  |  |
+| `communications.dispose` — Approve disposal of communications after retention | confidential | x |  |  |  |  |  |  |
+| `communications.view_critical` — Open critical communications without an explicit grant | confidential | x |  |  |  |  |  |  |
+| `communications.legal_hold` — Place and release legal holds on communications | confidential | x |  |  |  |  |  |  |
+| `communications.configure` — Manage communication types | restricted | x | x |  |  |  |  |  |

@@ -60,6 +60,10 @@ for i in $(seq 1 $N_PROC); do
                    insert into people (full_name, email) select 'Person $i ' || g, 'p${i}_' || g || '@conc.test' from generate_series(1, $N_ROWS) g;
                    insert into tickets (title, division_id) select 'm$i-' || g, (select id from divisions where key = 'web') from generate_series(1, $N_ROWS) g;
                    insert into domains (name, division_id) select 'm$i-' || g || '.example', (select id from divisions where key = 'web') from generate_series(1, $N_ROWS) g;
+                   select set_config('ada.communication_start', 'on', true);
+                   insert into communication_threads (subject, division_id, retention_class_id, retention_months) select 'c$i-' || g, (select id from divisions where key = 'web'), (select id from retention_classes where key = 'communications_standard'), 60 from generate_series(1, $N_ROWS) g;
+                   select set_config('ada.communication_record', 'on', true);
+                   insert into communication_messages (thread_id, seq, type_key, direction, occurred_at, body, body_hash, division_id) select t.id, 1, 'phone_call', 'inbound', now(), null, repeat('0', 64), t.division_id from communication_threads t where t.subject like 'c$i-%';
                    insert into documents (title, document_type_id, division_id, retention_class_id, retention_months) select 'm$i-' || g, (select id from document_types where key = 'report'), (select id from divisions where key = 'web'), (select id from retention_classes where key = 'general_5y'), 60 from generate_series(1, $N_ROWS) g;" >/dev/null &
 done
 wait
@@ -124,7 +128,7 @@ echo "== upgrade_0038"
 UDB="${DB}_up"; UURL="$BASE/$UDB"
 psql_ "$ADMIN_URL" -c "create database $UDB"
 psql_ "$UURL" -f supabase/tests/00_supabase_shim.sql >/dev/null
-for f in supabase/migrations/*.sql; do case "$f" in *0038_*|*0039_*) continue;; esac; psql_ "$UURL" -f "$f" >/dev/null; done
+for f in supabase/migrations/*.sql; do case "$f" in *0038_*|*0039_*|*0040_*) continue;; esac; psql_ "$UURL" -f "$f" >/dev/null; done
 psql_ "$UURL" -f supabase/tests/concurrency/org_legacy_seed.sql >/dev/null
 before=$(psql_ "$UURL" -At -c "select string_agg(id::text || ada_id, ',' order by id) from (select id, ada_id from clients union all select id, ada_id from suppliers) x")
 audit_before=$(psql_ "$UURL" -At -c "select count(*) from audit_log")
@@ -154,6 +158,26 @@ done
 wait
 res=$(psql_ "$URL" -At -c "select (select count(*) from domains where name = 'race-create.example') || ',' || (select count(*) from entity_registry r join domains d on d.id = r.entity_id and r.table_name = 'domains' where d.name = 'race-create.example') || ',' || (select count(*) from domain_registrations where domain_id = '$D1') || ',' || (select count(*) from (select period_start, lag(period_end) over (order by period_start) p from domain_registrations where domain_id = '$D1') x where p is not null and period_start <> p) || ',' || (select expires_on = (current_date + 300 + interval '8 years')::date from domains where id = '$D1') || ',' || (select count(*) from domain_registrations where domain_id = '$D2') || ',' || (select count(*) from domain_transfers where domain_id = '$D3') || ',' || (select status from domains where id = '$D3') || ',' || (select count(*) from domain_ledger_drift())")
 if [ "$res" = "1,1,9,0,true,2,1,transfer_pending,0" ]; then echo "  8 racing creations of one name: one record; 8 distinct renewals: gap-free 9-period ledger; 8 same-reference renewals: exactly one period added; 8 racing transfer requests: exactly one open transfer; no ledger drift"; else echo "  FAIL concurrent domains: got $res expected 1,1,9,0,true,2,1,transfer_pending,0"; status=1; fi
+
+# Concurrency: communications. Eight sessions record five messages each into ONE thread through the real command: the numbering stays 1..N with no gap and
+# no duplicate, every message gets its own registry row. Eight sessions record the SAME source reference: exactly one message is added. Eight sessions
+# start three threads each: every thread gets a distinct permanent ID and the counter equals the number of threads.
+echo "== concurrent_communications"
+psql_ "$URL" -f supabase/tests/concurrency/communications_setup.sql >/dev/null
+T1=$(psql_ "$URL" -At -c "select id from communication_threads where subject = 'race-numbering'")
+T2=$(psql_ "$URL" -At -c "select id from communication_threads where subject = 'race-source'")
+DIVW=$(psql_ "$URL" -At -c "select id from divisions where key = 'web'")
+ASC="select set_config('request.jwt.claim.sub', md5('conc-com-user'), false); set role authenticated;"
+psql_ "$URL" -c "$ASC select communication_message_add('$T1', 'email', 'inbound', now() - interval '1 hour', 'first'), communication_message_add('$T2', 'email', 'inbound', now() - interval '1 hour', 'first')" >/dev/null
+THREADS_BEFORE=$(psql_ "$URL" -At -c "select count(*) from communication_threads")
+for i in $(seq 1 $N_PROC); do
+  ( for k in 1 2 3 4 5; do psql -X -q "$URL" -c "$ASC select communication_message_add('$T1', 'email', 'inbound', now() - interval '1 minute', 'm$i-$k')" >/dev/null 2>&1; done ) &
+  ( psql -X -q "$URL" -c "$ASC select communication_message_add('$T2', 'email', 'inbound', now() - interval '1 minute', 'same', '[]', null, null, 'connector_x', 'msg-race')" >/dev/null 2>&1 ) &
+  ( for k in 1 2 3; do psql -X -q "$URL" -c "$ASC select communication_start('$DIVW', 'new-$i-$k')" >/dev/null 2>&1; done ) &
+done
+wait
+res=$(psql_ "$URL" -At -c "select (select count(*) from communication_messages where thread_id = '$T1') || ',' || (select count(distinct seq) from communication_messages where thread_id = '$T1') || ',' || (select max(seq) from communication_messages where thread_id = '$T1') || ',' || (select count(*) from entity_registry r join communication_messages m on m.id = r.entity_id and r.table_name = 'communication_messages' where m.thread_id = '$T1') || ',' || (select count(*) from communication_messages where thread_id = '$T2' and source_reference = 'msg-race') || ',' || (select count(*) from communication_messages where thread_id = '$T2') || ',' || ((select count(*) from communication_threads) - $THREADS_BEFORE) || ',' || (select count(*) from communication_integrity_drift()) || ',' || (select (coalesce(sum(last_value), 0) = (select count(*) from communication_threads))::text from id_counters where type_code = (select id_code from entity_types where key = 'communication'))")
+if [ "$res" = "41,41,41,41,1,2,$((N_PROC * 3)),0,true" ]; then echo "  8x5 racing messages: numbered 1..41 with no gap or duplicate and a registry row each; 8 racing recordings of one source reference: exactly one added; 24 racing thread starts: distinct IDs, counter equals count; no integrity drift"; else echo "  FAIL concurrent communications: got $res expected 41,41,41,41,1,2,$((N_PROC * 3)),0,true"; status=1; fi
 
 [ "$status" -eq 0 ] && echo "ALL TESTS PASSED" || echo "TESTS FAILED"
 exit $status

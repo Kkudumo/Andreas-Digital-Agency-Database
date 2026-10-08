@@ -66,7 +66,12 @@ Same model (see Assets): inherited classification, identical errors for hidden a
 ## Domains
 See [workflows/DOMAINS.md](workflows/DOMAINS.md). Classification inherited from related client/project/registrant; hidden domains invisible everywhere (lookup, search, registry, 360, audit log) with identical errors; name uniqueness exempts hidden names; ledger and transfers append-only; guarded columns change only through the system paths for every caller; never publishable.
 
+## Communications
+See [workflows/COMMUNICATIONS.md](workflows/COMMUNICATIONS.md). **Metadata is not content**: `communications.view` discovers a thread; subject, participants, bodies, hashes and notes need `communications.read` and leave the database only through `communication_read` (column privileges withhold them from table readers; every read is logged). Attachments are Documents and need both rights. Threads inherit the strictest classification of links, participants and attached documents; hidden and critical threads answer like missing ones everywhere (errors, counts, lookups, registry, audit log, security records). Messages are append-only for every caller including the database owner; the audit log stores redacted content so a disposal is real. Participation is content (no participant enumeration by metadata readers). No public API.
+
 ## Lessons encoded as tests
+- Content columns need column-level privileges AND every invoker-side function that reads such a table must name its columns: `select *` fails for the caller. Hashes of short bodies are guessing oracles and are content too.
+- A permanent audit log must store content REDACTED (`attach_audit(table, redact_columns)`), otherwise a disposal cannot remove it.
 - BEFORE ROW triggers run before RLS WITH CHECK: any error they raise that depends on hidden data discloses it. Put such validation in AFTER triggers (found in Domains: relation/transfer inserts).
 - Postgres `AFTER UPDATE OF col` triggers do not fire when a BEFORE trigger (not the statement) changes `col`: event/queue triggers fire on any update.
 - `pg_dump` records grants relative to the target's default privileges: restores neutralise permissive defaults and verify a security fingerprint.

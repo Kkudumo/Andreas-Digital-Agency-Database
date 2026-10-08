@@ -471,3 +471,94 @@ begin
   if v <> 'ok' then return 'rel ' || v; end if;
   return tests.try(p_user, format($q$ select domain_activate(%L, current_date + %s - 365, current_date + %s, %L) $q$, tests.id('dom:' || p_key), p_days, p_days, 'REG-' || p_key));
 end $$;
+
+-- Communications ------------------------------------------------------------------------------------------------------------------------------------
+-- Starts a thread as p_user; remembers thr:<key>; returns the uuid text or ERR:<state>
+create function tests.mk_thread(p_user text, p_key text, p_subject text default 'Subject', p_div text default 'web', p_class text default null, p_critical boolean default null) returns text language plpgsql as $$
+declare v text;
+begin
+  v := tests.scalar(p_user, format($q$ select (communication_start(%L, %L, %s, %s)) ->> 'id' $q$, tests.id('div:' || p_div), p_subject,
+                         case when p_class is null then 'null' else quote_literal(p_class) || '::data_classification' end, coalesce(p_critical::text, 'null')));
+  if v is null or v like 'ERR:%' then return coalesce(v, 'NULL'); end if;
+  insert into tests.ids values ('thr:' || p_key, v::uuid) on conflict (key) do update set id = excluded.id;
+  return v;
+end $$;
+-- Records a message; remembers msg:<key>; returns the uuid text or ERR:<state>
+create function tests.say(p_user text, p_thr_key text, p_key text, p_type text default 'email', p_direction text default 'inbound', p_body text default 'hello',
+                          p_participants jsonb default '[]', p_when timestamptz default now() - interval '1 minute') returns text language plpgsql as $$
+declare v text;
+begin
+  v := tests.scalar(p_user, format($q$ select (communication_message_add(%L, %L, %L, %L, %L, %L::jsonb)) ->> 'message_id' $q$, tests.id('thr:' || p_thr_key), p_type, p_direction, p_when, p_body, p_participants));
+  if v is null or v like 'ERR:%' then return coalesce(v, 'NULL'); end if;
+  insert into tests.ids values ('msg:' || p_key, v::uuid) on conflict (key) do update set id = excluded.id;
+  return v;
+end $$;
+-- Links a thread to a registered entity (by table + remembered key); returns the link uuid text or ERR:<state>
+create function tests.clink(p_user text, p_thr_key text, p_table text, p_entity_key text, p_role text default 'subject') returns text language sql as $$
+  select tests.scalar(p_user, format($q$ select communication_link_add(%L, (select institutional_id from entity_registry where table_name = %L and entity_id = %L), %L)::text $q$,
+                      tests.id('thr:' || p_thr_key), p_table, tests.id(p_entity_key), p_role))
+$$;
+-- The registry ID (text) of a remembered thread / message / etc.
+create function tests.inst(p_table text, p_key text) returns text language sql stable as $$
+  select institutional_id from entity_registry where table_name = p_table and entity_id = tests.id(p_key)
+$$;
+-- Test-only: moves a thread's history back in time (guards that forbid editing history are lifted inside this transaction only)
+create function tests.backdate_thread(p_thr_key text, p_by interval) returns void language plpgsql as $$
+declare v uuid := tests.id(p_thr_key);
+begin
+  alter table communication_events disable trigger communication_events_immutable;
+  alter table communication_messages disable trigger communication_messages_guard_trg;
+  alter table communication_links disable trigger communication_links_guard_trg;
+  alter table communication_attachments disable trigger communication_attachments_guard_trg;
+  alter table communication_threads disable trigger communication_threads_guard_trg;
+  update communication_events set occurred_at = occurred_at - p_by where thread_id = v;
+  update communication_messages set occurred_at = occurred_at - p_by, recorded_at = recorded_at - p_by where thread_id = v;
+  update communication_links set linked_at = linked_at - p_by, removed_at = removed_at - p_by where thread_id = v;
+  update communication_attachments set attached_at = attached_at - p_by, removed_at = removed_at - p_by where thread_id = v;
+  update communication_threads set created_at = created_at - p_by, retention_start = retention_start - (extract(day from p_by))::integer where id = v;
+  alter table communication_events enable trigger communication_events_immutable;
+  alter table communication_messages enable trigger communication_messages_guard_trg;
+  alter table communication_links enable trigger communication_links_guard_trg;
+  alter table communication_attachments enable trigger communication_attachments_guard_trg;
+  alter table communication_threads enable trigger communication_threads_guard_trg;
+end $$;
+-- Test-only: makes a recorded message look as if it had been recorded in an earlier transaction (every test runs inside ONE transaction)
+create function tests.age_message(p_msg_key text) returns void language plpgsql as $$
+begin
+  alter table communication_messages disable trigger communication_messages_guard_trg;
+  update communication_messages set recorded_txid = recorded_txid - 1 where id = tests.id(p_msg_key);
+  alter table communication_messages enable trigger communication_messages_guard_trg;
+end $$;
+-- Run a statement as the service role (RLS bypass, no staff identity); returns 'ok' or 'ERR:<sqlstate>'
+create function tests.try_service(p_sql text) returns text language plpgsql as $$
+begin
+  perform set_config('request.jwt.claim.sub', '', true);
+  set local role service_role;
+  begin
+    execute p_sql;
+    reset role;
+    return 'ok';
+  exception when others then
+    reset role;
+    return 'ERR:' || sqlstate;
+  end;
+end $$;
+-- Same, for one value
+create function tests.scalar_service(p_sql text) returns text language plpgsql as $$
+declare v text;
+begin
+  perform set_config('request.jwt.claim.sub', '', true);
+  set local role service_role;
+  begin
+    execute p_sql into v;
+    reset role;
+    return coalesce(v, '<null>');
+  exception when others then
+    reset role;
+    return 'ERR:' || sqlstate;
+  end;
+end $$;
+-- The communication actions a persona holds on a thread, in a fixed order: view read attachment append edit comment share archive
+create function tests.cacts(p_user text, p_thr_key text) returns text language sql as $$
+  select tests.scalar(p_user, format($q$ select string_agg(case when communication_can(%L, a) then '1' else '0' end, '' order by n) from unnest(array['view','read','attachment','append','edit','comment','share','archive']) with ordinality t(a, n) $q$, tests.id(p_thr_key)))
+$$;
