@@ -1,0 +1,34 @@
+permission,sensitivity,description,ceo,administration_officer,finance_officer,division_lead,division_staff,auditor
+staff.create,internal,Create staff records,x,x,,,,
+staff.update,internal,Edit staff records,x,x,,,,
+staff.delete,restricted,Soft-delete or restore staff records,x,,,,,
+staff.manage_accounts,restricted,Link logins and change account or employment status,x,,,,,
+hr.view,confidential,Read sensitive HR information,x,x,,,,
+hr.update,confidential,Edit sensitive HR information,x,x,,,,
+clients.view,internal,View clients,x,x,x,x,x,
+clients.create,internal,Create clients,x,x,,x,,
+clients.update,internal,Edit clients and link them to divisions,x,x,,x,,
+clients.delete,restricted,Soft-delete or restore clients,x,,,,,
+clients.export,restricted,Export client data,x,,,,,
+projects.view,internal,View projects,x,x,x,x,x,
+projects.create,internal,Create projects,x,x,,x,,
+projects.update,internal,Edit projects and add participating divisions,x,x,,x,,
+projects.archive,internal,Archive projects,x,,,x,,
+projects.delete,restricted,Soft-delete or restore projects,x,,,,,
+tasks.create,internal,Create project tasks,x,x,,x,x,
+tasks.update,internal,Update project tasks,x,x,,x,x,
+finance.view,confidential,View financial records including project financials,x,,x,,,
+finance.create,confidential,Create and edit financial records,x,,x,,,
+finance.approve,confidential,Approve financial records and workflows,x,,,,,
+finance.export,confidential,Export financial data,x,,x,,,
+roles.view,restricted,View roles and the permission matrix,x,x,,,,x
+roles.administer,restricted,Create roles and assign or revoke permissions and role assignments,x,,,,,
+audit.view,restricted,Read the audit log,x,,,,,x
+reports.view,internal,View reports,x,x,x,x,,x
+reports.generate,internal,Generate reports,x,,x,,,
+reports.export,restricted,Export reports,x,,x,,,
+settings.update,restricted,Edit organization settings divisions and positions,x,,,,,
+records.classify,restricted,Mark records restricted or confidential,x,x,,,,
+records.view_restricted,restricted,See records classified restricted,x,x,,,,x
+records.view_confidential,confidential,See records classified confidential,x,,,,,
+records.view_deleted,restricted,See soft-deleted records,x,,,,,x
