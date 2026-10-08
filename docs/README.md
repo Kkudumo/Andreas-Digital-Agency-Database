@@ -76,7 +76,7 @@ Documents: [Module checklist](MODULE_CHECKLIST.md) · [Institutional skeleton](a
 ## What is verified, and what is not
 
 Verified by `./scripts/test-db.sh` on plain PostgreSQL 16 with a stand-in for Supabase's auth schema/roles:
-**1,733 checks** — authorization, integrity, audit immutability, public/private exposure, the full hire-to-departure
+**1,806 checks** — authorization, integrity, audit immutability, public/private exposure, the full hire-to-departure
 scenario, structural guarantees (RLS everywhere, least-privilege grants, matrix == CSV), 320 parallel ID inserts, 320 parallel asset registrations, a mixed-family parallel ID run and a 22-session allocation race
 allocations. Rules were validated with mutation tests (deliberately breaking a rule makes the suite fail).
 `./scripts/rehearse-migration.sh` proves dump → restore → identical security posture → working system.

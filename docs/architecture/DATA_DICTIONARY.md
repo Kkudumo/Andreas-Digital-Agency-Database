@@ -735,6 +735,7 @@ Row-level security is enabled on every table; the policies are in the migrations
 | `location_col` | text | no |  |  |
 | `label_col` | text | no |  |  |
 | `view_fn` | text | no |  |  |
+| `publishable` | boolean | yes | false |  |
 
 ## `event_deliveries`
 
@@ -1654,6 +1655,61 @@ _(no description)_
 | `updated_at` | timestamp with time zone | yes | now() |  |
 | `milestone_id` | uuid | no |  | `milestones` |
 
+## `ticket_categories`
+
+**Purpose:** what a ticket is about (hardware, software, access, ...). Optionally owned by a division. Managed with tickets.configure. [class: internal]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | uuid | yes | gen_random_uuid() |  |
+| `key` | text | yes |  |  |
+| `name` | text | yes |  |  |
+| `division_id` | uuid | no |  | `divisions` |
+| `is_active` | boolean | yes | true |  |
+| `sort_order` | integer | yes | 100 |  |
+
+## `ticket_comments`
+
+**Purpose:** the conversation on a ticket. Internal notes are for people working the ticket; non-internal comments are also visible to the reporter. Append-only. [class: inherits the ticket]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | uuid | yes | gen_random_uuid() |  |
+| `ticket_id` | uuid | yes |  | `tickets` |
+| `author_id` | uuid | no |  | `staff` |
+| `body` | text | yes |  |  |
+| `is_internal` | boolean | yes | true |  |
+| `created_at` | timestamp with time zone | yes | now() |  |
+
+## `ticket_events`
+
+**Purpose:** append-only history of a ticket (status, assignment, priority, escalation, transfers, comments). Never edited or deleted. [class: inherits the ticket]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | bigint | yes |  |  |
+| `ticket_id` | uuid | yes |  | `tickets` |
+| `kind` | text | yes |  |  |
+| `from_value` | text | no |  |  |
+| `to_value` | text | no |  |  |
+| `actor_id` | uuid | no |  | `staff` |
+| `note` | text | no |  |  |
+| `created_at` | timestamp with time zone | yes | now() |  |
+
+## `ticket_sla_policies`
+
+**Purpose:** response and resolution targets by priority (and optionally division; the division row wins). Elapsed calendar minutes - business-hours calendars are not modelled. [class: internal]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | uuid | yes | gen_random_uuid() |  |
+| `priority` | priority_level | yes |  |  |
+| `division_id` | uuid | no |  | `divisions` |
+| `first_response_minutes` | integer | yes |  |  |
+| `resolution_minutes` | integer | yes |  |  |
+| `is_active` | boolean | yes | true |  |
+| `note` | text | no |  |  |
+
 ## `tickets`
 
 **Purpose:** a support/maintenance ticket. References asset, client, project, contact, reporter and assignee by id and inherits their classification; nothing about them is retyped. [class: internal; inherits]
@@ -1682,6 +1738,15 @@ _(no description)_
 | `closed_at` | timestamp with time zone | no |  |  |
 | `created_at` | timestamp with time zone | yes | now() |  |
 | `updated_at` | timestamp with time zone | yes | now() |  |
+| `category_id` | uuid | no |  | `ticket_categories` |
+| `requester_person_id` | uuid | no |  | `people` |
+| `service_id` | uuid | no |  | `services` |
+| `website_id` | uuid | no |  | `websites` |
+| `origin_channel` | text | yes | 'internal'::text |  |
+| `sla_policy_id` | uuid | no |  | `ticket_sla_policies` |
+| `first_response_due_at` | timestamp with time zone | no |  |  |
+| `resolution_due_at` | timestamp with time zone | no |  |  |
+| `first_response_at` | timestamp with time zone | no |  |  |
 
 ## `vacancies`
 
