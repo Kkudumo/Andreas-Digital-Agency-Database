@@ -16,6 +16,8 @@ Why: `pg_dump` stores grants as differences from the target's default privileges
 tables would silently come up open. The rehearsal found this; the restore script now neutralises it and proves the result.
 
 ## Schedule and retention (to be configured in production)
+`document_backup_manifest()` (service role) fingerprints documents, versions (hashes and storage references), links, history and registry entries; the rehearsal compares it between source and restored databases and re-proves signed-version immutability, content permanence and append-only history after restore. Stored file bytes live outside the database and must be backed up with it: restore the object store and run `document_service_integrity_check` over every version to prove the bytes still match their recorded hashes.
+
 Daily logical backup + weekly restore test (run `rehearse-migration.sh` against the latest backup in staging) · retain 14 daily / 8 weekly / 12 monthly · store off-site and encrypted · restore authority: ADA administrators only.
 Point-in-time recovery (WAL archiving) should be enabled on the production server; logical backups alone give a recovery point of up to 24 hours.
 

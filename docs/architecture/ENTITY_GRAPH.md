@@ -32,6 +32,7 @@
 | A physical or technical asset | `assets` (`ADA-AST-…`) | identity + lifecycle only; holder = `asset_assignments` history; references supplier, client, project, parent; tickets, maintenance, warranty, documents and finance links reference the asset |
 | A supplier / vendor | `suppliers` (`ADA-SUP-…`) | referenced by assets, warranties, maintenance (later expenses) |
 | A student | `students` (role of a `people` row; Student ID in the registry) | programme/cohort/period are `student_enrolments` history, never part of the ID |
+| A document | `documents` (permanent institutional ID, family operations) | record only; content by reference in `document_versions` (hash + opaque storage key); relationships in `document_links` to ANY registered entity (client, project, contract, invoice, person, staff, asset, ticket, …); inherits classification from them; critical flag; public projection only via `document_publications` |
 | A ticket | `tickets` (`ADA-TKT-…`) | references asset, client, project, contact, requester person, service, website, category, reporter, assignee; inherits classification; never public |
 | Everything that happened | `audit_log`, `events` | append-only memory; outbox for websites |
 
@@ -107,6 +108,6 @@ A restricted client's projects, leads, enquiries, contracts, billable items, inv
 ## Open decisions for the next modules
 | Question | Recommendation |
 |---|---|
-| Documents link to many entity types (client, project, staff, vacancy, application, quote, invoice, asset, ticket, domain, website) | one `documents` table + `document_links(document_id, ada_id → entity_registry)`; access resolved per linked entity |
+| ~~Documents link to many entity types~~ **Decided and built**: one `documents` table + `document_links(document_id, entity_institutional_id → entity_registry)`; the target must be visible to the linker, the document inherits the highest classification of its targets, and access is decided per action on the document itself (see [DOCUMENTS](../workflows/DOCUMENTS.md)) |
 | `project_financials.cost_to_date` | remove when expenses exist (derived, not stored); `revenue_to_date` is already gone |
 | Credit notes, expenses | reference the invoice / project / supplier; go through the same approval gate |

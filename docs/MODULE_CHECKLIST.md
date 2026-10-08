@@ -37,7 +37,7 @@ Two modules referencing the same person or client do **not** share each other's 
 - [ ] **No duplicate people:** person + contact + applicant/lead resolve to one `people` row, and each relationship stays blind to the others' private data.
 - [ ] Authorization (who can, who must not), RLS, direct-table access, anon/authenticated/website roles.
 - [ ] Workflow transitions (valid and invalid), locking after submission, history, audit, events (without personal data).
-- [ ] **Every access predicate returns a definite boolean** (wrap with `coalesce(..., false)`; add the helper to the NULL-safety list in `100_tickets.sql`): in plpgsql, NULL fails an `IF` and silently grants access.
+- [ ] **Every access predicate returns a definite boolean** (wrap with `coalesce(..., false)`; add the helper to the NULL-safety list in `100_tickets.sql`; documents: `102_documents_access_publication.sql`): in plpgsql, NULL fails an `IF` and silently grants access.
 - [ ] Soft-delete/archive visibility, institutional ID format and registry membership (`tests.unregistered_tables()` covers every built entity type), restricted-vs-nonexistent through `entity_resolve`.
 - [ ] Immutability of anything historical (prices, financial amounts, decisions).
 - [ ] Mutation check: break your main rule on purpose and confirm a test fails.

@@ -677,7 +677,7 @@ begin
      or (old.state = 'published' and new.state = 'unpublished')) then
     raise exception 'invalid publication state change % -> %', old.state, new.state using errcode = '23514';
   end if;
-  if new.state = 'published' and (old.state <> 'approved' or document_publication_blockers(new.document_id, new.version_id) is not null) then
+  if new.state = 'published' and new.state is distinct from old.state and (old.state <> 'approved' or document_publication_blockers(new.document_id, new.version_id) is not null) then
     raise exception 'only an approved, still-eligible publication can go live' using errcode = '42501';
   end if;
   if old.state in ('unpublished', 'rejected') and new.state is distinct from old.state then raise exception 'a closed publication cannot be reopened' using errcode = '42501'; end if;
@@ -1344,7 +1344,6 @@ language sql stable set search_path = public, pg_temp as $$
       from documents d join document_types dt on dt.id = d.document_type_id
      where exists (select 1 from document_links dl where dl.document_id = d.id and dl.entity_institutional_id = any (p_ids) and dl.linked_at <= coalesce(p_as_of, now())
                       and (dl.removed_at is null or dl.removed_at > coalesce(p_as_of, now())))
-       and d.created_at <= coalesce(p_as_of, now())
        and (p_from is null or d.document_date >= p_from) and (p_to is null or d.document_date <= p_to)
        and (not p_signed_only or (document_version_as_of(d.id, p_as_of) -> 'signed') is not null and (document_version_as_of(d.id, p_as_of) -> 'signed') <> 'null'::jsonb)) x
 $$;

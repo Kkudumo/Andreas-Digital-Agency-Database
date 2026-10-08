@@ -33,7 +33,7 @@ functions), so no client — IRM, a website, or a person with API access — can
 | Services & pricing | `services`, `service_prices` (immutable versions), approvals queue | built, tested |
 | Quotes | `quotes`, `quote_lines` (price snapshots), conversion to project | built, tested |
 | Projects | `projects`, `project_services`, `project_contacts`, `project_divisions`, `project_members`, `milestones`, `tasks`, `portfolio_entries` | built, tested |
-| 360° views | `client_360`, `project_360`, `staff_360` | built, tested (sections for unbuilt modules are declared `pending`) |
+| 360° views | `client_360`, `project_360`, `staff_360`, `asset_360`, `document_360` | built, tested (sections for unbuilt modules are declared `pending`) |
 | Enquiries & leads | `enquiries`, `leads`, `enquiry_candidates`, `matching_reviews`, `client_create`/`client_lookup`/`claim_client_for_division`, `public_api.submit_enquiry` | built, tested |
 | Approvals | `approval_requests`, `approval_policies`, `approval_decisions`, `approval_gate` (with discount policies) | built, tested (prices, quotes, contracts, invoices, reversals/refunds) |
 | Contracts | `contracts`, `contract_versions`, `contract_lines`, `contract_projects`, `contract_status_history` | built, tested |
@@ -42,12 +42,13 @@ functions), so no client — IRM, a website, or a person with API access — can
 | Assets | `assets`, `asset_assignments`, `asset_history`, `asset_retirements`, `asset_maintenance`, `asset_warranties`, `asset_documents` (interim), `asset_finance_links`, `asset_duplicate_flags`, `suppliers` | built, tested |
 | Tickets | `tickets`, `ticket_categories`, `ticket_sla_policies`, `ticket_comments`, `ticket_events`, `ticket_sla_status` | built, tested |
 | Expenses, credit notes | — | not started |
-| Documents, domains, communications | — | not started |
+| Documents | `documents`, `document_versions`, `document_links`, `document_access`, `document_holds`, `document_comments`, `document_events`, `document_integrity_checks`, `document_disposals`, `document_publications`, `document_types`, `retention_classes`, `document_retention_status` | built, tested |
+| Domains, communications | — | not started |
 | Search, reports, dashboards | — | not started |
 
 Documents: [Module checklist](MODULE_CHECKLIST.md) · [Institutional skeleton](architecture/INSTITUTIONAL_SKELETON.md) · [Entity graph](architecture/ENTITY_GRAPH.md) · [Data dictionary](architecture/DATA_DICTIONARY.md) · [ERD](architecture/ERD.md) ·
 [Permission matrix](architecture/PERMISSION_MATRIX.md) · [Security](SECURITY.md) · [Public API](api/PUBLIC_API.md) ·
-[Recruitment workflow](workflows/RECRUITMENT.md) · [Services, pricing & quotes](workflows/QUOTES_PRICING.md) · [Leads & enquiries](workflows/LEADS_ENQUIRIES.md) · [Contracts](workflows/CONTRACTS.md) · [Invoices & payments](workflows/INVOICES_PAYMENTS.md) · [Assets](workflows/ASSETS.md) · [Tickets](workflows/TICKETS.md) · [Publication layer (design)](architecture/PUBLICATION_LAYER.md) · [Approvals](workflows/APPROVALS.md) · [Development](operations/DEVELOPMENT.md) ·
+[Recruitment workflow](workflows/RECRUITMENT.md) · [Services, pricing & quotes](workflows/QUOTES_PRICING.md) · [Leads & enquiries](workflows/LEADS_ENQUIRIES.md) · [Contracts](workflows/CONTRACTS.md) · [Invoices & payments](workflows/INVOICES_PAYMENTS.md) · [Assets](workflows/ASSETS.md) · [Tickets](workflows/TICKETS.md) · [Documents](workflows/DOCUMENTS.md) · [Publication layer (design)](architecture/PUBLICATION_LAYER.md) · [Approvals](workflows/APPROVALS.md) · [Development](operations/DEVELOPMENT.md) ·
 [Backup, restore & migration](operations/BACKUP_RESTORE_MIGRATION.md) · [Deployment](operations/DEPLOYMENT.md) ·
 [Original audit/gap report](architecture/ARCHITECTURE_REPORT.md)
 
@@ -90,7 +91,7 @@ allocations. Rules were validated with mutation tests (deliberately breaking a r
 - Timing side channels are not equalised; the similarity threshold for "possible duplicate" (0.55) is a constant in `client_candidates`.
 - The approval gate covers prices, quotes, contracts, invoices, reversals/refunds and discounts; other kinds (vacancies, profiles, expenses, hiring) adopt it as their modules need thresholds.
 - Enquiries carry no registration number, so an exact normalised-name match to an existing client is treated as the same organization (a person who is a contact elsewhere is only ever a candidate).
-- Expenses, credit notes, recurring invoicing, documents, domains and communications are not built; tickets have no e-mail/web intake, customer portal, business-hours SLA calendars or linked tickets; `asset_documents` is an interim link until the Documents module. Search is not built, so assets are findable by direct query only. The 360° views list them under `pending`. `project_financials.revenue_to_date` was removed (revenue is derived from invoices/payments); `cost_to_date` stays an interim planning field until expenses exist.
+- Expenses, credit notes, recurring invoicing, domains and communications are not built; tickets have no e-mail/web intake, customer portal, business-hours SLA calendars or linked tickets; `asset_documents` is an interim link kept for compatibility (the Documents module supersedes it; `asset_360` shows both). Search is not built, so assets are findable by direct query only. The 360° views list them under `pending`. `project_financials.revenue_to_date` was removed (revenue is derived from invoices/payments); `cost_to_date` stays an interim planning field until expenses exist.
 - Historical `audit_log` rows keep the old `ADA-CON-…` text for contacts renamed to `ADA-CTC-…` in migration 0026 (the audit log is immutable); the registry and tables were rewritten.
 - Contracts keep a `document_ref` text until the documents module links real files; contract renewals are created explicitly, never automatically.
 

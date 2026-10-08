@@ -54,6 +54,9 @@ Same model as finance (see above), plus: no unique index on serial or tag (exist
 * Denied or unresolved lookups are recorded (actor, action, internal exists-flag, classification, session, source) and escalate by policy: flag → case → critical. The actor never sees the log. A command that raises rolls back its own log row; gateways report with `security_report_denial`.
 * IDs encode only immutable facts and are opaque; the scramble key is permanent; `ada_mint_id` is not executable by API roles.
 
+## Documents
+Records layer with its own full note in [workflows/DOCUMENTS.md](workflows/DOCUMENTS.md). In short: per-action decisions (`document_can`) that combine staff identity, permission in the owning division, ownership, explicit expiring grants, classification and the strictest classification of linked entities; **critical** documents leak nothing (search, counts, 360, registry, events, audit log, security records, public API); storage keys are unreadable to metadata viewers (column privileges) and reach only `document_open`, which logs every read/download; content columns are permanent and signed versions immutable for every caller; legal holds, retention and two-person disposal enforced in the database; the public projection is approved, allow-listed, frozen and re-checked on every read; integrity mismatches open cases in the existing security model. `audit_select` is filtered so `audit.view` is not a back door to documents the reader cannot see.
+
 ## Tickets
 Same model (see Assets): inherited classification, identical errors for hidden and missing tickets, internal notes limited to people working the ticket, no notifications for restricted tickets, tickets never publishable.
 
@@ -65,6 +68,9 @@ Same model (see Assets): inherited classification, identical errors for hidden a
 - A global unique index over records of differing visibility is an existence oracle (and can make un-restricting fail): uniqueness is per visible scope, with the cross-scope check made in the command against what the caller can see.
 - A parent-lookup error that differs from the child-lookup error is an oracle too: lookups of line/allocation/request ids report the same 'not found' as the parent.
 - A history table that is not reclassified with its subject leaks: decided approval requests follow the client's classification.
+- A SECURITY DEFINER function runs as its owner, so `is_untrusted_caller()` (and `current_user` generally) cannot tell staff from the service role inside it; privileged entry points are separate functions with separate grants (`document_record_integrity_check` for staff, `document_service_integrity_check` for the service role).
+- STABLE SQL helpers (`tests.id()`) use the statement's snapshot: a test that creates a row and reads it by a remembered key must do so in separate statements.
+- A guard written as `new.state = 'published' and (old.state <> 'approved' …)` fired on every update of a published row; guard transitions, not states (`new.state is distinct from old.state`).
 - `AFTER UPDATE OF col` triggers silently skip changes made by a BEFORE trigger: classification propagation (assets, tickets) fires on any update and compares inside the function.
 - A boolean access predicate that can return NULL is a hole: `IF NOT NULL THEN raise` does not raise. `in (assignee, reporter)` with a NULL member yields NULL. Wrap predicates in `coalesce(..., false)`; a permanent test asserts none returns NULL.
 - A migration that wires triggers by looking at existing ROWS leaves a fresh database unwired: wire from the type map, not from data.

@@ -110,3 +110,17 @@ A role assignment is organization-wide or scoped to one division. **Division Lea
 | `students.manage` — Change student status and academic structure | restricted | x | x |  | x |  |  |  |
 | `programmes.manage` — Manage programmes and cohorts | internal | x | x |  | x |  |  |  |
 | `tickets.configure` — Manage ticket categories and SLA policies | restricted | x | x |  |  |  |  |  |
+| `documents.view` — Discover documents and read their metadata (own division; no content access) | internal | x | x | x | x | x | x |  |
+| `documents.read` — Read the content of documents (separate from metadata and from download) | restricted | x | x | x | x | x | x |  |
+| `documents.download` — Download documents | restricted | x | x | x | x | x |  |  |
+| `documents.create` — Register documents and upload new versions | internal | x | x | x | x | x |  |  |
+| `documents.update` — Edit document metadata and relationships | internal | x | x | x | x |  |  |  |
+| `documents.comment` — Comment on documents | internal | x | x | x | x | x |  |  |
+| `documents.share` — Share a document with named people or divisions | restricted | x | x |  | x |  |  |  |
+| `documents.approve` — Approve and sign off document versions | restricted | x |  |  | x |  |  |  |
+| `documents.publish` — Publish documents publicly (after approval) | restricted | x |  |  |  |  |  |  |
+| `documents.archive` — Archive and restore documents | restricted | x | x |  | x |  |  |  |
+| `documents.dispose` — Approve disposal of documents after retention | confidential | x |  |  |  |  |  |  |
+| `documents.view_critical` — Open critical documents without an explicit grant | confidential | x |  |  |  |  |  |  |
+| `documents.legal_hold` — Place and release legal holds on documents | confidential | x |  |  |  |  |  |  |
+| `documents.configure` — Manage document types and retention classes and run integrity checks | restricted | x | x |  |  |  |  |  |

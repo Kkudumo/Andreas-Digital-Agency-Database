@@ -27,6 +27,14 @@ requires a **capability** on that website. Source attribution (which website an 
 - **team member**: `id, name, title, bio, photo, email (only if the person approved a public email), division{code,name}`
 - Divisions that are not published (Management, Administration, Finance) never appear, even as a vacancy's or person's division.
 
+## Documents (capability `documents.read`)
+| Function | Returns |
+|---|---|
+| `public_api.documents(key_hash, [type])` | the published documents: `ref, title, description, type, document_date, published_at, file{mime_type, size_bytes, sha256}` |
+| `public_api.document(key_hash, ref)` | one published document by its random public reference (`pd_…`), or `null` |
+
+Only documents with an approved, live publication whose document is still eligible (public classification, active, not critical, publishable type, approved/signed version) and whose registry entry is active are returned. The institutional ID, storage reference, internal title, uploader, classification, notes and other versions are never exposed; the institutional ID does not resolve here. To serve the bytes, the handler asks the **delivery service** (service role) for `document_public_content_ref(ref)` and issues a short-lived signed URL; that reference never goes to the browser. Events: `document.published|unpublished` carry only the public ref.
+
 ## Error mapping (SQLSTATE → HTTP)
 | SQLSTATE | Meaning | HTTP |
 |---|---|---|

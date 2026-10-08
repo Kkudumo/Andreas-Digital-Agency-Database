@@ -619,6 +619,213 @@ Row-level security is enabled on every table; the policies are in the migrations
 | `public_state` | publication_state | yes | 'draft'::publication_state |  |
 | `public_description` | text | no |  |  |
 
+## `document_access`
+
+**Purpose:** explicit, named, expiring grants on one document (to a person or a division) for view / read / download / comment only. A grant adds to the permission model; it never overrides classification. [class: restricted]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | uuid | yes | gen_random_uuid() |  |
+| `document_id` | uuid | yes |  | `documents` |
+| `staff_id` | uuid | no |  | `staff` |
+| `division_id` | uuid | no |  | `divisions` |
+| `actions` | text[] | yes |  |  |
+| `reason` | text | no |  |  |
+| `granted_by` | uuid | no |  | `staff` |
+| `granted_at` | timestamp with time zone | yes | now() |  |
+| `expires_at` | timestamp with time zone | no |  |  |
+| `revoked_at` | timestamp with time zone | no |  |  |
+| `revoked_by` | uuid | no |  | `staff` |
+
+## `document_comments`
+
+**Purpose:** review comments on a document or one of its versions. Append-only. [class: inherits the document]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | uuid | yes | gen_random_uuid() |  |
+| `document_id` | uuid | yes |  | `documents` |
+| `version_id` | uuid | no |  | `document_versions` |
+| `author_id` | uuid | no |  | `staff` |
+| `body` | text | yes |  |  |
+| `created_at` | timestamp with time zone | yes | now() |  |
+
+## `document_disposals`
+
+**Purpose:** disposal workflow. A person requests (only once retention has elapsed, no legal hold, document archived); a DIFFERENT person with documents.dispose approves; approval nulls the storage references of the versions and records them in purge_manifest for the storage service, which confirms physical deletion. Nothing is ever disposed automatically. [class: confidential]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | uuid | yes | gen_random_uuid() |  |
+| `document_id` | uuid | yes |  | `documents` |
+| `state` | text | yes | 'requested'::text |  |
+| `reason` | text | yes |  |  |
+| `requested_by` | uuid | no |  | `staff` |
+| `requested_at` | timestamp with time zone | yes | now() |  |
+| `decided_by` | uuid | no |  | `staff` |
+| `decided_at` | timestamp with time zone | no |  |  |
+| `decision_note` | text | no |  |  |
+| `executed_at` | timestamp with time zone | no |  |  |
+| `purge_manifest` | jsonb | no |  |  |
+
+## `document_events`
+
+**Purpose:** append-only history of everything that happens to a document - creation, metadata and classification changes, uploads, version transitions, sharing, approvals, publication, archive/restore/disposal, and every open/download - always with the acting staff identity. Cannot be edited or deleted. Readable only by those who can see the document (opens/downloads: auditors and approvers). [class: inherits the document]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | bigint | yes |  |  |
+| `document_id` | uuid | yes |  | `documents` |
+| `version_id` | uuid | no |  | `document_versions` |
+| `kind` | text | yes |  |  |
+| `actor_staff_id` | uuid | no |  | `staff` |
+| `occurred_at` | timestamp with time zone | yes | now() |  |
+| `detail` | jsonb | yes | '{}'::jsonb |  |
+
+## `document_holds`
+
+**Purpose:** legal holds. While any hold is active the document cannot be disposed, whatever its retention says. [class: confidential]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | uuid | yes | gen_random_uuid() |  |
+| `document_id` | uuid | yes |  | `documents` |
+| `reason` | text | yes |  |  |
+| `placed_by` | uuid | no |  | `staff` |
+| `placed_at` | timestamp with time zone | yes | now() |  |
+| `released_by` | uuid | no |  | `staff` |
+| `released_at` | timestamp with time zone | no |  |  |
+| `release_reason` | text | no |  |  |
+
+## `document_integrity_checks`
+
+**Purpose:** each verification of stored bytes against the recorded SHA-256. Append-only. A mismatch also raises a security event (kind integrity). [class: inherits the document]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | uuid | yes | gen_random_uuid() |  |
+| `seq` | bigint | yes |  |  |
+| `version_id` | uuid | yes |  | `document_versions` |
+| `document_id` | uuid | yes |  | `documents` |
+| `expected_hash` | text | yes |  |  |
+| `observed_hash` | text | no |  |  |
+| `result` | text | yes |  |  |
+| `checked_by` | uuid | no |  | `staff` |
+| `checked_at` | timestamp with time zone | yes | now() |  |
+
+## `document_links`
+
+**Purpose:** which authoritative entities a document relates to (client, project, contract, invoice, person, staff, asset, ticket, ... any registered entity). References by institutional ID only - no names, emails or titles are copied. Removal is soft so history ("what was attached then") is answerable. [class: inherits the document; a link is visible only if the document AND the target entity are visible]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | uuid | yes | gen_random_uuid() |  |
+| `document_id` | uuid | yes |  | `documents` |
+| `entity_institutional_id` | text | yes |  | `entity_registry` |
+| `role` | text | yes | 'subject'::text |  |
+| `linked_by` | uuid | no | current_staff_id() | `staff` |
+| `linked_at` | timestamp with time zone | yes | now() |  |
+| `removed_at` | timestamp with time zone | no |  |  |
+| `removed_by` | uuid | no |  | `staff` |
+| `removal_reason` | text | no |  |  |
+
+## `document_publications`
+
+**Purpose:** the PUBLIC PROJECTION of a document. Points at the authoritative document and one approved/signed version; exposes only the allow-listed public_title / public_description under a random public_ref (not the institutional ID). Requires explicit approval, is withdrawn automatically when the document stops being eligible, and never carries storage paths, uploader, internal classification, notes or other versions. [class: restricted until published]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | uuid | yes | gen_random_uuid() |  |
+| `document_id` | uuid | yes |  | `documents` |
+| `version_id` | uuid | yes |  | `document_versions` |
+| `state` | text | yes | 'pending_approval'::text |  |
+| `public_ref` | text | yes | ('pd_'::text \|\| encode(extensions.gen_random_bytes(10), 'hex'::text)) |  |
+| `public_title` | text | yes |  |  |
+| `public_description` | text | no |  |  |
+| `requested_by` | uuid | no |  | `staff` |
+| `requested_at` | timestamp with time zone | yes | now() |  |
+| `decided_by` | uuid | no |  | `staff` |
+| `decided_at` | timestamp with time zone | no |  |  |
+| `decision_note` | text | no |  |  |
+| `published_at` | timestamp with time zone | no |  |  |
+| `unpublished_at` | timestamp with time zone | no |  |  |
+| `unpublish_reason` | text | no |  |  |
+| `updated_at` | timestamp with time zone | yes | now() |  |
+
+## `document_types`
+
+**Purpose:** what kind of record a document is, with the classification, retention class and publishability that follow from it. publishable=false means documents of this type can never have a public projection. [class: internal]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | uuid | yes | gen_random_uuid() |  |
+| `key` | text | yes |  |  |
+| `name` | text | yes |  |  |
+| `default_classification` | data_classification | yes | 'internal'::data_classification |  |
+| `default_critical` | boolean | yes | false |  |
+| `retention_class_id` | uuid | yes |  | `retention_classes` |
+| `publishable` | boolean | yes | false |  |
+| `is_active` | boolean | yes | true |  |
+| `sort_order` | integer | yes | 100 |  |
+
+## `document_versions`
+
+**Purpose:** one stored state of a document. The file is held by REFERENCE (storage_provider + opaque storage_key) - never an identity, never exposed to metadata viewers or the public (column-level grants) - together with the SHA-256 of its bytes. Content columns are permanent; approved and signed versions are frozen; an amendment is a new version. [class: inherits the document]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | uuid | yes | gen_random_uuid() |  |
+| `document_id` | uuid | yes |  | `documents` |
+| `version_no` | integer | yes |  |  |
+| `state` | document_version_state | yes | 'draft'::document_version_state |  |
+| `label` | text | no |  |  |
+| `change_note` | text | no |  |  |
+| `amends_version_id` | uuid | no |  | `document_versions` |
+| `storage_provider` | text | no |  |  |
+| `storage_key` | text | no |  |  |
+| `content_hash` | text | yes |  |  |
+| `size_bytes` | bigint | yes |  |  |
+| `mime_type` | text | yes |  |  |
+| `original_filename` | text | no |  |  |
+| `content_purged_at` | timestamp with time zone | no |  |  |
+| `uploaded_by` | uuid | no |  | `staff` |
+| `uploaded_at` | timestamp with time zone | yes | now() |  |
+| `requested_by` | uuid | no |  | `staff` |
+| `approved_by` | uuid | no |  | `staff` |
+| `approved_at` | timestamp with time zone | no |  |  |
+| `signed_by` | uuid | no |  | `staff` |
+| `signed_at` | timestamp with time zone | no |  |  |
+| `signed_on` | date | no |  |  |
+| `decision_note` | text | no |  |  |
+
+## `documents`
+
+**Purpose:** the institutional RECORD of a document: identity (registry), type, title, classification, owner, status, retention. Content is held by reference in document_versions; relationships in document_links. Registered through attach_entity (permanent institutional ID; origin division fixed at creation). [class: internal; inherits the highest classification of its linked entities]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | uuid | yes | gen_random_uuid() |  |
+| `title` | text | yes |  |  |
+| `document_type_id` | uuid | yes |  | `document_types` |
+| `description` | text | no |  |  |
+| `division_id` | uuid | yes |  | `divisions` |
+| `owner_staff_id` | uuid | no |  | `staff` |
+| `classification` | data_classification | yes | 'internal'::data_classification |  |
+| `effective_classification` | data_classification | yes | 'internal'::data_classification |  |
+| `is_critical` | boolean | yes | false |  |
+| `client_deleted` | boolean | yes | false |  |
+| `status` | document_status | yes | 'active'::document_status |  |
+| `document_date` | date | yes | CURRENT_DATE |  |
+| `retention_class_id` | uuid | yes |  | `retention_classes` |
+| `retention_months` | integer | no |  |  |
+| `retention_start` | date | yes | CURRENT_DATE |  |
+| `review_date` | date | no |  |  |
+| `created_by` | uuid | no |  | `staff` |
+| `created_at` | timestamp with time zone | yes | now() |  |
+| `updated_at` | timestamp with time zone | yes | now() |  |
+| `archived_at` | timestamp with time zone | no |  |  |
+| `disposed_at` | timestamp with time zone | no |  |  |
+
 ## `enquiries`
 
 **Purpose:** one inbound enquiry with its full source tracking (website, page, referrer, campaign). Resolved to central person/client/lead records; the central records, not this row, are the source of truth. [class: confidential]
@@ -1330,6 +1537,19 @@ _(no description)_
 | `created_at` | timestamp with time zone | yes | now() |  |
 | `updated_at` | timestamp with time zone | yes | now() |  |
 | `lead_id` | uuid | no |  | `leads` |
+
+## `retention_classes`
+
+**Purpose:** how long a class of record must be kept. period_months NULL = permanent (never disposed). A document takes a SNAPSHOT of the period when it is registered, so changing a class never silently shortens a record already held. [class: internal]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | uuid | yes | gen_random_uuid() |  |
+| `key` | text | yes |  |  |
+| `name` | text | yes |  |  |
+| `period_months` | integer | no |  |  |
+| `description` | text | no |  |  |
+| `is_active` | boolean | yes | true |  |
 
 ## `role_permissions`
 

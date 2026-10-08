@@ -66,6 +66,19 @@ update clients set classification = 'internal' where id = tests.id('client:abc')
 select tests.check('the client is un-restricted: the document returns to the people who lost it', (select effective_classification::text from documents where id = tests.id('doc:D1')) || tests.scalar('web_lead', format('select count(*)::text from documents where id = %L', tests.id('doc:D1'))), 'internal1');
 select tests.check('classification propagates through the registry mirror too (registry classification follows the document)', (select classification::text from entity_registry where entity_id = tests.id('doc:D1')), 'internal');
 
+-- Family retrieval and soft-deleted clients -----------------------------------------------------------------------------------------------------------------------
+select tests.check('documents attached to a client''s PROJECT are found from the client when children are included, and not otherwise',
+  tests.scalar('web_lead', format($q$ select (select count(*) from jsonb_array_elements(documents_for_entity((select institutional_id from entity_registry where entity_id = %L), p_include_children => true)) x where x ->> 'title' = 'Web handover notes')::text
+     || (select count(*) from jsonb_array_elements(documents_for_entity((select institutional_id from entity_registry where entity_id = %L))) x where x ->> 'title' = 'Web handover notes')::text $q$, tests.id('client:abc'), tests.id('client:abc'))), '10');
+insert into clients (name, owner_division_id) values ('Doc Gone Client', (select id from divisions where key = 'web'));
+insert into tests.ids select 'client:gone', id from clients where name = 'Doc Gone Client';
+select tests.mk_doc('web_lead', 'G1', 'Gone client brief', 'report', 'web', 'client:gone');
+select tests.check('before: the web lead sees the document of a live client', tests.scalar('web_lead', format('select count(*)::text from documents where id = %L', tests.id('doc:G1'))), '1');
+update clients set deleted_at = now(), deletion_reason = 'closed down' where id = tests.id('client:gone');
+select tests.check('a soft-deleted client hides its documents from those without records.view_deleted (even the owner of the document)', tests.scalar('web_lead', format('select count(*)::text from documents where id = %L', tests.id('doc:G1'))) || tests.scalar('ceo', format('select count(*)::text from documents where id = %L', tests.id('doc:G1'))), '01');
+update clients set deleted_at = null, deletion_reason = null where id = tests.id('client:gone');
+select tests.check('...and restoring the client restores the documents', tests.scalar('web_lead', format('select count(*)::text from documents where id = %L', tests.id('doc:G1'))), '1');
+
 -- CRITICAL documents: no trace for anyone without an explicit entitlement --------------------------------------------------------------------------------------
 select tests.mk_doc('ceo', 'C1', 'Board resolution on acquisition', 'report', 'web', 'project:abc', null, true);
 select tests.add_ver('ceo', 'C1', 'C1v1', 'critical board content');
@@ -91,9 +104,19 @@ select tests.check('...and the security records do not reveal that a critical do
   tests.scalar('web_lead', format($q$ select coalesce(document_open(%L)::text, 'null') $q$, tests.id('doc:C1'))) || tests.scalar('web_lead', format($q$ select coalesce(document_open(%L)::text, 'null') $q$, tests.id('x:random'))), 'nullnull');
 select tests.check('...(entity_exists, class and reason are identical)',
   (select count(distinct (entity_exists, coalesce(entity_class::text, '-'), reason))::text from security_events where actor_staff_id = tests.id('staff:web_lead') and requested_action = 'document.read' and requested_input in ((select i from c1_inst), tests.id('x:random')::text, tests.id('doc:C1')::text)), '1');
+select tests.check('classifying a document above your own clearance (and so losing sight of it) is refused', tests.scalar('adm2', format($q$ select document_set_classification(%L, 'confidential', null, 'x')::text $q$, tests.id('doc:L1'))) , 'ERR:42501');
 select tests.check('the non-owner CEO can open it; every open is recorded', tests.scalar('ceo', format($q$ select (document_open(%L, 'read') ->> 'version_no') $q$, tests.id('doc:C1'))), '1');
+select tests.mk_doc('ceo', 'C3', 'Critical but public-class', 'report', 'web', null, 'public', true);
+select tests.add_ver('ceo', 'C3', 'C3v1', 'critical public-class content');
+select tests.try('ceo', format($q$ select document_version_transition(%L, 'review') $q$, tests.id('ver:C3v1')));
+select tests.try('web_lead', format($q$ select document_version_transition(%L, 'approved') $q$, tests.id('ver:C3v1')));
+select tests.check('a critical document is refused for publication for being critical, even if public-class and approved (reason named)',
+  tests.try_msg('ceo', format($q$ select document_publication_request(%L, 1, 'x') $q$, tests.id('doc:C3'))), '23514: critical documents are never published');
 select tests.check('critical documents are not publishable and not in the public API, whatever their classification',
   tests.scalar('ceo', format($q$ select document_publication_request(%L, 1, 'x')::text $q$, tests.id('doc:C1'))), 'ERR:23514');
+
+select tests.check('a failed integrity check on a critical document does not name it in the security record', tests.scalar('ceo', format($q$ select document_record_integrity_check(%L, %L) $q$, tests.id('ver:C1v1'), tests.h('wrong bytes'))), 'mismatch');
+select tests.check('...(the integrity event carries no identifier of the critical document)', (select count(*)::text from security_events where kind = 'integrity' and requested_input is not null and requested_input = (select i from c1_inst)), '0');
 
 -- Explicit grants: named, per-action, expiring; never a way around classification --------------------------------------------------------------------------------
 select tests.check('sharing needs documents.share; a viewer without it cannot share', tests.try('web_staff', format($q$ select document_share(%L, %L, null, array['read'], null, 'x') $q$, tests.id('doc:D1'), tests.id('staff:tech_staff'))), 'ERR:42501');
@@ -112,6 +135,8 @@ select tests.check('a grant does not override classification: a legal (restricte
   tests.try('ceo', format($q$ select document_share(%L, %L, null, array['read', 'download'], null, 'for review') $q$, tests.id('doc:L1'), tests.id('staff:web_lead'))) || tests.acts('web_lead', 'doc:L1'), 'ok0000000000');
 select tests.mk_doc('tech_lead', 'T1', 'Tech runbook', 'report', 'tech');
 select tests.check('division grants: sharing a Tech document with the whole Web division (view + read + download)', tests.try('tech_lead', format($q$ select document_share(%L, null, %L, array['read', 'download'], null, 'cross-team handover') $q$, tests.id('doc:T1'), tests.id('div:web'))) || tests.acts('web_staff', 'doc:T1') || tests.acts('audit', 'doc:T1'), 'ok' || '1110000000' || '1100000000');
+
+select tests.check('the share limits are in the table too, not only in the command: nobody can store an approve grant', tests.try_owner(format($q$ insert into document_access (document_id, staff_id, actions) values (%L, %L, array['approve']) $q$, tests.id('doc:D1'), tests.id('staff:web_staff'))) || tests.try_owner(format($q$ insert into document_access (document_id, actions) values (%L, array['read']) $q$, tests.id('doc:D1'))), 'ERR:23514ERR:23514');
 
 -- Comments ------------------------------------------------------------------------------------------------------------------------------------------------------------
 select tests.check('comments need documents.comment and visibility; they are append-only', tests.try('web_staff', format($q$ select document_comment_add(%L, 'Looks good') $q$, tests.id('doc:D1'))) || tests.try('audit', format($q$ select document_comment_add(%L, 'x') $q$, tests.id('doc:D1'))) || tests.try_owner('update document_comments set body = ''x''') || tests.try_owner('delete from document_comments'), 'okERR:42501ERR:42501ERR:42501');
@@ -135,6 +160,7 @@ select tests.check('only documents.publish holders request a publication, and a 
   tests.scalar('web_lead', format($q$ select document_publication_request(%L, 1, 'x')::text $q$, tests.id('doc:P1'))) || tests.scalar('ceo', format($q$ select document_publication_request(%L, 1, ' ')::text $q$, tests.id('doc:P1'))), 'ERR:42501ERR:23514');
 select tests.remember('pub:P1', tests.scalar('ceo', format($q$ select document_publication_request(%L, 1, 'Annual Report 2026', 'Our annual report for 2026')::text $q$, tests.id('doc:P1'))));
 select tests.check('requested but not approved: still not public', tests.pub('main', 'documents'), '[]');
+select tests.check('a pending publication cannot be published (the command says so, in its own words)', tests.try_msg('ceo', format($q$ select document_publish(%L) $q$, tests.id('pub:P1'))), '23514: only an approved publication can be published (this one is pending_approval)');
 select tests.check('the requester cannot approve their own publication', tests.try('ceo', format($q$ select document_publication_decide(%L, true) $q$, tests.id('pub:P1'))), 'ERR:42501');
 select tests.check('someone without documents.approve cannot decide', tests.try('web_staff', format($q$ select document_publication_decide(%L, true) $q$, tests.id('pub:P1'))), 'ERR:42501');
 select tests.check('a second person approves (approved is not yet published)', tests.scalar('web_lead', format($q$ select document_publication_decide(%L, true, 'ok to publish')::text $q$, tests.id('pub:P1'))), 'approved');
@@ -150,8 +176,14 @@ select tests.check('a single document is fetched by public reference through the
   (tests.pub('main', 'document', quote_literal((select public_ref from document_publications where id = tests.id('pub:P1')))) ::jsonb ->> 'title') || '|' || coalesce(tests.pub('main', 'document', quote_literal('pd_unknown')), 'null'), 'Annual Report 2026|null');
 select tests.check('the institutional ID cannot be used to fetch from the public API', coalesce(tests.pub('main', 'document', quote_literal((select institutional_id from entity_registry where entity_id = tests.id('doc:P1')))), ''), '');
 select tests.check('publication emits an event carrying only the public reference', (select (payload ? 'public_ref' and (payload - 'public_ref') = '{}'::jsonb)::text from events where event_type = 'document.published' order by id desc limit 1), 'true');
-select tests.check('what is published is fixed: the projection''s title, description and version cannot be edited (not even by the owner)', tests.try_owner(format($q$ update document_publications set public_title = 'Other' where id = %L $q$, tests.id('pub:P1'))) || tests.try_owner(format($q$ update document_publications set version_id = %L where id = %L $q$, tests.id('ver:P1v1'), tests.id('pub:P1'))), 'ERR:42501ERR:42501');
+select tests.check('what is published is fixed: the projection''s title, description and version cannot be edited (not even by the owner)', tests.try_owner(format($q$ update document_publications set public_title = 'Other' where id = %L $q$, tests.id('pub:P1'))) || tests.try_owner(format($q$ update document_publications set version_id = gen_random_uuid() where id = %L $q$, tests.id('pub:P1'))), 'ERR:42501ERR:42501');
 select tests.check('the storage reference for delivery exists only for the delivery service, and only while live', (tests.try_owner(format($q$ select document_public_content_ref((select public_ref from document_publications where id = %L)) $q$, tests.id('pub:P1')))) || tests.try('ceo', format($q$ select document_public_content_ref('x') $q$)), 'okERR:42501');
+alter table documents disable trigger documents_after_update_trg;
+update documents set classification = 'internal' where id = tests.id('doc:P1');
+select tests.check('defence in depth: even if the automatic withdrawal were missed, the public view re-checks eligibility on every read', tests.pub('main', 'documents'), '[]');
+update documents set classification = 'public' where id = tests.id('doc:P1');
+alter table documents enable trigger documents_after_update_trg;
+select tests.check('...and it serves again once the document is eligible', jsonb_array_length(tests.pub('main', 'documents')::jsonb)::text, '1');
 select tests.check('a newer version does not change what is public: the projection stays on the approved version',
   tests.add_ver('ceo', 'P1', 'P1v2', 'annual report - NEW unapproved content')::text ~ '^[0-9a-f-]{36}$' ||
   ((tests.pub('main', 'documents')::jsonb) -> 0 -> 'file' ->> 'sha256' = tests.h('annual report public content'))::text, 'true' || 'true');
@@ -177,6 +209,20 @@ select tests.check('a rejected publication needs a note', tests.try('web_lead', 
 select tests.check('...a rejection is final', tests.try('web_lead', format($q$ select document_publication_decide(%L, true) $q$, tests.id('pub:P1c'))), 'ERR:23514');
 select tests.check('...nothing public', tests.pub('main', 'documents'), '[]');
 select tests.check('a registry-routed projection: publications resolve through an active registry entry (a disposed or removed entry is never served)', (select count(*)::text from document_publication_live), '0');
+
+-- Retention and disposal: the rules hold at every layer ------------------------------------------------------------------------------------------------------------
+select tests.mk_doc('web_lead', 'fresh', 'Fresh archived memo', 'report', 'web');
+select tests.try('web_lead', format($q$ select document_archive(%L, 'done') $q$, tests.id('doc:fresh')));
+select tests.check('retention has not elapsed: disposal cannot be requested', tests.scalar('adm2', format($q$ select document_request_disposal(%L, 'tidy')::text $q$, tests.id('doc:fresh'))), 'ERR:23514');
+select tests.check('...and the database itself refuses to dispose it, for every caller', tests.try_owner(format($q$ select set_config('ada.document_disposal', 'on', true); update documents set status = 'disposed' where id = %L $q$, tests.id('doc:fresh'))), 'ERR:42501');
+select tests.try('web_lead', format($q$ select document_restore(%L, 'retention to be corrected') $q$, tests.id('doc:fresh')));
+select tests.try('adm2', format($q$ select document_set_retention(%L, 'transient_1y', current_date - 900, 'old memo') $q$, tests.id('doc:fresh')));
+select tests.try('web_lead', format($q$ select document_archive(%L, 'done again') $q$, tests.id('doc:fresh')));
+select tests.remember('disp:fresh', tests.scalar('ceo', format($q$ select document_request_disposal(%L, 'retention elapsed')::text $q$, tests.id('doc:fresh'))));
+select tests.check('separation of duties on disposal: a requester who also holds documents.dispose cannot approve their own request', tests.try('ceo', format($q$ select document_disposal_decide(%L, true) $q$, tests.id('disp:fresh'))), 'ERR:42501');
+select tests.mk_doc('web_lead', 'pol', 'Founding policy', 'policy', 'web');
+select tests.try('web_lead', format($q$ select document_archive(%L, 'superseded') $q$, tests.id('doc:pol')));
+select tests.check('a permanent record cannot be disposed even by a direct database update with every flag set', tests.try_owner(format($q$ select set_config('ada.document_disposal', 'on', true); update documents set status = 'disposed' where id = %L $q$, tests.id('doc:pol'))), 'ERR:42501');
 
 -- Search: an accelerator, rebuildable, never the only place anything exists ----------------------------------------------------------------------------------
 select tests.try_owner('select search_rebuild()');

@@ -33,6 +33,8 @@ The scramble key lives in `id_settings` and **must never change** once IDs exist
 ## The codebook (`id_codebook`, versioned)
 `kind` = `type` (2-char entity type code → entity type, family), `cycle` (1-char → year), `division` (2-char → division, for internal templates; **not** embedded in IDs), `family`. Entries are retired, never edited or reused (guarded for every caller). `entity_types` carries the routing map for each type: family, domain table, which column holds division, status, classification and physical location, label column, and the 360 function.
 
+Documents are now a built type (`document`, code `DOC`): see [DOCUMENTS](../workflows/DOCUMENTS.md).
+
 Families and reserved types (47 types, all codes allocated now; tables attach later with one call): **people_org** organization, person, staff, position, vacancy, student, client, contact, supplier, partner, division, profile · **commercial** lead, enquiry, quote, contract, invoice, payment, credit note, expense, service · **operations** project, task, milestone, asset, ticket, document, domain, website, application, portfolio, communication · **academy** programme, course, module, cohort, enrollment, assessment, result, attendance, certificate, academic record · **governance** approval, investigation case, audit event, notification, policy, authorization record.
 
 ## The Entity Registry (`entity_registry`)
