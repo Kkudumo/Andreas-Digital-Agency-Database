@@ -41,6 +41,7 @@ functions), so no client — IRM, a website, or a person with API access — can
 | Payments | `payments`, `payment_allocations`, `payment_reversals`, `bank_accounts`, `invoice_balances`, `payment_balances` | built, tested |
 | Assets | `assets`, `asset_assignments`, `asset_history`, `asset_retirements`, `asset_maintenance`, `asset_warranties`, `asset_documents` (interim), `asset_finance_links`, `asset_duplicate_flags`, `suppliers` | built, tested |
 | Tickets | `tickets`, `ticket_categories`, `ticket_sla_policies`, `ticket_comments`, `ticket_events`, `ticket_sla_status` | built, tested |
+| Organizations | `organizations`, `partners`, `organization_reviews`, `organization_distinct_pairs` (+ clients / suppliers as roles) | built, tested |
 | Expenses, credit notes | — | not started |
 | Documents | `documents`, `document_versions`, `document_links`, `document_access`, `document_holds`, `document_comments`, `document_events`, `document_integrity_checks`, `document_disposals`, `document_publications`, `document_types`, `retention_classes`, `document_retention_status` | built, tested |
 | Domains, communications | — | not started |
@@ -48,7 +49,7 @@ functions), so no client — IRM, a website, or a person with API access — can
 
 Documents: [Module checklist](MODULE_CHECKLIST.md) · [Institutional skeleton](architecture/INSTITUTIONAL_SKELETON.md) · [Entity graph](architecture/ENTITY_GRAPH.md) · [Data dictionary](architecture/DATA_DICTIONARY.md) · [ERD](architecture/ERD.md) ·
 [Permission matrix](architecture/PERMISSION_MATRIX.md) · [Security](SECURITY.md) · [Public API](api/PUBLIC_API.md) ·
-[Recruitment workflow](workflows/RECRUITMENT.md) · [Services, pricing & quotes](workflows/QUOTES_PRICING.md) · [Leads & enquiries](workflows/LEADS_ENQUIRIES.md) · [Contracts](workflows/CONTRACTS.md) · [Invoices & payments](workflows/INVOICES_PAYMENTS.md) · [Assets](workflows/ASSETS.md) · [Tickets](workflows/TICKETS.md) · [Documents](workflows/DOCUMENTS.md) · [Publication layer (design)](architecture/PUBLICATION_LAYER.md) · [Approvals](workflows/APPROVALS.md) · [Development](operations/DEVELOPMENT.md) ·
+[Recruitment workflow](workflows/RECRUITMENT.md) · [Services, pricing & quotes](workflows/QUOTES_PRICING.md) · [Leads & enquiries](workflows/LEADS_ENQUIRIES.md) · [Contracts](workflows/CONTRACTS.md) · [Invoices & payments](workflows/INVOICES_PAYMENTS.md) · [Assets](workflows/ASSETS.md) · [Tickets](workflows/TICKETS.md) · [Documents](workflows/DOCUMENTS.md) · [Organizations](workflows/ORGANIZATIONS.md) · [Publication layer (design)](architecture/PUBLICATION_LAYER.md) · [Approvals](workflows/APPROVALS.md) · [Development](operations/DEVELOPMENT.md) ·
 [Backup, restore & migration](operations/BACKUP_RESTORE_MIGRATION.md) · [Deployment](operations/DEPLOYMENT.md) ·
 [Original audit/gap report](architecture/ARCHITECTURE_REPORT.md)
 

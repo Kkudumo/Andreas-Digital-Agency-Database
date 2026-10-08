@@ -243,6 +243,29 @@ select tests.check('...the partner is now a role of the survivor', (select count
 select tests.check('...and the survivor gained the legal name it lacked while keeping its own display name', (select name || '|' || legal_name from organizations where id = tests.id('org:pi1')), 'Pi One|Pi Two Legal (Pty) Ltd');
 select tests.check('...the survivor''s client mirrors the gained legal name', (select legal_name from clients where organization_id = tests.id('org:pi1')), 'Pi Two Legal (Pty) Ltd');
 
+
+-- Rules that only a dedicated fixture can pin ------------------------------------------------------------------------------------------------------------------
+select tests.scalar('adm2', $q$ select organization_create('Tau One')->>'status' $q$);
+select tests.scalar('adm2', $q$ select organization_create('Tau Two')->>'status' $q$);
+select tests.scalar('adm2', $q$ select organization_create('Upsilon One')->>'status' $q$);
+select tests.scalar('adm2', $q$ select organization_create('Upsilon Two')->>'status' $q$);
+insert into tests.ids select 'org:' || lower(replace(name, ' ', '')), id from organizations where name in ('Tau One', 'Tau Two', 'Upsilon One', 'Upsilon Two');
+select tests.try('ceo', format($q$ select organization_add_role(%L, 'client', %L) $q$, tests.id('org:tauone'), tests.id('div:web')));
+select tests.try('ceo', format($q$ select organization_add_role(%L, 'client', %L) $q$, tests.id('org:tautwo'), tests.id('div:web')));
+select tests.try('adm2', format($q$ select organization_add_role(%L, 'partner') $q$, tests.id('org:upsilonone')));
+select tests.try('adm2', format($q$ select organization_add_role(%L, 'partner') $q$, tests.id('org:upsilontwo')));
+select tests.check('two organizations that each hold a LIVE client (and nothing else in common) cannot be merged until the duplicate client is resolved', tests.scalar('adm2', format($q$ select organization_merge(%L, %L, 'same company') $q$, tests.id('org:tauone'), tests.id('org:tautwo'))), 'ERR:23514');
+select tests.check('...nor two partners', tests.scalar('adm2', format($q$ select organization_merge(%L, %L, 'same company') $q$, tests.id('org:upsilonone'), tests.id('org:upsilontwo'))), 'ERR:23514');
+select tests.check('a hidden second live client cannot be attached to an organization that already has one (the database refuses, whatever the client-level rules exempt)',
+  tests.try_owner(format($q$ insert into clients (organization_id, name, classification) values (%L, 'dup', 'restricted') $q$, tests.id('org:tauone'))), 'ERR:23505');
+select tests.check('a merged organization takes no new roles (the command says so)', tests.try_msg('adm2', format($q$ select organization_add_role(%L, 'partner') $q$, tests.id('org:muk'))), '23514: this organization was merged into another; use the surviving organization');
+-- a role that can edit organizations but cannot classify (no seeded role has exactly that, so one is made for the test)
+insert into roles (key, name) values ('org_editor_only', 'Organization editor (test)');
+insert into role_permissions (role_id, permission_id) select (select id from roles where key = 'org_editor_only'), id from permissions where key in ('organizations.view', 'organizations.update');
+select tests.add_staff('orged', 'org_editor_only');
+select tests.check('classifying an organization needs records.classify as well as organizations.update', tests.scalar('orged', format($q$ select organization_set_classification(%L, 'public', 'because')::text $q$, tests.org_of('client:abc'))), 'ERR:42501');
+select tests.check('(the same person can edit the organization)', tests.try('orged', format($q$ select organization_update(%L, jsonb_build_object('city', 'Okahandja')) $q$, tests.org_of('client:abc'))), 'ok');
+
 -- Restricted organizations: hidden ones are never reused, never named, never visible --------------------------------------------------------------------------
 select tests.remember('client:hush', tests.mkclient_id('ceo', 'Hush Corp', 'web'));
 update clients set classification = 'restricted' where id = tests.id('client:hush');

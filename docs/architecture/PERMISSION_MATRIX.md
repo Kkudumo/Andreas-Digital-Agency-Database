@@ -124,3 +124,8 @@ A role assignment is organization-wide or scoped to one division. **Division Lea
 | `documents.view_critical` — Open critical documents without an explicit grant | confidential | x |  |  |  |  |  |  |
 | `documents.legal_hold` — Place and release legal holds on documents | confidential | x |  |  |  |  |  |  |
 | `documents.configure` — Manage document types and retention classes and run integrity checks | restricted | x | x |  |  |  |  |  |
+| `organizations.view` — View organizations (the single identity record behind client, supplier and partner roles) | internal | x | x |  |  |  | x |  |
+| `organizations.create` — Create organizations that have no client / supplier / partner role yet | internal | x | x |  |  |  |  |  |
+| `organizations.update` — Edit organization identity (legal name, registration number, address) | internal | x | x |  |  |  |  |  |
+| `partners.view` — View partners | internal | x | x | x | x |  | x |  |
+| `partners.manage` — Create and edit partners | internal | x | x |  |  |  |  |  |

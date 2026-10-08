@@ -33,6 +33,7 @@
 | A supplier / vendor | `suppliers` (`ADA-SUP-…`) | referenced by assets, warranties, maintenance (later expenses) |
 | A student | `students` (role of a `people` row; Student ID in the registry) | programme/cohort/period are `student_enrolments` history, never part of the ID |
 | A document | `documents` (permanent institutional ID, family operations) | record only; content by reference in `document_versions` (hash + opaque storage key); relationships in `document_links` to ANY registered entity (client, project, contract, invoice, person, staff, asset, ticket, …); inherits classification from them; critical flag; public projection only via `document_publications` |
+| An external organization | `organizations` (type `external_organization`, institutional ID only) | the single identity record (names, registration number, address, contact points); roles `clients` / `suppliers` / `partners` reference it; identity columns on roles are read-only mirrors; merged duplicates are tombstones |
 | A ticket | `tickets` (`ADA-TKT-…`) | references asset, client, project, contact, requester person, service, website, category, reporter, assignee; inherits classification; never public |
 | Everything that happened | `audit_log`, `events` | append-only memory; outbox for websites |
 

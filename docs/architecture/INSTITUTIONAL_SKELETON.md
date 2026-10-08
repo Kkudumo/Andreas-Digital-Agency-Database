@@ -61,5 +61,8 @@ A denied or unresolved lookup is recorded in `security_events` (actor staff/user
 ## Publication readiness
 `entity_types.publishable` marks the types that may ever have a public projection; everything else never crosses the public boundary. The registry is the router the future publication layer will use (entity → authoritative record → publication state → approved projection). See [PUBLICATION_LAYER.md](PUBLICATION_LAYER.md).
 
-## Open decision: external organizations
+## External organizations (decided and built: migration 0038)
+One `organizations` record is the identity behind client, supplier and partner roles; role IDs are unchanged and the identity columns on roles are mirrors. See [ORGANIZATIONS](../workflows/ORGANIZATIONS.md).
+
+### History: the open decision (kept for context)
 Today the external organization is the `clients` record, and `suppliers` is a separate table. The directive's ideal — one `organizations` record that clients, suppliers and partners reference, so a company that is both client and supplier is one record — requires moving name, registration number and address out of `clients` into that record, which touches `client_create`, matching, the 360 views and a large part of the test suite. It is deliberately **not** done inside this foundation. Recommendation: do it as its own migration right after Tickets/Documents are attached, using this registry (`organization` type is already reserved with a code).

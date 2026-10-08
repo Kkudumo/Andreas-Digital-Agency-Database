@@ -500,12 +500,8 @@ begin
       perform set_config('ada.org_class_hint', '', true);
       n_created := n_created + 1;
     end if;
-    -- every candidate the evidence does not settle (and any additional strong one) is queued for a human
-    for m in select * from org_match(r.j ->> 'name', r.j ->> 'registration_number', r.j ->> 'website', case when r.role = 'client' and r.j ->> 'deleted_at' is not null then null else r.role end, v_org, false) loop
-      if not exists (select 1 from organization_distinct_pairs where org_a = least(v_org, m.org_id) and org_b = greatest(v_org, m.org_id)) then
-        insert into organization_reviews (left_org_id, right_org_id, reason, score, origin) values (v_org, m.org_id, m.reason, m.score, 'migration') on conflict do nothing;
-      end if;
-    end loop;
+    -- Ambiguous candidates (and any additional strong one) are queued for a human by organizations_flag_hidden_duplicates_trg, which fires
+    -- whenever an organization is created or its identity changes (including the fill-in above).
     if r.role = 'client' then update clients set organization_id = v_org where id = r.id; else update suppliers set organization_id = v_org where id = r.id; end if;
     perform organization_resync(v_org);
   end loop;

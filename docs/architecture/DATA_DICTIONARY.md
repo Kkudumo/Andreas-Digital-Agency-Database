@@ -469,6 +469,7 @@ Row-level security is enabled on every table; the policies are in the migrations
 | `billing_address` | text | no |  |  |
 | `social_links` | jsonb | yes | '{}'::jsonb |  |
 | `name_key` | text | no | client_name_key(name) |  |
+| `organization_id` | uuid | yes |  | `organizations` |
 
 ## `cohorts`
 
@@ -1247,6 +1248,93 @@ _(no description)_
 | `created_at` | timestamp with time zone | yes | now() |  |
 | `updated_at` | timestamp with time zone | yes | now() |  |
 
+## `organization_distinct_pairs`
+
+**Purpose:** pairs of organizations a human confirmed are different legal entities, so they are not flagged again. [class: restricted]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `org_a` | uuid | yes |  | `organizations` |
+| `org_b` | uuid | yes |  | `organizations` |
+| `reason` | text | yes |  |  |
+| `decided_by` | uuid | no |  | `staff` |
+| `decided_at` | timestamp with time zone | yes | now() |  |
+
+## `organization_mirror_columns`
+
+**Purpose:** the role-table columns that are read-only mirrors of organizations.<same name>. Configuration of the sync / guard triggers. No API access. [class: internal]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `role_table` | text | yes |  |  |
+| `column_name` | text | yes |  |  |
+
+## `organization_reviews`
+
+**Purpose:** possible duplicate organizations that the system will NOT merge by itself (ambiguous evidence, or a hidden record involved). Only matching.review holders see it, so the existence of a hidden organization is never disclosed to whoever triggered the match. [class: restricted]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | uuid | yes | gen_random_uuid() |  |
+| `left_org_id` | uuid | yes |  | `organizations` |
+| `right_org_id` | uuid | yes |  | `organizations` |
+| `reason` | text | yes |  |  |
+| `score` | real | no |  |  |
+| `origin` | text | yes | 'runtime'::text |  |
+| `status` | text | yes | 'open'::text |  |
+| `created_at` | timestamp with time zone | yes | now() |  |
+| `resolved_by` | uuid | no |  | `staff` |
+| `resolved_at` | timestamp with time zone | no |  |  |
+| `resolution_note` | text | no |  |  |
+
+## `organizations`
+
+**Purpose:** the SOLE source of truth for the identity of an external organization (legal / trading / display name, registration number, address, contact points). Clients, suppliers and partners are ROLES of an organization and carry read-only mirrors of these columns. An organization exists independently of its roles. [class: internal; the effective classification is the strictest of its own floor and its live client roles]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | uuid | yes | gen_random_uuid() |  |
+| `name` | text | yes |  |  |
+| `legal_name` | text | no |  |  |
+| `trading_name` | text | no |  |  |
+| `registration_number` | text | no |  |  |
+| `website` | text | no |  |  |
+| `email` | text | no |  |  |
+| `phone` | text | no |  |  |
+| `address` | text | no |  |  |
+| `city` | text | no |  |  |
+| `country` | text | yes | 'Namibia'::text |  |
+| `industry` | text | no |  |  |
+| `social_links` | jsonb | yes | '{}'::jsonb |  |
+| `name_key` | text | no | client_name_key(name) |  |
+| `classification` | data_classification | yes | 'internal'::data_classification |  |
+| `effective_classification` | data_classification | yes | 'internal'::data_classification |  |
+| `status` | text | yes | 'active'::text |  |
+| `uniqueness_exempt` | boolean | yes | false |  |
+| `merged_into_id` | uuid | no |  | `organizations` |
+| `merged_at` | timestamp with time zone | no |  |  |
+| `merged_by` | uuid | no |  | `staff` |
+| `created_by` | uuid | no |  | `staff` |
+| `created_at` | timestamp with time zone | yes | now() |  |
+| `updated_at` | timestamp with time zone | yes | now() |  |
+
+## `partners`
+
+**Purpose:** the PARTNER role of an organization (technology partner, reseller, referrer, sponsor, academic partner). The organization's identity lives in organizations; name here is a read-only mirror. A partner may also be a client and a supplier. Registered through attach_entity (permanent institutional ID). [class: internal]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | uuid | yes | gen_random_uuid() |  |
+| `organization_id` | uuid | yes |  | `organizations` |
+| `name` | text | yes |  |  |
+| `kind` | text | yes | 'other'::text |  |
+| `status` | text | yes | 'prospect'::text |  |
+| `since` | date | no |  |  |
+| `notes` | text | no |  |  |
+| `created_by` | uuid | no | current_staff_id() | `staff` |
+| `created_at` | timestamp with time zone | yes | now() |  |
+| `updated_at` | timestamp with time zone | yes | now() |  |
+
 ## `payment_allocations`
 
 **Purpose:** how much of which payment settles which invoice. A payment can only be allocated once to an invoice, never beyond its remaining credit or the invoice balance (enforced under row locks). Released, not deleted. [class: confidential]
@@ -1853,6 +1941,7 @@ _(no description)_
 | `created_by` | uuid | no |  | `staff` |
 | `created_at` | timestamp with time zone | yes | now() |  |
 | `updated_at` | timestamp with time zone | yes | now() |  |
+| `organization_id` | uuid | yes |  | `organizations` |
 
 ## `tasks`
 
