@@ -14,6 +14,9 @@ export ADA_TEST_PG_URL=postgresql://postgres:postgres@localhost:5432/postgres
 `test-db.sh` applies `supabase/tests/00_supabase_shim.sql` first (a stand-in for Supabase's `auth` schema and API roles, with Supabase's
 permissive default grants so the tests prove our explicit revokes). The shim is never applied to a real project.
 
+## Adding a module
+Follow [MODULE_CHECKLIST.md](../MODULE_CHECKLIST.md). It states the central-record rule, how snapshots must be documented, the privacy and existence-leakage requirements, and the tests every module must include. `supabase/tests/PROTECTED.txt` lists regression checks that CI refuses to lose.
+
 ## Changing the schema
 1. Add a new numbered migration in `supabase/migrations/` (never edit one that has been applied to staging or production).
 2. Changing permissions? Edit `supabase/seed_data/permission_matrix.csv`, generate the SQL with `node scripts/build-rbac-delta.mjs <old.csv>`, review it, ship it as a migration.

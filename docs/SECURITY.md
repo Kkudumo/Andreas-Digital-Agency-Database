@@ -26,6 +26,18 @@ every important change is attributable · secrets are references, never values.
 10. **Immutable history** — approved prices, status histories, review notes and the audit log reject updates and deletes at the database level, for every caller.
 11. **Events** carry identifiers and states only (a test asserts no `@`, names or phone numbers ever appear).
 
+## Restricted records must look like missing records
+A restricted or confidential client may exist without its existence being knowable to people who are not authorised. This is enforced everywhere a caller could observe it:
+- **errors and messages** - claiming, qualifying against, quoting or editing a hidden client fails with the same message as for an id that does not exist;
+- **lookups and counts** - `client_lookup` returns nothing for a hidden client; counts and lists never include it; no helper function answers "is this id a restricted client?" (any such boolean would be probe-able);
+- **uniqueness** - duplicate detection covers discoverable clients only, so a colliding name does not fail for the creator; management gets a silent review item instead (`matching_reviews`);
+- **dependents** - projects, leads and enquiries of a restricted client inherit its classification (`effective_classification`, maintained by trigger), so their `client_id` never points at a client the viewer cannot see;
+- **matching** - enquiry matching never auto-links or lists a hidden client; the handler-visible explanation is deliberately neutral;
+- **API responses** - the website's response is independent of anything already held.
+`85_existence_leakage.sql` runs the same probe against a restricted id and a random id and requires identical outcomes, with control checks proving the probes can tell visible from hidden.
+
+**Accepted limits (documented, not hidden):** response *timing* is not equalised; adding a contact by an email that already belongs to a person reuses that person, so the relationship holder then sees the stored name for that email; `client_lookup` intentionally lets people with `clients.create` discover non-restricted clients in other divisions (that is how duplicates are avoided).
+
 ## Lessons encoded as tests
 - Postgres `AFTER UPDATE OF col` triggers do not fire when a BEFORE trigger (not the statement) changes `col`: event/queue triggers fire on any update.
 - `pg_dump` records grants relative to the target's default privileges: restores neutralise permissive defaults and verify a security fingerprint.

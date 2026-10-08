@@ -77,6 +77,39 @@ Row-level security is enabled on every table; the policies are in the migrations
 | `created_at` | timestamp with time zone | yes | now() |  |
 | `updated_at` | timestamp with time zone | yes | now() |  |
 
+## `approval_decisions`
+
+**Purpose:** each individual approval or rejection (supports more than one approver). Append-only. [class: restricted]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | uuid | yes | gen_random_uuid() |  |
+| `request_id` | uuid | yes |  | `approval_requests` |
+| `approver_id` | uuid | yes |  | `staff` |
+| `decision` | text | yes |  |  |
+| `note` | text | no |  |  |
+| `is_self` | boolean | yes | false |  |
+| `decided_at` | timestamp with time zone | yes | now() |  |
+
+## `approval_policies`
+
+**Purpose:** configurable approval rules. The most specific active row wins (division match first, then the highest min_amount not above the amount). No row = the caller's default permission, one approver, no self-approval. [class: restricted]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | uuid | yes | gen_random_uuid() |  |
+| `kind` | text | yes |  |  |
+| `division_id` | uuid | no |  | `divisions` |
+| `min_amount` | numeric(14,2) | no |  |  |
+| `required_permission` | text | yes |  |  |
+| `allow_self_approval` | boolean | yes | false |  |
+| `self_approval_only_if_sole_approver` | boolean | yes | true |  |
+| `min_approvers` | integer | yes | 1 |  |
+| `is_active` | boolean | yes | true |  |
+| `note` | text | no |  |  |
+| `created_at` | timestamp with time zone | yes | now() |  |
+| `updated_at` | timestamp with time zone | yes | now() |  |
+
 ## `approval_requests`
 
 **Purpose:** one uniform queue and history of everything awaiting or having received approval (vacancies, profiles, services, prices, quotes, ...). Written only by triggers. [class: restricted]
@@ -97,6 +130,8 @@ Row-level security is enabled on every table; the policies are in the migrations
 | `decided_by` | uuid | no |  | `staff` |
 | `decided_at` | timestamp with time zone | no |  |  |
 | `decision_note` | text | no |  |  |
+| `self_approved` | boolean | yes | false |  |
+| `required_approvals` | integer | no |  |  |
 
 ## `audit_log`
 
@@ -135,6 +170,18 @@ Row-level security is enabled on every table; the policies are in the migrations
 | `updated_at` | timestamp with time zone | yes | now() |  |
 | `person_id` | uuid | yes |  | `people` |
 | `is_billing` | boolean | yes | false |  |
+
+## `client_distinct_pairs`
+
+**Purpose:** pairs a human has confirmed are genuinely different legal entities, so they are not flagged again. [class: restricted]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `client_a` | uuid | yes |  | `clients` |
+| `client_b` | uuid | yes |  | `clients` |
+| `reason` | text | yes |  |  |
+| `decided_by` | uuid | no |  | `staff` |
+| `decided_at` | timestamp with time zone | yes | now() |  |
 
 ## `client_divisions`
 
@@ -212,6 +259,62 @@ Row-level security is enabled on every table; the policies are in the migrations
 | `public_state` | publication_state | yes | 'draft'::publication_state |  |
 | `public_description` | text | no |  |  |
 
+## `enquiries`
+
+**Purpose:** one inbound enquiry with its full source tracking (website, page, referrer, campaign). Resolved to central person/client/lead records; the central records, not this row, are the source of truth. [class: confidential]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | uuid | yes | gen_random_uuid() |  |
+| `ada_id` | text | yes |  |  |
+| `channel` | enquiry_channel | yes | 'website'::enquiry_channel |  |
+| `source_website_id` | uuid | no |  | `websites` |
+| `source_division_id` | uuid | no |  | `divisions` |
+| `division_id` | uuid | yes |  | `divisions` |
+| `source_page` | text | no |  |  |
+| `referrer` | text | no |  |  |
+| `utm_source` | text | no |  |  |
+| `utm_medium` | text | no |  |  |
+| `utm_campaign` | text | no |  |  |
+| `utm_term` | text | no |  |  |
+| `utm_content` | text | no |  |  |
+| `submitted_name` | text | no |  |  |
+| `submitted_email` | text | no |  |  |
+| `submitted_phone` | text | no |  |  |
+| `submitted_organization` | text | no |  |  |
+| `message` | text | no |  |  |
+| `requested_service_id` | uuid | no |  | `services` |
+| `requested_service_text` | text | no |  |  |
+| `budget_amount` | numeric(14,2) | no |  |  |
+| `budget_currency` | character(3) | no |  |  |
+| `submitted_at` | timestamp with time zone | yes | now() |  |
+| `status` | enquiry_status | yes | 'received'::enquiry_status |  |
+| `person_id` | uuid | no |  | `people` |
+| `client_id` | uuid | no |  | `clients` |
+| `lead_id` | uuid | no |  | `leads` |
+| `match_summary` | text | no |  |  |
+| `assigned_staff_id` | uuid | no |  | `staff` |
+| `created_by` | uuid | no |  | `staff` |
+| `created_at` | timestamp with time zone | yes | now() |  |
+| `updated_at` | timestamp with time zone | yes | now() |  |
+| `effective_classification` | data_classification | yes | 'internal'::data_classification |  |
+
+## `enquiry_candidates`
+
+**Purpose:** possible existing clients for an enquiry that could not be matched confidently. Rows for restricted clients are hidden=true and visible only to matching.review, so the handler cannot tell they exist. [class: restricted]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | uuid | yes | gen_random_uuid() |  |
+| `enquiry_id` | uuid | yes |  | `enquiries` |
+| `client_id` | uuid | yes |  | `clients` |
+| `reason` | text | yes |  |  |
+| `score` | real | no |  |  |
+| `hidden` | boolean | yes |  |  |
+| `decision` | text | no |  |  |
+| `decided_by` | uuid | no |  | `staff` |
+| `decided_at` | timestamp with time zone | no |  |  |
+
 ## `entity_registry`
 
 **Purpose:** central lookup of every ADA ID to its record; basis for global search and cross-module references. [class: internal]
@@ -288,6 +391,52 @@ _(no description)_
 | `prefix` | text | yes |  | `entity_types` |
 | `year` | integer | yes |  |  |
 | `last_value` | integer | yes | 0 |  |
+
+## `leads`
+
+**Purpose:** sales work from first enquiry to quote. References the central person, client and contact; never copies them. The title never contains personal data. [class: confidential]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | uuid | yes | gen_random_uuid() |  |
+| `ada_id` | text | yes |  |  |
+| `division_id` | uuid | yes |  | `divisions` |
+| `title` | text | yes |  |  |
+| `status` | lead_status | yes | 'new'::lead_status |  |
+| `person_id` | uuid | no |  | `people` |
+| `client_id` | uuid | no |  | `clients` |
+| `contact_id` | uuid | no |  | `client_contacts` |
+| `requested_service_id` | uuid | no |  | `services` |
+| `estimated_value` | numeric(14,2) | no |  |  |
+| `currency` | character(3) | yes | 'NAD'::bpchar |  |
+| `assigned_staff_id` | uuid | no |  | `staff` |
+| `follow_up_on` | date | no |  |  |
+| `qualification_note` | text | no |  |  |
+| `lost_reason` | text | no |  |  |
+| `qualified_at` | timestamp with time zone | no |  |  |
+| `converted_at` | timestamp with time zone | no |  |  |
+| `created_by` | uuid | no |  | `staff` |
+| `created_at` | timestamp with time zone | yes | now() |  |
+| `updated_at` | timestamp with time zone | yes | now() |  |
+| `effective_classification` | data_classification | yes | 'internal'::data_classification |  |
+
+## `matching_reviews`
+
+**Purpose:** possible duplicate clients that involve a restricted/confidential record. Visible only to matching.review holders so the existence of hidden clients is never disclosed to the people who triggered the match. [class: restricted]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | uuid | yes | gen_random_uuid() |  |
+| `kind` | text | yes | 'client_duplicate_suspect'::text |  |
+| `left_client_id` | uuid | yes |  | `clients` |
+| `right_client_id` | uuid | yes |  | `clients` |
+| `reason` | text | yes |  |  |
+| `score` | real | no |  |  |
+| `status` | text | yes | 'open'::text |  |
+| `created_at` | timestamp with time zone | yes | now() |  |
+| `resolved_by` | uuid | no |  | `staff` |
+| `resolved_at` | timestamp with time zone | no |  |  |
+| `resolution_note` | text | no |  |  |
 
 ## `milestones`
 
@@ -520,6 +669,7 @@ _(no description)_
 | `created_at` | timestamp with time zone | yes | now() |  |
 | `updated_at` | timestamp with time zone | yes | now() |  |
 | `completed_at` | timestamp with time zone | no |  |  |
+| `effective_classification` | data_classification | yes | 'internal'::data_classification |  |
 
 ## `quote_lines`
 
@@ -571,6 +721,7 @@ _(no description)_
 | `created_by` | uuid | no |  | `staff` |
 | `created_at` | timestamp with time zone | yes | now() |  |
 | `updated_at` | timestamp with time zone | yes | now() |  |
+| `lead_id` | uuid | no |  | `leads` |
 
 ## `role_permissions`
 

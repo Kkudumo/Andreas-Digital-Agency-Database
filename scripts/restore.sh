@@ -9,7 +9,7 @@ dump="${1:?usage: restore.sh <dump file>}"
 n=$(psql -X -Atq "$TARGET_URL" -c "select count(*) from information_schema.tables where table_schema in ('public','public_api')")
 [ "$n" = "0" ] || { echo "refusing to restore: target already has $n tables in public/public_api" >&2; exit 1; }
 # Prerequisite extension (idempotent), then restore everything except the pre-existing public schema object itself.
-psql -X -q -v ON_ERROR_STOP=1 "$TARGET_URL" -c "create schema if not exists extensions" -c "create extension if not exists pgcrypto with schema extensions"
+psql -X -q -v ON_ERROR_STOP=1 "$TARGET_URL" -c "create schema if not exists extensions" -c "create extension if not exists pgcrypto with schema extensions" -c "create extension if not exists pg_trgm with schema extensions"
 list=$(mktemp); trap 'rm -f "$list"' EXIT
 # pg_dump records grants as a difference from the target's defaults. Neutralise any permissive default
 # privileges in the target first, otherwise restored tables could be MORE open than the source.

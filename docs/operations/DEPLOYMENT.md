@@ -1,7 +1,7 @@
 # Deployment
 
 ## Order of operations for any environment
-1. Create the database (PostgreSQL 16; on Supabase, a new project). Never point development at production.
+1. Create the database (PostgreSQL 16; on Supabase, a new project). Required extensions: `pgcrypto` and `pg_trgm`, both in schema `extensions` (the migrations create them; on a self-managed server the contrib package must be installed). Never point development at production.
 2. Apply `supabase/migrations/*.sql` in order (Supabase CLI `db push`, or `psql -f` for a plain server). The migrations are the only schema source.
 3. Bootstrap the first administrator once: invite the user in Authentication, then as the service role: `select bootstrap_first_admin('<auth user id>', 'Full Name', 'email');` (it refuses to run twice).
 4. From IRM (when built) or SQL as an administrator: register websites (`websites`), choose their capabilities, issue keys (`issue_website_key`) and hand each key to its website's server-side configuration exactly once.

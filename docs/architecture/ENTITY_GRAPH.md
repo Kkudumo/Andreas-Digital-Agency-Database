@@ -14,13 +14,16 @@
 | Staff | `staff` (`ADA-STF-…`), one per person ever (`staff.person_id`) | roles, assignments, projects reference `staff_id`; history in `staff_assignments` |
 | A service | `services` (`ADA-SVC-…`) | quotes, projects, websites, reports reference `service_id` |
 | A price | `service_prices` (immutable versions) | quote lines and project services copy the amount **and** point at the version used |
+| An inbound enquiry | `enquiries` (`ADA-ENQ-…`) | resolves to person / client / lead; holds explicit SNAPSHOTS of what the sender typed |
+| Sales work | `leads` (`ADA-LED-…`) | references person, client, contact, service; quotes reference the lead |
 | A quote | `quotes` (`ADA-QUO-…`) + `quote_lines` | references client, contact, division, project, services, price versions |
 | A project | `projects` (`ADA-PRJ-…`) | the container: client, contacts, services, quote(s), staff, tasks, milestones, portfolio |
 | Public view of a finished project | `portfolio_entries` (`ADA-PFO-…`) | a consent-gated projection, not a copy of the project |
 | Public view of a person on staff | `staff_profiles` (`ADA-PRF-…`) | an approved projection, not the staff record |
 | An opening / an applicant's application | `vacancies` / `applications` | position ≠ vacancy; person reused |
 | A connected website | `websites` (`ADA-WEB-…`) | is the *identity* of incoming requests |
-| Anything awaiting approval | `approval_requests` | uniform queue + history across all modules |
+| Anything awaiting approval | `approval_requests` + `approval_policies` | uniform queue, history and configurable rules (who approves, thresholds, self-approval) |
+| A physical or technical asset | `assets` (`ADA-AST-…`, prefix reserved) | module not built yet; will reference client, project, staff, ticket, document |
 | Everything that happened | `audit_log`, `events` | append-only memory; outbox for websites |
 
 ```text
@@ -73,6 +76,19 @@ may not read is simply empty and a record they may not see returns `null`. There
 ## Guards that enforce "reference, don't duplicate"
 The structure suite fails the build if a new module adds its own name/email/phone column (it must reference `people`/`clients`/`staff`), if a table points at anything but `clients(id)` for a client,
 if a record with an ADA ID is not in `entity_registry`, or if a new executable function is not reviewed.
+
+## Snapshots (the only permitted copies)
+A copy of a value is allowed only for history or law, and must be labelled. Today: `quote_lines`/`project_services` price amounts (with the `price_id` they came from) and `enquiries.submitted_*` (what a stranger typed). Both are documented `SNAPSHOT:` columns; the structure suite fails on any other identity-like column.
+
+## Restricted records
+A restricted client's projects, leads and enquiries inherit its classification and are invisible to people who cannot see the client; lookups, errors and API answers are identical to "does not exist". See [SECURITY.md](../SECURITY.md).
+
+## Decisions made
+| Question | Decision |
+|---|---|
+| Asset ID prefix | `ADA-AST-YYYY-####` (reserved in `entity_types`) |
+| Self-approval | a configurable policy, recorded when used, and automatically withdrawn once a second qualified approver exists |
+| Similar client names | flagged for human review; provably different entities (different registration numbers) are never merged |
 
 ## Open decisions for the next modules
 | Question | Recommendation |

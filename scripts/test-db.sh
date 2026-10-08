@@ -14,6 +14,7 @@ psql_ "$ADMIN_URL" -c "create database $DB"
 trap 'psql_ "$ADMIN_URL" -c "drop database if exists $DB" >/dev/null 2>&1 || true' EXIT
 
 node scripts/check-migrations.mjs
+node scripts/check-protected-tests.mjs
 psql_ "$URL" -f supabase/tests/00_supabase_shim.sql >/dev/null
 for f in supabase/migrations/*.sql; do
   echo "migrate  $(basename "$f")"

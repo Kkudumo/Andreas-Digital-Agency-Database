@@ -28,14 +28,15 @@ functions), so no client — IRM, a website, or a person with API access — can
 | Quotes | `quotes`, `quote_lines` (price snapshots), conversion to project | built, tested |
 | Projects | `projects`, `project_services`, `project_contacts`, `project_divisions`, `project_members`, `milestones`, `tasks`, `portfolio_entries` | built, tested |
 | 360° views | `client_360`, `project_360`, `staff_360` | built, tested (sections for unbuilt modules are declared `pending`) |
-| Leads / enquiries from websites | — | not started |
-| Finance (invoices, payments, expenses), contracts | — | not started |
+| Enquiries & leads | `enquiries`, `leads`, `enquiry_candidates`, `matching_reviews`, `client_create`/`client_lookup`/`claim_client_for_division`, `public_api.submit_enquiry` | built, tested |
+| Approvals | `approval_requests`, `approval_policies`, `approval_decisions`, `approval_gate` | built, tested (adopted for prices and quotes) |
+| Contracts, invoices, payments, expenses | — | next |
 | Assets, tickets, documents, domains, communications | — | not started |
 | Search, reports, dashboards | — | not started |
 
-Documents: [Entity graph](architecture/ENTITY_GRAPH.md) · [Data dictionary](architecture/DATA_DICTIONARY.md) · [ERD](architecture/ERD.md) ·
+Documents: [Module checklist](MODULE_CHECKLIST.md) · [Entity graph](architecture/ENTITY_GRAPH.md) · [Data dictionary](architecture/DATA_DICTIONARY.md) · [ERD](architecture/ERD.md) ·
 [Permission matrix](architecture/PERMISSION_MATRIX.md) · [Security](SECURITY.md) · [Public API](api/PUBLIC_API.md) ·
-[Recruitment workflow](workflows/RECRUITMENT.md) · [Services, pricing & quotes](workflows/QUOTES_PRICING.md) · [Development](operations/DEVELOPMENT.md) ·
+[Recruitment workflow](workflows/RECRUITMENT.md) · [Services, pricing & quotes](workflows/QUOTES_PRICING.md) · [Leads & enquiries](workflows/LEADS_ENQUIRIES.md) · [Approvals](workflows/APPROVALS.md) · [Development](operations/DEVELOPMENT.md) ·
 [Backup, restore & migration](operations/BACKUP_RESTORE_MIGRATION.md) · [Deployment](operations/DEPLOYMENT.md) ·
 [Original audit/gap report](architecture/ARCHITECTURE_REPORT.md)
 
@@ -53,6 +54,9 @@ Documents: [Entity graph](architecture/ENTITY_GRAPH.md) · [Data dictionary](arc
 | Events are an outbox of identifiers and states only | Websites revalidate caches without redeploying, and events can never leak personal data (tested). |
 | ONE client, ONE person, ONE catalogue | Contacts are relationships to a shared `people` record; clients are claimed by divisions, never re-created; every module references existing records. Enforced by tests that fail on new identity columns or unregistered IDs. |
 | Prices are immutable versions; documents of commerce copy the version used | History is true by construction; changing a price never changes a quote, project or (later) invoice. |
+| Restricted records look like missing records | Existence is not leaked through errors, lookups, counts, helper functions or API answers; dependents inherit the classification. A permanent probe suite compares a restricted id with a random id. |
+| Self-approval is a configurable, recorded policy | Allowed only while the requester is the sole qualified approver (default), never hardcoded for a role; separation of duties then applies automatically. |
+| Regression checks are protected | `PROTECTED.txt` + a CI guard prevent silently deleting the checks that guard leakage, privacy, prices, approvals and restore integrity. |
 | One approvals queue | Every pending approval is visible to the right approvers in one place, with history. |
 | 360° views are SECURITY INVOKER | They inherit row-level security; nothing to keep in sync. |
 | Supabase is today's host, not the architecture | The only provider-specific dependencies are `auth.users`/`auth.uid()` and (later) Storage. |
@@ -60,7 +64,7 @@ Documents: [Entity graph](architecture/ENTITY_GRAPH.md) · [Data dictionary](arc
 ## What is verified, and what is not
 
 Verified by `./scripts/test-db.sh` on plain PostgreSQL 16 with a stand-in for Supabase's auth schema/roles:
-**698 checks** — authorization, integrity, audit immutability, public/private exposure, the full hire-to-departure
+**924 checks** — authorization, integrity, audit immutability, public/private exposure, the full hire-to-departure
 scenario, structural guarantees (RLS everywhere, least-privilege grants, matrix == CSV), and 320 parallel ID
 allocations. Rules were validated with mutation tests (deliberately breaking a rule makes the suite fail).
 `./scripts/rehearse-migration.sh` proves dump → restore → identical security posture → working system.
@@ -70,7 +74,11 @@ allocations. Rules were validated with mutation tests (deliberately breaking a r
 
 ## Known limitations
 
-- Leads/enquiries from websites, contracts, invoices, payments, expenses, assets, tickets, documents, domains and communications are not built. The 360° views list them under `pending`.
+- Client **merge** is not built: a review marked "same entity" is recorded, but combining two client records (re-pointing all references) is a future, carefully-tested operation.
+- Timing side channels are not equalised; the similarity threshold for "possible duplicate" (0.55) is a constant in `client_candidates`.
+- The approval gate covers prices and quotes; other kinds adopt it as their modules need thresholds.
+- Enquiries carry no registration number, so an exact normalised-name match to an existing client is treated as the same organization (a person who is a contact elsewhere is only ever a candidate).
+- Contracts, invoices, payments, expenses, assets, tickets, documents, domains and communications are not built. The 360° views list them under `pending`.
 - `project_financials.revenue_to_date`/`cost_to_date` are interim planning fields and will be removed when finance exists (derived, not stored).
 
 - Editing a *published* staff profile, service or portfolio entry returns it to draft (it leaves the website until re-approved). A

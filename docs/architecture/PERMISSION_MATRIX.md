@@ -60,11 +60,14 @@ A role assignment is organization-wide or scoped to one division. **Division Lea
 | `services.publish` — Approve, publish and unpublish services on public websites | restricted | x |  |  |  |  |  |  |
 | `pricing.propose` — Propose a new price version for a service | restricted | x |  | x | x |  |  |  |
 | `pricing.approve` — Approve or reject proposed prices | restricted | x |  |  |  |  |  |  |
-| `pricing.approve_own` — Approve a price change you proposed yourself | restricted | x |  |  |  |  |  |  |
 | `quotes.view` — View quotes | restricted | x | x | x | x | x |  |  |
 | `quotes.create` — Create quotes | restricted | x |  |  | x |  |  |  |
 | `quotes.update` — Edit quotes and record the client decision | restricted | x |  |  | x |  |  |  |
 | `quotes.approve` — Approve quotes before they are sent | restricted | x |  |  |  |  |  |  |
-| `quotes.approve_own` — Approve a quote you prepared yourself | restricted | x |  |  |  |  |  |  |
 | `portfolio.edit` — Prepare portfolio entries from completed projects | internal | x | x |  | x |  |  |  |
 | `portfolio.publish` — Approve, publish and unpublish portfolio entries | restricted | x |  |  |  |  |  |  |
+| `leads.view` — View enquiries and leads of a division | confidential | x | x |  | x | x |  |  |
+| `leads.create` — Record enquiries received by phone, email or in person | internal | x | x |  | x |  |  |  |
+| `leads.update` — Triage, assign, qualify and update leads | internal | x | x |  | x | x |  |  |
+| `matching.review` — Review possible duplicate clients, including restricted ones | restricted | x | x |  |  |  |  |  |
+| `approvals.configure` — Configure approval policies (who approves, thresholds, self-approval) | restricted | x |  |  |  |  |  |  |
