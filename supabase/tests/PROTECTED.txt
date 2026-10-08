@@ -127,3 +127,41 @@ payment tables hold no client identity columns
 contact and identity columns exist only where reviewed
 audit history survives status changes and amendments
 audit history survives reversal
+# assets
+the same serial from a DIFFERENT manufacturer is a different asset
+and FLAGGED for review, not merged
+a visible duplicate TAG is refused
+an asset cannot have two open assignments
+nor an overlapping historic period
+an assignment cannot be edited or deleted: history cannot be rewritten
+removing the assignment moves the asset to returned and keeps every historical row
+a retired asset cannot silently return to active status
+a retired asset''s record is frozen
+retired is not deleted
+the asset history is append-only
+audit rows cannot be rewritten
+each division sees its own assets and not the other''s
+the asset table has no holder column
+the asset table holds no client / supplier / person names
+the link table carries no invoice or payment identity
+a client with a live asset cannot be removed
+a retired asset no longer blocks, but an open ticket still does
+the whole visible register shows no trace of it
+propagation: the client''s asset, ticket inherit the restriction
+reads: by serial number
+reads: by asset tag
+helper: can_view_asset
+commands: asset_create for the restricted client
+commands: asset_create under the restricted project
+commands: ticket_create against the asset
+registering an asset with the hidden asset''s serial and maker behaves exactly like a fresh serial
+the division lead sees no flag that involves the hidden asset
+a restricted parent restricts its component
+a restricted PROJECT hides its linked assets and tickets
+even the project''s own account manager
+classifying the asset classifies its tickets
+removal propagates: the retired asset and the ticket disappear
+the holder sees the asset they hold without any register permission
+the ticket took client, project and division from the asset
+asset documents are visible with the asset
+a ticket cannot claim a different client than its asset

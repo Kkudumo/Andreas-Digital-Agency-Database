@@ -113,6 +113,15 @@ select tests.check('...while management still sees them in the project 360', tes
 update projects set classification = 'internal' where id = tests.id('project:abc');
 select tests.check('un-restricting the project brings them back', tests.scalar('web_lead', format('select count(*)::text from assets where id = %L', tests.id('asset:A'))), '1');
 
+-- A ticket inherits the asset's OWN classification as well
+select tests.remember('tkt:S', tests.scalar('web_lead', format($q$ select ticket_create(p_title => 'Standalone fault', p_asset => %L)::text $q$, tests.id('asset:S'))));
+select tests.check('before: the ticket on an ordinary asset is internal and visible', (select effective_classification::text from tickets where id = tests.id('tkt:S')) || tests.scalar('web_lead', format('select count(*)::text from tickets where id = %L', tests.id('tkt:S'))), 'internal1');
+update assets set classification = 'confidential' where id = tests.id('asset:S');
+select tests.check('classifying the asset classifies its tickets (stricter wins) and hides them from ordinary users',
+  (select effective_classification::text from tickets where id = tests.id('tkt:S')) || tests.scalar('web_lead', format('select count(*)::text from tickets where id = %L', tests.id('tkt:S'))), 'confidential0');
+update assets set classification = 'internal' where id = tests.id('asset:S');
+select tests.check('...and declassifying brings them back', tests.scalar('web_lead', format('select count(*)::text from tickets where id = %L', tests.id('tkt:S'))), '1');
+
 -- Removing a client ----------------------------------------------------------------------------------------------------------------------------------------------
 select tests.remember('client:gone', tests.mkclient_id('web_lead', 'Gone Soon Ltd', 'web'));
 select tests.mk_asset('web_lead', 'G', 'Gone laptop', 'web', null, null, null, 'in_stock', 'client:gone');
