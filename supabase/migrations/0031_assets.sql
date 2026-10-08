@@ -223,7 +223,7 @@ begin
   end if;
   return null;
 end $$;
-create trigger assets_cascade_trg after update of effective_classification on assets for each row execute function assets_cascade();
+create trigger assets_cascade_trg after update on assets for each row execute function assets_cascade();      -- any update: a BEFORE trigger sets the column, so UPDATE OF would not fire
 
 create function assets_follow_client() returns trigger
 language plpgsql security definer set search_path = public, pg_temp as $$
@@ -241,7 +241,7 @@ begin
   end if;
   return null;
 end $$;
-create trigger assets_follow_project_trg after update of effective_classification on projects for each row execute function assets_follow_project();
+create trigger assets_follow_project_trg after update on projects for each row execute function assets_follow_project();
 
 -- The guard applies to EVERY caller (users have no write grants at all; this protects against the owner and future code too)
 create function assets_guard() returns trigger
@@ -468,6 +468,14 @@ create trigger asset_warranties_guard_trg before update or delete on asset_warra
 create trigger asset_documents_guard_trg before update or delete on asset_documents for each row execute function asset_children_guard();
 create trigger asset_finance_links_guard_trg before update or delete on asset_finance_links for each row execute function asset_children_guard();
 
+-- A project an asset may be attached to: visible to the caller, its client visible, its classification visible.
+-- (Project membership alone is not enough: a restricted project's assets stay hidden from members too.)
+create function asset_project_usable(p_project uuid) returns boolean
+language sql stable security definer set search_path = public, pg_temp as $$
+  select coalesce((select can_view_project(p.id) and can_view_client(p.client_id) and classification_visible(p.effective_classification)
+                   from projects p where p.id = p_project and p.deleted_at is null), false)
+$$;
+
 -- ---------------------------------------------------------------------------
 -- Commands
 -- ---------------------------------------------------------------------------
@@ -525,7 +533,7 @@ begin
   if p_client is not null and (not exists (select 1 from clients where id = p_client and deleted_at is null) or not can_view_client(p_client)) then
     raise exception 'client not found' using errcode = 'P0002';
   end if;
-  if p_project is not null and not can_view_project(p_project) then raise exception 'project not found' using errcode = 'P0002'; end if;
+  if p_project is not null and not asset_project_usable(p_project) then raise exception 'project not found' using errcode = 'P0002'; end if;
   if p_parent is not null then pa := asset_load(p_parent); if pa.status in ('retired', 'disposed', 'cancelled') then raise exception 'the parent asset is %', pa.status using errcode = '23514'; end if; end if;
   if p_supplier is not null and not exists (select 1 from suppliers where id = p_supplier and status = 'active') then raise exception 'supplier not found' using errcode = 'P0002'; end if;
   if p_classification <> 'internal' and not has_permission('records.classify') then raise exception 'records.classify is required to set a classification' using errcode = '42501'; end if;
@@ -564,7 +572,7 @@ begin
   if p_changes ? 'client_id' and (p_changes ->> 'client_id') is not null and (not exists (select 1 from clients where id = (p_changes ->> 'client_id')::uuid and deleted_at is null) or not can_view_client((p_changes ->> 'client_id')::uuid)) then
     raise exception 'client not found' using errcode = 'P0002';
   end if;
-  if p_changes ? 'project_id' and (p_changes ->> 'project_id') is not null and not can_view_project((p_changes ->> 'project_id')::uuid) then raise exception 'project not found' using errcode = 'P0002'; end if;
+  if p_changes ? 'project_id' and (p_changes ->> 'project_id') is not null and not asset_project_usable((p_changes ->> 'project_id')::uuid) then raise exception 'project not found' using errcode = 'P0002'; end if;
   if p_changes ? 'supplier_id' and (p_changes ->> 'supplier_id') is not null and not exists (select 1 from suppliers where id = (p_changes ->> 'supplier_id')::uuid and status = 'active') then raise exception 'supplier not found' using errcode = 'P0002'; end if;
   if p_changes ? 'asset_tag' and nullif(btrim(p_changes ->> 'asset_tag'), '') is not null and exists (select 1 from assets x where x.id <> a.id and lower(btrim(x.asset_tag)) = lower(btrim(p_changes ->> 'asset_tag'))
         and can_view_asset_row(x.id, x.division_id, x.effective_classification, x.client_deleted)) then
@@ -658,7 +666,7 @@ begin
   if p_staff is null and p_division is null then raise exception 'assign to a staff member, a division, or both' using errcode = '23514'; end if;
   v_div := coalesce(p_division, (select primary_division_id from staff where id = p_staff), a.division_id);
   if v_div <> a.division_id and not has_permission('assets.assign', v_div) then raise exception 'assets.assign is required in the receiving division' using errcode = '42501'; end if;
-  if p_project is not null and (not can_view_project(p_project) or not exists (select 1 from projects where id = p_project and (a.client_id is null or client_id = a.client_id))) then
+  if p_project is not null and (not asset_project_usable(p_project) or not exists (select 1 from projects where id = p_project and (a.client_id is null or client_id = a.client_id))) then
     raise exception 'project not found' using errcode = 'P0002';
   end if;
   select * into o from asset_assignments where asset_id = a.id and ended_at is null for update;
@@ -840,7 +848,7 @@ create policy asset_finance_links_select on asset_finance_links for select to au
   using (can_view_asset(asset_id) and ((invoice_id is not null and can_view_invoice(invoice_id)) or (payment_id is not null and can_view_payment(payment_id))));
 create policy asset_duplicate_flags_select on asset_duplicate_flags for select to authenticated using (can_view_asset(asset_id) and can_view_asset(other_asset_id));
 
-revoke execute on function can_view_asset_row(uuid, uuid, data_classification, boolean), can_view_asset(uuid), can_edit_asset(uuid, text), asset_log(uuid, text, text, text, text, text),
+revoke execute on function asset_project_usable(uuid), can_view_asset_row(uuid, uuid, data_classification, boolean), can_view_asset(uuid), can_edit_asset(uuid, text), asset_log(uuid, text, text, text, text, text),
   asset_load(uuid), asset_detect_duplicates(uuid), asset_create(text, text, uuid, text, text, text, text, asset_condition, asset_status, asset_acquisition, date, numeric, text, uuid, uuid, uuid, uuid, text, data_classification),
   asset_update(uuid, jsonb), asset_set_parent(uuid, uuid), asset_flag_resolve(uuid, text, text), asset_transition(uuid, asset_status, text),
   asset_assign(uuid, uuid, uuid, text, uuid), asset_unassign(uuid, text), asset_retire(uuid, text), asset_dispose(uuid, asset_disposal_method, date, text),

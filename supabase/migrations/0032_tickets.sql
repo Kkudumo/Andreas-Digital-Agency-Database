@@ -98,7 +98,7 @@ begin
   end if;
   return null;
 end $$;
-create trigger tickets_follow_asset_trg after update of effective_classification, client_deleted on assets for each row execute function tickets_follow_asset();
+create trigger tickets_follow_asset_trg after update on assets for each row execute function tickets_follow_asset();
 create function tickets_follow_client() returns trigger
 language plpgsql security definer set search_path = public, pg_temp as $$
 begin
@@ -112,7 +112,7 @@ begin
   if new.effective_classification is distinct from old.effective_classification then update tickets set classification = classification where project_id = new.id; end if;
   return null;
 end $$;
-create trigger tickets_follow_project_trg after update of effective_classification on projects for each row execute function tickets_follow_project();
+create trigger tickets_follow_project_trg after update on projects for each row execute function tickets_follow_project();
 
 -- Visibility: the division's ticket viewers, plus the reporter and the assignee - always subject to classification
 create function can_view_ticket_row(p_division uuid, p_class data_classification, p_client_deleted boolean, p_assignee uuid, p_reporter uuid) returns boolean
@@ -149,7 +149,7 @@ begin
   if v_div is null then raise exception 'choose the division that will handle the ticket' using errcode = '23514'; end if;
   if not has_permission('tickets.create', v_div) then raise exception 'tickets.create is required in that division' using errcode = '42501'; end if;
   if p_client is not null and (not exists (select 1 from clients where id = p_client and deleted_at is null) or not can_view_client(p_client)) then raise exception 'client not found' using errcode = 'P0002'; end if;
-  if p_project is not null and not can_view_project(p_project) then raise exception 'project not found' using errcode = 'P0002'; end if;
+  if p_project is not null and not asset_project_usable(p_project) then raise exception 'project not found' using errcode = 'P0002'; end if;
   if p_classification <> 'internal' and not has_permission('records.classify') then raise exception 'records.classify is required to set a classification' using errcode = '42501'; end if;
   insert into tickets (title, description, kind, priority, division_id, asset_id, client_id, project_id, contact_id, classification)
   values (p_title, p_description, p_kind, p_priority, v_div, p_asset, p_client, p_project, p_contact, p_classification) returning id into v_id;
