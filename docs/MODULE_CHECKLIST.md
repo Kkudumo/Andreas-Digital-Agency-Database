@@ -10,7 +10,9 @@ Before writing a migration, answer these in the pull request.
 - [ ] I searched [ENTITY_GRAPH.md](architecture/ENTITY_GRAPH.md) and the [data dictionary](architecture/DATA_DICTIONARY.md) for the thing I am about to store.
 - [ ] Every link to a client / person / contact / staff / service / project / asset / domain / website is a **foreign key** to its central table.
 - [ ] I did **not** add columns such as `client_name`, `client_email`, `client_phone`, `staff_name`, `contact_name`.
-- [ ] New records that have a human-readable identity get an `ada_id` (`entity_types` row + `attach_ada_id`), so they appear in the entity registry.
+- [ ] **Identity comes from the skeleton** ([INSTITUTIONAL_SKELETON.md](architecture/INSTITUTIONAL_SKELETON.md)): add the entity type to the codebook (`entity_types` row with its family, routing map and ID code), then register the table with `attach_entity(table, type)` (or `attach_ada_id` if it also needs a legacy-style identifier). Never write an ID generator, never accept an ID from a form, never encode mutable facts (division, status, owner, location) in an ID.
+- [ ] The registration function returns the generated institutional ID (and origin/status) to the caller.
+- [ ] Division, status, classification and location are declared in the type's routing map so the registry mirrors them; origin is taken at creation.
 
 ## 2. Snapshots are explicit
 A copy of a value is allowed only when history or law requires it (a price on an invoice, what a stranger typed into a form).
@@ -35,7 +37,7 @@ Two modules referencing the same person or client do **not** share each other's 
 - [ ] **No duplicate people:** person + contact + applicant/lead resolve to one `people` row, and each relationship stays blind to the others' private data.
 - [ ] Authorization (who can, who must not), RLS, direct-table access, anon/authenticated/website roles.
 - [ ] Workflow transitions (valid and invalid), locking after submission, history, audit, events (without personal data).
-- [ ] Soft-delete/archive visibility, ADA ID format and registry membership.
+- [ ] Soft-delete/archive visibility, institutional ID format and registry membership (`tests.unregistered_tables()` covers every built entity type), restricted-vs-nonexistent through `entity_resolve`.
 - [ ] Immutability of anything historical (prices, financial amounts, decisions).
 - [ ] Mutation check: break your main rule on purpose and confirm a test fails.
 

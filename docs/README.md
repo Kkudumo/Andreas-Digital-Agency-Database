@@ -18,7 +18,9 @@ functions), so no client — IRM, a website, or a person with API access — can
 
 | Module | Tables / functions | Status |
 |---|---|---|
-| Foundation | ADA IDs (`next_ada_id`), `entity_registry`, `audit_log`, `events`, `notifications` | built, tested |
+| Institutional skeleton | `id_codebook`, `ada_mint_id` (9-char opaque IDs), `entity_registry` (map, not truth), `entity_location_history`, `entity_resolve`/`entity_get`/`search_route`, `search_index` (derived), `security_events`/`security_cases` | built, tested |
+| Foundation | legacy ADA IDs (`next_ada_id`, now aliases), `audit_log`, `events`, `notifications` | built, tested |
+| Academy identity | `programmes`, `cohorts`, `students`, `student_enrolments` (identity core only) | built, tested |
 | Organization | `organization`, `divisions`, `positions` (+ headcount) | built, tested |
 | Identity & access | `staff`, `roles`, `permissions`, `role_permissions`, `staff_roles`, `staff_assignments` | built, tested |
 | Recruitment | `vacancies`, `people`, `applications`, `application_*`, `onboarding_tasks`, `staff_profiles` | built, tested |
@@ -39,7 +41,7 @@ functions), so no client — IRM, a website, or a person with API access — can
 | Documents, domains, communications | — | not started |
 | Search, reports, dashboards | — | not started |
 
-Documents: [Module checklist](MODULE_CHECKLIST.md) · [Entity graph](architecture/ENTITY_GRAPH.md) · [Data dictionary](architecture/DATA_DICTIONARY.md) · [ERD](architecture/ERD.md) ·
+Documents: [Module checklist](MODULE_CHECKLIST.md) · [Institutional skeleton](architecture/INSTITUTIONAL_SKELETON.md) · [Entity graph](architecture/ENTITY_GRAPH.md) · [Data dictionary](architecture/DATA_DICTIONARY.md) · [ERD](architecture/ERD.md) ·
 [Permission matrix](architecture/PERMISSION_MATRIX.md) · [Security](SECURITY.md) · [Public API](api/PUBLIC_API.md) ·
 [Recruitment workflow](workflows/RECRUITMENT.md) · [Services, pricing & quotes](workflows/QUOTES_PRICING.md) · [Leads & enquiries](workflows/LEADS_ENQUIRIES.md) · [Contracts](workflows/CONTRACTS.md) · [Invoices & payments](workflows/INVOICES_PAYMENTS.md) · [Assets](workflows/ASSETS.md) · [Approvals](workflows/APPROVALS.md) · [Development](operations/DEVELOPMENT.md) ·
 [Backup, restore & migration](operations/BACKUP_RESTORE_MIGRATION.md) · [Deployment](operations/DEPLOYMENT.md) ·
@@ -61,6 +63,7 @@ Documents: [Module checklist](MODULE_CHECKLIST.md) · [Entity graph](architectur
 | Prices are immutable versions; documents of commerce copy the version used | History is true by construction; changing a price never changes a quote, project or (later) invoice. |
 | Restricted records look like missing records | Existence is not leaked through errors, lookups, counts, helper functions or API answers; dependents inherit the classification. A permanent probe suite compares a restricted id with a random id. |
 | Self-approval is a configurable, recorded policy | Allowed only while the requester is the sole qualified approver (default), never hardcoded for a role; separation of duties then applies automatically. |
+| Identity is generated, opaque and permanent | One central service mints 9-character IDs that encode only immutable facts; the registry maps IDs to their authoritative records and mirrors (never owns) division, location, status and classification; legacy identifiers remain as aliases. Search goes registry-first. |
 | Regression checks are protected | `PROTECTED.txt` + a CI guard prevent silently deleting the checks that guard leakage, privacy, prices, approvals and restore integrity. |
 | One approvals queue | Every pending approval is visible to the right approvers in one place, with history. |
 | 360° views are SECURITY INVOKER | They inherit row-level security; nothing to keep in sync. |
@@ -69,8 +72,8 @@ Documents: [Module checklist](MODULE_CHECKLIST.md) · [Entity graph](architectur
 ## What is verified, and what is not
 
 Verified by `./scripts/test-db.sh` on plain PostgreSQL 16 with a stand-in for Supabase's auth schema/roles:
-**1,605 checks** — authorization, integrity, audit immutability, public/private exposure, the full hire-to-departure
-scenario, structural guarantees (RLS everywhere, least-privilege grants, matrix == CSV), 320 parallel ID inserts, 320 parallel asset registrations and a 22-session allocation race
+**1,733 checks** — authorization, integrity, audit immutability, public/private exposure, the full hire-to-departure
+scenario, structural guarantees (RLS everywhere, least-privilege grants, matrix == CSV), 320 parallel ID inserts, 320 parallel asset registrations, a mixed-family parallel ID run and a 22-session allocation race
 allocations. Rules were validated with mutation tests (deliberately breaking a rule makes the suite fail).
 `./scripts/rehearse-migration.sh` proves dump → restore → identical security posture → working system.
 

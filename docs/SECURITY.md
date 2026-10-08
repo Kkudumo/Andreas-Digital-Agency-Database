@@ -49,6 +49,11 @@ A restricted or confidential client may exist without its existence being knowab
 ## Assets
 Same model as finance (see above), plus: no unique index on serial or tag (existence oracle) — duplicates are flagged, and a flag is readable only by someone who can see both assets; a holder sees the asset they hold but classification still wins; a project must be visible, its client visible and its classification visible before anything can attach to it (membership alone is not enough); tickets and every attached record inherit; `96_asset_restricted.sql` is permanent.
 
+## Identity, routing and investigation
+* The registry is readable only through the caller's own row security on the authoritative table (`entity_visible`, SECURITY INVOKER): a restricted entity and a non-existent one are indistinguishable from `entity_resolve`, `entity_get`, `search_route`, the registry, the directory and the search index. `98_institutional_identity.sql` is permanent.
+* Denied or unresolved lookups are recorded (actor, action, internal exists-flag, classification, session, source) and escalate by policy: flag → case → critical. The actor never sees the log. A command that raises rolls back its own log row; gateways report with `security_report_denial`.
+* IDs encode only immutable facts and are opaque; the scramble key is permanent; `ada_mint_id` is not executable by API roles.
+
 ## Lessons encoded as tests
 - Postgres `AFTER UPDATE OF col` triggers do not fire when a BEFORE trigger (not the statement) changes `col`: event/queue triggers fire on any update.
 - `pg_dump` records grants relative to the target's default privileges: restores neutralise permissive defaults and verify a security fingerprint.
@@ -58,6 +63,7 @@ Same model as finance (see above), plus: no unique index on serial or tag (exist
 - A parent-lookup error that differs from the child-lookup error is an oracle too: lookups of line/allocation/request ids report the same 'not found' as the parent.
 - A history table that is not reclassified with its subject leaks: decided approval requests follow the client's classification.
 - `AFTER UPDATE OF col` triggers silently skip changes made by a BEFORE trigger: classification propagation (assets, tickets) fires on any update and compares inside the function.
+- A migration that wires triggers by looking at existing ROWS leaves a fresh database unwired: wire from the type map, not from data.
 - A test file that never calls `tests.finish()` silently reports nothing: the runner fails such files.
 
 ## Data classification

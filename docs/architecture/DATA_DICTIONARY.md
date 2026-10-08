@@ -338,6 +338,7 @@ Row-level security is enabled on every table; the policies are in the migrations
 | `changed_fields` | text[] | no |  |  |
 | `reason` | text | no |  |  |
 | `result` | text | yes | 'success'::text |  |
+| `record_institutional_id` | text | no |  |  |
 
 ## `bank_accounts`
 
@@ -468,6 +469,23 @@ Row-level security is enabled on every table; the policies are in the migrations
 | `billing_address` | text | no |  |  |
 | `social_links` | jsonb | yes | '{}'::jsonb |  |
 | `name_key` | text | no | client_name_key(name) |  |
+
+## `cohorts`
+
+**Purpose:** an intake of a programme in an academic year. [class: internal]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | uuid | yes | gen_random_uuid() |  |
+| `programme_id` | uuid | yes |  | `programmes` |
+| `name` | text | yes |  |  |
+| `academic_year` | integer | yes |  |  |
+| `starts_on` | date | no |  |  |
+| `ends_on` | date | no |  |  |
+| `division_id` | uuid | yes |  | `divisions` |
+| `status` | text | yes | 'planned'::text |  |
+| `created_at` | timestamp with time zone | yes | now() |  |
+| `updated_at` | timestamp with time zone | yes | now() |  |
 
 ## `contract_lines`
 
@@ -657,17 +675,46 @@ Row-level security is enabled on every table; the policies are in the migrations
 | `decided_by` | uuid | no |  | `staff` |
 | `decided_at` | timestamp with time zone | no |  |  |
 
-## `entity_registry`
+## `entity_location_history`
 
-**Purpose:** central lookup of every ADA ID to its record; basis for global search and cross-module references. [class: internal]
+**Purpose:** where each entity has belonged over time (division and physical location). The permanent ID never changes when an entity moves; this is the movement history. Append-only. [class: internal]
 
 | Column | Type | Required | Default | References |
 |---|---|---|---|---|
-| `ada_id` | text | yes |  |  |
+| `id` | bigint | yes |  |  |
+| `institutional_id` | text | yes |  | `entity_registry` |
+| `from_division_id` | uuid | no |  | `divisions` |
+| `to_division_id` | uuid | no |  | `divisions` |
+| `from_location` | text | no |  |  |
+| `to_location` | text | no |  |  |
+| `reason` | text | yes | 'moved'::text |  |
+| `changed_by` | uuid | no |  | `staff` |
+| `changed_at` | timestamp with time zone | yes | now() |  |
+
+## `entity_registry`
+
+**Purpose:** the institutional map. One row per authoritative record: permanent 9-char institutional_id, family/type, origin (division, year, cycle - immutable), current division/location/status/classification (mirrored from the authoritative record by trigger), and where the record lives (table_name + entity_id). Holds NO business data. ada_id is the legacy identifier alias. Never deleted. [class: internal]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `ada_id` | text | no |  |  |
 | `entity_type` | text | yes |  | `entity_types` |
 | `entity_id` | uuid | yes |  |  |
 | `table_name` | text | yes |  |  |
 | `created_at` | timestamp with time zone | yes | now() |  |
+| `institutional_id` | text | yes |  |  |
+| `entity_family` | text | yes |  |  |
+| `origin_division_id` | uuid | no |  | `divisions` |
+| `origin_year` | integer | yes |  |  |
+| `origin_cycle` | text | yes |  |  |
+| `origin_kind` | text | yes | 'created'::text |  |
+| `classification` | data_classification | yes |  |  |
+| `authorization_scope` | text | yes |  |  |
+| `current_division_id` | uuid | no |  | `divisions` |
+| `current_location` | text | no |  |  |
+| `status` | text | no |  |  |
+| `routing_version` | integer | yes | 1 |  |
+| `created_by` | uuid | no |  | `staff` |
 
 ## `entity_types`
 
@@ -678,6 +725,16 @@ Row-level security is enabled on every table; the policies are in the migrations
 | `key` | text | yes |  |  |
 | `prefix` | text | yes |  |  |
 | `description` | text | yes |  |  |
+| `family` | text | yes |  |  |
+| `id_code` | text | yes |  |  |
+| `is_built` | boolean | yes | false |  |
+| `domain_table` | text | no |  |  |
+| `division_col` | text | no |  |  |
+| `status_col` | text | no |  |  |
+| `class_col` | text | no |  |  |
+| `location_col` | text | no |  |  |
+| `label_col` | text | no |  |  |
+| `view_fn` | text | no |  |  |
 
 ## `event_deliveries`
 
@@ -740,6 +797,43 @@ _(no description)_
 | `updated_by` | uuid | no |  | `staff` |
 | `updated_at` | timestamp with time zone | yes | now() |  |
 
+## `id_codebook`
+
+**Purpose:** the formal ADA coding dictionary. kind=type: 2-char entity type code; cycle: 1-char issue-year code; division: 2-char division code (for internal templates - NOT embedded in IDs); family: entity family. Versioned; codes are retired, never reused or changed. No API access. [class: restricted]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `version` | integer | yes |  | `id_codebook_versions` |
+| `kind` | text | yes |  |  |
+| `code` | text | yes |  |  |
+| `meaning` | text | yes |  |  |
+| `family` | text | no |  |  |
+| `note` | text | no |  |  |
+| `valid_from` | date | no |  |  |
+| `valid_until` | date | no |  |  |
+| `status` | text | yes | 'active'::text |  |
+
+## `id_codebook_versions`
+
+_(no description)_
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `version` | integer | yes |  |  |
+| `status` | text | yes |  |  |
+| `valid_from` | timestamp with time zone | yes | now() |  |
+| `note` | text | no |  |  |
+
+## `id_counters`
+
+**Purpose:** gap-free serial per (entity type, issue cycle). Incremented inside the registering transaction, so a rolled-back registration leaves no gap and no ID is ever reused. No API access. [class: restricted]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `type_code` | text | yes |  |  |
+| `cycle_code` | text | yes |  |  |
+| `last_value` | bigint | yes | 0 |  |
+
 ## `id_sequences`
 
 **Purpose:** per-prefix, per-year counters behind ADA IDs. Never directly accessible to API roles. [class: internal]
@@ -749,6 +843,16 @@ _(no description)_
 | `prefix` | text | yes |  | `entity_types` |
 | `year` | integer | yes |  |  |
 | `last_value` | integer | yes | 0 |  |
+
+## `id_settings`
+
+**Purpose:** the active codebook version and the secret that scrambles serials. The key must NEVER change once IDs have been issued (it would break uniqueness); it is stored with the data so backups and restores keep it. No API access. [class: restricted]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `singleton` | boolean | yes | true |  |
+| `codebook_version` | integer | yes |  | `id_codebook_versions` |
+| `scramble_key` | text | yes |  |  |
 
 ## `invoice_lines`
 
@@ -1066,6 +1170,22 @@ _(no description)_
 | `updated_at` | timestamp with time zone | yes | now() |  |
 | `headcount` | integer | yes | 1 |  |
 
+## `programmes`
+
+**Purpose:** an Academy programme. Academic identity (programme/cohort/period) is separate from Student identity. [class: internal]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | uuid | yes | gen_random_uuid() |  |
+| `name` | text | yes |  |  |
+| `programme_family` | text | no |  |  |
+| `level` | text | no |  |  |
+| `division_id` | uuid | yes |  | `divisions` |
+| `status` | text | yes | 'active'::text |  |
+| `created_by` | uuid | no |  | `staff` |
+| `created_at` | timestamp with time zone | yes | now() |  |
+| `updated_at` | timestamp with time zone | yes | now() |  |
+
 ## `project_contacts`
 
 **Purpose:** which of the client's contacts a project involves. References the shared client_contacts row; never a copy. [class: internal]
@@ -1234,6 +1354,84 @@ _(no description)_
 | `created_at` | timestamp with time zone | yes | now() |  |
 | `updated_at` | timestamp with time zone | yes | now() |  |
 
+## `search_index`
+
+**Purpose:** DERIVED lookup labels for fast retrieval, rebuildable at any time from the authoritative records by search_rebuild(). Not authoritative, not the registry. Visible only for entities the caller may read. [class: internal]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `institutional_id` | text | yes |  | `entity_registry` |
+| `entity_type` | text | yes |  |  |
+| `table_name` | text | yes |  |  |
+| `entity_id` | uuid | yes |  |  |
+| `label` | text | yes |  |  |
+| `refreshed_at` | timestamp with time zone | yes | now() |  |
+
+## `security_case_events`
+
+_(no description)_
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `case_id` | uuid | yes |  | `security_cases` |
+| `event_id` | bigint | yes |  | `security_events` |
+
+## `security_cases`
+
+**Purpose:** security flags and investigation cases raised by escalation policy (an investigation case is an entity with its own institutional ID). Refers to the actor and to events; carries no details of the entities probed. [class: restricted]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | uuid | yes | gen_random_uuid() |  |
+| `status` | text | yes | 'flagged'::text |  |
+| `severity` | text | yes |  |  |
+| `actor_staff_id` | uuid | no |  | `staff` |
+| `actor_user_id` | uuid | no |  |  |
+| `opened_at` | timestamp with time zone | yes | now() |  |
+| `last_event_at` | timestamp with time zone | yes | now() |  |
+| `event_count` | integer | yes | 0 |  |
+| `reason` | text | yes |  |  |
+| `closed_by` | uuid | no |  | `staff` |
+| `closed_at` | timestamp with time zone | no |  |  |
+| `resolution` | text | no |  |  |
+| `created_at` | timestamp with time zone | yes | now() |  |
+| `updated_at` | timestamp with time zone | yes | now() |  |
+
+## `security_events`
+
+**Purpose:** append-only record of denied/unresolved access attempts. entity_exists is internal only: the actor can never tell a hidden entity from a missing one, but investigators can. [class: restricted]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | bigint | yes |  |  |
+| `occurred_at` | timestamp with time zone | yes | now() |  |
+| `actor_user_id` | uuid | no |  |  |
+| `actor_staff_id` | uuid | no |  | `staff` |
+| `kind` | text | yes |  |  |
+| `requested_action` | text | yes |  |  |
+| `requested_input` | text | no |  |  |
+| `entity_exists` | boolean | no |  |  |
+| `entity_class` | data_classification | no |  |  |
+| `decision` | text | yes | 'denied_or_unresolved'::text |  |
+| `reason` | text | no |  |  |
+| `session_ref` | text | no |  |  |
+| `source_addr` | inet | no |  |  |
+
+## `security_policies`
+
+**Purpose:** escalation thresholds for denied/unresolved access attempts. One denial is only an audit event; repeated ones flag; a pattern opens an investigation; a bypass attempt opens a critical case at once. [class: restricted]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | uuid | yes | gen_random_uuid() |  |
+| `kind` | text | yes |  |  |
+| `window_minutes` | integer | yes |  |  |
+| `threshold` | integer | yes |  |  |
+| `case_status` | text | yes |  |  |
+| `severity` | text | yes |  |  |
+| `is_active` | boolean | yes | true |  |
+| `note` | text | no |  |  |
+
 ## `service_prices`
 
 **Purpose:** immutable price versions. An approved version never changes (only effective_to is set when a later version takes over). Quotes and invoices copy the version they used. [class: restricted until approved; internal after]
@@ -1382,6 +1580,40 @@ _(no description)_
 | `granted_by` | uuid | no |  | `staff` |
 | `granted_at` | timestamp with time zone | yes | now() |  |
 | `reason` | text | no |  |  |
+
+## `student_enrolments`
+
+**Purpose:** academic history - which programme/cohort a student was on, when. A change of programme or cohort closes one row and opens another; the Student ID never changes. Rows are never deleted or rewritten. [class: restricted by permission]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | uuid | yes | gen_random_uuid() |  |
+| `student_id` | uuid | yes |  | `students` |
+| `programme_id` | uuid | yes |  | `programmes` |
+| `cohort_id` | uuid | no |  | `cohorts` |
+| `division_id` | uuid | yes |  | `divisions` |
+| `starts_on` | date | yes | CURRENT_DATE |  |
+| `ends_on` | date | no |  |  |
+| `status` | text | yes | 'active'::text |  |
+| `note` | text | no |  |  |
+| `created_by` | uuid | no |  | `staff` |
+| `created_at` | timestamp with time zone | yes | now() |  |
+
+## `students`
+
+**Purpose:** the student role of a person. Holds no name, email or phone (those are people). The permanent Student ID lives in the entity registry and is generated automatically at admission. [class: restricted by permission]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | uuid | yes | gen_random_uuid() |  |
+| `person_id` | uuid | yes |  | `people` |
+| `division_id` | uuid | yes |  | `divisions` |
+| `status` | text | yes | 'admitted'::text |  |
+| `admitted_on` | date | yes | CURRENT_DATE |  |
+| `classification` | data_classification | yes | 'internal'::data_classification |  |
+| `created_by` | uuid | no |  | `staff` |
+| `created_at` | timestamp with time zone | yes | now() |  |
+| `updated_at` | timestamp with time zone | yes | now() |  |
 
 ## `suppliers`
 

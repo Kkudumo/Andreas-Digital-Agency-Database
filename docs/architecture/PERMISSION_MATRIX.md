@@ -103,3 +103,9 @@ A role assignment is organization-wide or scoped to one division. **Division Lea
 | `tickets.create` — Open tickets | internal | x | x |  | x | x |  |  |
 | `tickets.update` — Work and resolve tickets | internal | x | x |  | x | x |  |  |
 | `tickets.assign` — Assign tickets to staff | internal | x | x |  | x |  |  |  |
+| `security.view` — View security events and investigation cases | restricted | x |  |  |  |  | x |  |
+| `security.manage` — Manage security policies and investigation cases | restricted | x |  |  |  |  |  |  |
+| `students.view` — View students and their enrolments (own division) | restricted | x | x |  | x | x | x |  |
+| `students.admit` — Admit students and record enrolments | restricted | x | x |  | x |  |  |  |
+| `students.manage` — Change student status and academic structure | restricted | x | x |  | x |  |  |  |
+| `programmes.manage` — Manage programmes and cohorts | internal | x | x |  | x |  |  |  |
