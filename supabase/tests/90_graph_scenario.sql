@@ -65,7 +65,7 @@ select tests.check('8d. services purchased, with what each cost',
 select tests.check('8e. both projects are listed with their divisions', (select string_agg((x ->> 'division') || ':' || (x ->> 'status'), ',' order by x ->> 'division') from c360_ceo, jsonb_array_elements(j -> 'projects') x), 'tech:approved,web:active');
 select tests.check('8f. quotes: two accepted, total value N$9,800', (select (j -> 'quote_summary' ->> 'accepted')::text || '/' || (j -> 'quote_summary' ->> 'accepted_value') from c360_ceo), '2/9800.00');
 select tests.check('8g. activity from the audit log is included for management', (select (jsonb_array_length(j -> 'activity') > 0)::text from c360_ceo), 'true');
-select tests.check('8h. sections for modules not built yet are declared, not faked', (select ((j -> 'pending') ? 'tickets' and not ((j -> 'pending') ? 'invoices') and j ? 'invoices' and j ? 'contracts' and j ? 'payments') from c360_ceo)::text, 'true');
+select tests.check('8h. sections for modules not built yet are declared, not faked', (select ((j -> 'pending') ? 'documents' and not ((j -> 'pending') ? 'invoices') and j ? 'invoices' and j ? 'contracts' and j ? 'payments') from c360_ceo)::text, 'true');
 
 -- 9. ...and each other viewer gets only THEIR slice of the same record.
 create temp table c360_web as select tests.scalar('web_lead', $q$ select client_360((select id from tests.ids where key = 'client:abc'))::text $q$)::jsonb j;
