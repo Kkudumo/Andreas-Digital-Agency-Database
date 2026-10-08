@@ -29,5 +29,16 @@ for f in supabase/tests/[1-9][0-9]_*.sql; do
   printf '%s\n' "$out" | sed -E 's/^psql:[^:]+:[0-9]+: //' | grep -vE '^(NOTICE:  ok  |CONTEXT:|PL/pgSQL|LINE|HINT)' | sed 's/^/  /' || true
   [ "$rc" -eq 0 ] || status=1
 done
+# Concurrency: ADA IDs must stay unique and gap-free under parallel inserts from separate connections.
+echo "== concurrent_ids"
+N_PROC=8; N_ROWS=40
+for i in $(seq 1 $N_PROC); do
+  psql_ "$URL" -c "insert into clients (name) select 'c$i-' || g from generate_series(1, $N_ROWS) g" >/dev/null &
+done
+wait
+res=$(psql_ "$URL" -Atc "select count(*) || ',' || count(distinct ada_id) || ',' || max(substring(ada_id from '[0-9]+\$')::int) from clients")
+expected="$((N_PROC * N_ROWS)),$((N_PROC * N_ROWS)),$((N_PROC * N_ROWS))"
+if [ "$res" = "$expected" ]; then echo "  $((N_PROC * N_ROWS)) parallel inserts: all ADA IDs unique and gap-free"; else echo "  FAIL concurrent ids: got $res expected $expected"; status=1; fi
+
 [ "$status" -eq 0 ] && echo "ALL TESTS PASSED" || echo "TESTS FAILED"
 exit $status

@@ -141,3 +141,69 @@ begin
     return 'ERR:' || sqlstate;
   end;
 end $$;
+
+-- ---------------------------------------------------------------------------
+-- Recruitment / public API fixtures (call after tests.setup())
+-- ---------------------------------------------------------------------------
+create function tests.keyhash(p_key text) returns text language sql immutable as $$ select encode(extensions.digest(p_key, 'sha256'), 'hex') $$;
+
+-- Remember a uuid returned by an earlier statement; fails loudly if that statement errored.
+create function tests.remember(p_key text, p_value text) returns void language plpgsql as $$
+begin
+  if p_value is null or p_value like 'ERR:%' then raise exception 'cannot remember % (got %)', p_key, p_value; end if;
+  insert into tests.ids (key, id) values (p_key, p_value::uuid) on conflict (key) do update set id = excluded.id;
+end $$;
+
+create function tests.id(p_key text) returns uuid language sql stable as $$ select id from tests.ids where key = p_key $$;
+
+-- Run a single-value query as the website-facing database role.
+create function tests.scalar_pub(p_sql text) returns text language plpgsql as $$
+declare v text;
+begin
+  set local role ada_public_api;
+  begin
+    execute p_sql into v;
+    reset role;
+    return v;
+  exception when others then
+    reset role;
+    return 'ERR:' || sqlstate;
+  end;
+end $$;
+
+create function tests.setup_hr() returns void language plpgsql as $$
+declare
+  v_staff uuid;
+  v_web uuid := tests.id('div:web');
+  v_tech uuid := tests.id('div:tech');
+begin
+  -- recruiter (org-wide recruiter role) and a Tech division lead
+  insert into auth.users (id, email) values (tests.uid('recruiter'), 'recruiter@ada.test');
+  insert into staff (user_id, full_name, email, account_status) values (tests.uid('recruiter'), 'Recruiter', 'recruiter@ada.test', 'active') returning id into v_staff;
+  insert into staff_roles (staff_id, role_id) select v_staff, id from roles where key = 'recruiter';
+  insert into tests.ids values ('staff:recruiter', v_staff);
+
+  insert into auth.users (id, email) values (tests.uid('tech_lead'), 'tech_lead@ada.test');
+  insert into staff (user_id, full_name, email, account_status) values (tests.uid('tech_lead'), 'Tech Lead', 'tech_lead@ada.test', 'active') returning id into v_staff;
+  insert into staff_roles (staff_id, role_id, division_id) select v_staff, id, v_tech from roles where key = 'division_lead';
+  insert into tests.ids values ('staff:tech_lead', v_staff);
+
+  -- a login that will become a new hire's account
+  insert into auth.users (id, email) values (tests.uid('newhire'), 'newhire@ada.test');
+
+  insert into tests.ids select 'position:' || title, id from positions where title in ('Web Developer', 'IT Technician');
+
+  -- registered websites with known API keys (plaintext only exists in tests)
+  insert into websites (name, domain, environment, status, capabilities, api_key_hash, api_key_prefix) values
+    ('ADA Main Website', 'main.ada.test', 'production', 'active',
+       array['vacancies.read', 'team.read', 'divisions.read', 'statistics.read', 'applications.submit'], tests.keyhash('testkey-main'), 'testkey-'),
+    ('Limited Site', 'limited.ada.test', 'production', 'active', array['divisions.read'], tests.keyhash('testkey-limited'), 'testkey-'),
+    ('Suspended Site', 'suspended.ada.test', 'production', 'suspended', array['vacancies.read', 'divisions.read'], tests.keyhash('testkey-susp'), 'testkey-');
+  insert into tests.ids select 'site:' || split_part(domain, '.', 1), id from websites;
+end $$;
+
+-- Call a public_api function as the website role: tests.pub('main', 'vacancy', quote_literal('ADA-VAC-...'))
+create function tests.pub(p_site text, p_fn text, p_extra text default '') returns text language sql as $$
+  select tests.scalar_pub(format('select public_api.%s(%L%s)::text', p_fn, tests.keyhash('testkey-' || p_site),
+                                 case when p_extra = '' then '' else ', ' || p_extra end))
+$$;

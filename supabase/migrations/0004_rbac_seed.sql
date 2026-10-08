@@ -1,5 +1,5 @@
 -- 0004_rbac_seed: initial ADA organization, divisions, positions, permissions and roles.
--- Generated from supabase/seed_data/permission_matrix.csv by scripts/build-rbac-seed.mjs.
+-- Generated once from the original permission matrix. Later matrix changes ship as new migrations (scripts/build-rbac-delta.mjs).
 
 insert into organization (legal_name, trading_name, description)
 values ('Andreas Digital Agency', 'ADA', 'Digital agency delivering web, technology, marketing, training, software and consulting services.');
