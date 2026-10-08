@@ -705,24 +705,6 @@ begin
   end if;
 end $$;
 
-create function asset_retire(p_asset uuid, p_reason text) returns void
-language plpgsql security definer set search_path = public, pg_temp as $$
-declare a assets%rowtype;
-begin
-  a := asset_load(p_asset);
-  if not has_permission('assets.retire', a.division_id) then raise exception 'assets.retire is required' using errcode = '42501'; end if;
-  if coalesce(btrim(p_reason), '') = '' then raise exception 'a reason is required' using errcode = '23514'; end if;
-  if a.status not in ('in_stock', 'returned', 'in_maintenance') then raise exception 'an asset that is % cannot be retired (return it to stock first)', a.status using errcode = '23514'; end if;
-  if exists (select 1 from asset_assignments where asset_id = a.id and ended_at is null) then raise exception 'end the open assignment first' using errcode = '23514'; end if;
-  if exists (select 1 from assets c where c.parent_asset_id = a.id and c.status not in ('retired', 'disposed', 'cancelled')) then
-    raise exception 'retire or detach the components of this asset first' using errcode = '23514';
-  end if;
-  update assets set status = 'retired' where id = a.id;
-  insert into asset_retirements (asset_id, reason, retired_by) values (a.id, p_reason, current_staff_id());
-  perform asset_log(a.id, 'status', 'status', a.status::text, 'retired', p_reason);
-  perform emit_event('asset.retired', 'assets', a.id, a.ada_id, '{}');
-end $$;
-
 create function asset_dispose(p_asset uuid, p_method asset_disposal_method, p_on date default null, p_note text default null) returns void
 language plpgsql security definer set search_path = public, pg_temp as $$
 declare a assets%rowtype;
@@ -851,13 +833,13 @@ create policy asset_duplicate_flags_select on asset_duplicate_flags for select t
 revoke execute on function asset_project_usable(uuid), can_view_asset_row(uuid, uuid, data_classification, boolean), can_view_asset(uuid), can_edit_asset(uuid, text), asset_log(uuid, text, text, text, text, text),
   asset_load(uuid), asset_detect_duplicates(uuid), asset_create(text, text, uuid, text, text, text, text, asset_condition, asset_status, asset_acquisition, date, numeric, text, uuid, uuid, uuid, uuid, text, data_classification),
   asset_update(uuid, jsonb), asset_set_parent(uuid, uuid), asset_flag_resolve(uuid, text, text), asset_transition(uuid, asset_status, text),
-  asset_assign(uuid, uuid, uuid, text, uuid), asset_unassign(uuid, text), asset_retire(uuid, text), asset_dispose(uuid, asset_disposal_method, date, text),
+  asset_assign(uuid, uuid, uuid, text, uuid), asset_unassign(uuid, text), asset_dispose(uuid, asset_disposal_method, date, text),
   asset_add_warranty(uuid, date, date, uuid, text, text), asset_void_warranty(uuid, text), asset_add_document(uuid, text, text, text), asset_void_document(uuid, text),
   asset_link_finance(uuid, uuid, uuid, text, text) from public, anon, authenticated;
 grant execute on function can_view_asset_row(uuid, uuid, data_classification, boolean), can_view_asset(uuid), can_edit_asset(uuid, text),
   asset_create(text, text, uuid, text, text, text, text, asset_condition, asset_status, asset_acquisition, date, numeric, text, uuid, uuid, uuid, uuid, text, data_classification),
   asset_update(uuid, jsonb), asset_set_parent(uuid, uuid), asset_flag_resolve(uuid, text, text), asset_transition(uuid, asset_status, text),
-  asset_assign(uuid, uuid, uuid, text, uuid), asset_unassign(uuid, text), asset_retire(uuid, text), asset_dispose(uuid, asset_disposal_method, date, text),
+  asset_assign(uuid, uuid, uuid, text, uuid), asset_unassign(uuid, text), asset_dispose(uuid, asset_disposal_method, date, text),
   asset_add_warranty(uuid, date, date, uuid, text, text), asset_void_warranty(uuid, text), asset_add_document(uuid, text, text, text), asset_void_document(uuid, text),
   asset_link_finance(uuid, uuid, uuid, text, text) to authenticated;
 

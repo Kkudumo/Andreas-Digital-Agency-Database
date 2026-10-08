@@ -113,6 +113,15 @@ select tests.check('...while management still sees them in the project 360', tes
 update projects set classification = 'internal' where id = tests.id('project:abc');
 select tests.check('un-restricting the project brings them back', tests.scalar('web_lead', format('select count(*)::text from assets where id = %L', tests.id('asset:A'))), '1');
 
+-- An asset attached to a client ONLY (no project, no parent) inherits the client's restriction by itself
+select tests.mk_asset('web_lead', 'CO', 'Client-only router', 'web', null, null, null, 'in_stock', 'client:abc');
+select tests.check('before: the client-only asset is visible to the division lead', tests.scalar('web_lead', format('select count(*)::text from assets where id = %L', tests.id('asset:CO'))), '1');
+update clients set classification = 'restricted' where id = tests.id('client:abc');
+select tests.check('a client-only asset (no project, no parent) is restricted with its client and invisible to ordinary users',
+  (select effective_classification::text from assets where id = tests.id('asset:CO')) || tests.scalar('web_lead', format('select count(*)::text from assets where id = %L', tests.id('asset:CO'))), 'restricted0');
+update clients set classification = 'internal' where id = tests.id('client:abc');
+select tests.check('...and visible again when the client is un-restricted', tests.scalar('web_lead', format('select count(*)::text from assets where id = %L', tests.id('asset:CO'))), '1');
+
 -- A ticket inherits the asset's OWN classification as well
 select tests.remember('tkt:S', tests.scalar('web_lead', format($q$ select ticket_create(p_title => 'Standalone fault', p_asset => %L)::text $q$, tests.id('asset:S'))));
 select tests.check('before: the ticket on an ordinary asset is internal and visible', (select effective_classification::text from tickets where id = tests.id('tkt:S')) || tests.scalar('web_lead', format('select count(*)::text from tickets where id = %L', tests.id('tkt:S'))), 'internal1');

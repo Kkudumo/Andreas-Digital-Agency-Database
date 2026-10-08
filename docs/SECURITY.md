@@ -46,6 +46,9 @@ A restricted or confidential client may exist without its existence being knowab
 * **Money is derived.** Invoice balances and payment credit are computed from allocations; locks serialise allocation so racing sessions cannot overspend a payment (parallel test).
 * **Approvals** use the one engine (`approval_gate`); reversal and refund default to no self-approval.
 
+## Assets
+Same model as finance (see above), plus: no unique index on serial or tag (existence oracle) — duplicates are flagged, and a flag is readable only by someone who can see both assets; a holder sees the asset they hold but classification still wins; a project must be visible, its client visible and its classification visible before anything can attach to it (membership alone is not enough); tickets and every attached record inherit; `96_asset_restricted.sql` is permanent.
+
 ## Lessons encoded as tests
 - Postgres `AFTER UPDATE OF col` triggers do not fire when a BEFORE trigger (not the statement) changes `col`: event/queue triggers fire on any update.
 - `pg_dump` records grants relative to the target's default privileges: restores neutralise permissive defaults and verify a security fingerprint.
@@ -54,6 +57,7 @@ A restricted or confidential client may exist without its existence being knowab
 - A global unique index over records of differing visibility is an existence oracle (and can make un-restricting fail): uniqueness is per visible scope, with the cross-scope check made in the command against what the caller can see.
 - A parent-lookup error that differs from the child-lookup error is an oracle too: lookups of line/allocation/request ids report the same 'not found' as the parent.
 - A history table that is not reclassified with its subject leaks: decided approval requests follow the client's classification.
+- `AFTER UPDATE OF col` triggers silently skip changes made by a BEFORE trigger: classification propagation (assets, tickets) fires on any update and compares inside the function.
 - A test file that never calls `tests.finish()` silently reports nothing: the runner fails such files.
 
 ## Data classification

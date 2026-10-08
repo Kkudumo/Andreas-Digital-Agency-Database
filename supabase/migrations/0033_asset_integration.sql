@@ -114,8 +114,8 @@ begin
   end if;
 end $$;
 
--- Retiring cancels scheduled maintenance first (the asset function checks nothing is in progress)
-create or replace function asset_retire(p_asset uuid, p_reason text) returns void
+-- Retiring (defined here because it needs the maintenance table): cancels scheduled maintenance, refuses while work is in progress
+create function asset_retire(p_asset uuid, p_reason text) returns void
 language plpgsql security definer set search_path = public, pg_temp as $$
 declare a assets%rowtype;
 begin
@@ -135,6 +135,8 @@ begin
   perform emit_event('asset.retired', 'assets', a.id, a.ada_id, '{}');
 end $$;
 
+revoke execute on function asset_retire(uuid, text) from public, anon, authenticated;
+grant execute on function asset_retire(uuid, text) to authenticated;
 alter table asset_maintenance enable row level security;
 revoke all on asset_maintenance from anon, authenticated;
 grant select on asset_maintenance to authenticated;

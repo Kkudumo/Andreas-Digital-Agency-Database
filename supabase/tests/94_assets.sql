@@ -55,6 +55,8 @@ select tests.check('only active staff can hold an asset', tests.scalar('web_lead
 select tests.check('web lead assigns the laptop to a Web staff member', (tests.scalar('web_lead', format('select asset_assign(%L, %L, null, ''Onboarding'')::text', tests.id('asset:lap1'), tests.id('staff:web_staff'))) ~ '^[0-9a-f-]{36}$')::text, 'true');
 select tests.check('the asset is assigned and the holder is derived from the open assignment',
   (select status::text from assets where id = tests.id('asset:lap1')) || '/' || (select staff_id = tests.id('staff:web_staff') and division_id = tests.id('div:web') from asset_current_assignments where asset_id = tests.id('asset:lap1'))::text, 'assigned/true');
+select tests.check('the one-open-assignment rule is backed by a unique partial index (race-proof, not only a trigger)',
+  (select count(*)::text from pg_indexes where tablename = 'asset_assignments' and indexdef like 'CREATE UNIQUE INDEX%' and indexdef like '%ended_at IS NULL%'), '1');
 select tests.check('an asset cannot have two open assignments (the database refuses it for the owner)',
   tests.try_owner(format('insert into asset_assignments (asset_id, staff_id, division_id) values (%L, %L, %L)', tests.id('asset:lap1'), tests.id('staff:tech_staff'), tests.id('div:tech'))), 'ERR:23505');
 select tests.check('...nor an overlapping historic period',

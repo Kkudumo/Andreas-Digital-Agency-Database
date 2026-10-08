@@ -65,6 +65,16 @@ select tests.scalar('web_staff', format('select maintenance_complete(%L, ''Servi
 select tests.check('...(back to assigned, the assignment never closed)', (select status::text from assets where id = tests.id('asset:lap')) || (select count(*)::text from asset_current_assignments where asset_id = tests.id('asset:lap')), 'assigned1');
 select tests.scalar('web_lead', format('select asset_unassign(%L, ''Back in store'')::text', tests.id('asset:lap')));
 
+select tests.mk_asset('web_lead', 'old', 'Old kit', 'web');
+select tests.scalar('web_lead', format('select asset_retire(%L, ''Obsolete'')::text', tests.id('asset:old')));
+select tests.check('a retired asset cannot be maintained', tests.scalar('web_staff', format($q$ select maintenance_schedule(%L, 'repair', 'x')::text $q$, tests.id('asset:old'))), 'ERR:23514');
+select tests.scalar('ceo', format('select asset_dispose(%L, ''scrapped'')::text', tests.id('asset:old')));
+select tests.check('...nor a disposed one', tests.scalar('web_staff', format($q$ select maintenance_schedule(%L, 'repair', 'x')::text $q$, tests.id('asset:old'))), 'ERR:23514');
+select tests.check('scheduled maintenance is cancelled when its asset is retired', (tests.mk_asset('web_lead', 'sched', 'Scheduled kit', 'web') ~ '^[0-9a-f-]{36}$')::text, 'true');
+select tests.scalar('web_staff', format($q$ select maintenance_schedule(%L, 'inspection', 'Planned')::text $q$, tests.id('asset:sched')));
+select tests.scalar('web_lead', format('select asset_retire(%L, ''Replaced'')::text', tests.id('asset:sched')));
+select tests.check('...recorded as cancelled with the reason', (select status::text || '/' || cancel_reason from asset_maintenance where asset_id = tests.id('asset:sched')), 'cancelled/asset retired');
+
 -- Resolve and close the ticket ------------------------------------------------------------------------------------------------------------------------
 select tests.check('resolve with a resolution', tests.scalar('web_staff', format('select ticket_transition(%L, ''resolved'', ''Display cable replaced'')::text', tests.id('tkt:1'))), 'resolved');
 select tests.check('a resolved ticket can be reopened', tests.scalar('web_lead', format('select ticket_transition(%L, ''open'')::text', tests.id('tkt:1'))), 'open');

@@ -33,13 +33,15 @@ functions), so no client — IRM, a website, or a person with API access — can
 | Contracts | `contracts`, `contract_versions`, `contract_lines`, `contract_projects`, `contract_status_history` | built, tested |
 | Invoices | `billable_items`, `invoices`, `invoice_lines`, `finance_settings` | built, tested |
 | Payments | `payments`, `payment_allocations`, `payment_reversals`, `bank_accounts`, `invoice_balances`, `payment_balances` | built, tested |
-| Expenses, credit notes | — | next |
-| Assets, tickets, documents, domains, communications | — | not started |
+| Assets | `assets`, `asset_assignments`, `asset_history`, `asset_retirements`, `asset_maintenance`, `asset_warranties`, `asset_documents` (interim), `asset_finance_links`, `asset_duplicate_flags`, `suppliers` | built, tested |
+| Tickets | `tickets` (foundation: lifecycle, assignment, inheritance) | foundation built; full module next |
+| Expenses, credit notes | — | not started |
+| Documents, domains, communications | — | not started |
 | Search, reports, dashboards | — | not started |
 
 Documents: [Module checklist](MODULE_CHECKLIST.md) · [Entity graph](architecture/ENTITY_GRAPH.md) · [Data dictionary](architecture/DATA_DICTIONARY.md) · [ERD](architecture/ERD.md) ·
 [Permission matrix](architecture/PERMISSION_MATRIX.md) · [Security](SECURITY.md) · [Public API](api/PUBLIC_API.md) ·
-[Recruitment workflow](workflows/RECRUITMENT.md) · [Services, pricing & quotes](workflows/QUOTES_PRICING.md) · [Leads & enquiries](workflows/LEADS_ENQUIRIES.md) · [Contracts](workflows/CONTRACTS.md) · [Invoices & payments](workflows/INVOICES_PAYMENTS.md) · [Approvals](workflows/APPROVALS.md) · [Development](operations/DEVELOPMENT.md) ·
+[Recruitment workflow](workflows/RECRUITMENT.md) · [Services, pricing & quotes](workflows/QUOTES_PRICING.md) · [Leads & enquiries](workflows/LEADS_ENQUIRIES.md) · [Contracts](workflows/CONTRACTS.md) · [Invoices & payments](workflows/INVOICES_PAYMENTS.md) · [Assets](workflows/ASSETS.md) · [Approvals](workflows/APPROVALS.md) · [Development](operations/DEVELOPMENT.md) ·
 [Backup, restore & migration](operations/BACKUP_RESTORE_MIGRATION.md) · [Deployment](operations/DEPLOYMENT.md) ·
 [Original audit/gap report](architecture/ARCHITECTURE_REPORT.md)
 
@@ -81,7 +83,7 @@ allocations. Rules were validated with mutation tests (deliberately breaking a r
 - Timing side channels are not equalised; the similarity threshold for "possible duplicate" (0.55) is a constant in `client_candidates`.
 - The approval gate covers prices, quotes, contracts, invoices, reversals/refunds and discounts; other kinds (vacancies, profiles, expenses, hiring) adopt it as their modules need thresholds.
 - Enquiries carry no registration number, so an exact normalised-name match to an existing client is treated as the same organization (a person who is a contact elsewhere is only ever a candidate).
-- Expenses, credit notes, recurring invoicing, assets, tickets, documents, domains and communications are not built. The 360° views list them under `pending`. `project_financials.revenue_to_date` was removed (revenue is derived from invoices/payments); `cost_to_date` stays an interim planning field until expenses exist.
+- Expenses, credit notes, recurring invoicing, documents, domains and communications are not built; tickets exist as a foundation only (SLA, comments, categories, escalation pending); `asset_documents` is an interim link until the Documents module. Search is not built, so assets are findable by direct query only. The 360° views list them under `pending`. `project_financials.revenue_to_date` was removed (revenue is derived from invoices/payments); `cost_to_date` stays an interim planning field until expenses exist.
 - Historical `audit_log` rows keep the old `ADA-CON-…` text for contacts renamed to `ADA-CTC-…` in migration 0026 (the audit log is immutable); the registry and tables were rewritten.
 - Contracts keep a `document_ref` text until the documents module links real files; contract renewals are created explicitly, never automatically.
 

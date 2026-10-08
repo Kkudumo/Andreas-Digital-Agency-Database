@@ -27,7 +27,9 @@
 | An opening / an applicant's application | `vacancies` / `applications` | position ≠ vacancy; person reused |
 | A connected website | `websites` (`ADA-WEB-…`) | is the *identity* of incoming requests |
 | Anything awaiting approval | `approval_requests` + `approval_policies` | uniform queue, history and configurable rules (who approves, thresholds, self-approval) |
-| A physical or technical asset | `assets` (`ADA-AST-…`, prefix reserved) | module not built yet; will reference client, project, staff, ticket, document |
+| A physical or technical asset | `assets` (`ADA-AST-…`) | identity + lifecycle only; holder = `asset_assignments` history; references supplier, client, project, parent; tickets, maintenance, warranty, documents and finance links reference the asset |
+| A supplier / vendor | `suppliers` (`ADA-SUP-…`) | referenced by assets, warranties, maintenance (later expenses) |
+| A ticket | `tickets` (`ADA-TKT-…`) | references asset, client, project, contact, reporter, assignee; inherits their classification |
 | Everything that happened | `audit_log`, `events` | append-only memory; outbox for websites |
 
 ```text
@@ -52,7 +54,9 @@
   Finance rides the same spine:  CLIENT → CONTACT → QUOTE → CONTRACT (versions) → PROJECT
                                                  CONTRACT/PROJECT → BILLABLE ITEMS → INVOICE → PAYMENTS (allocations)
 
-  Still to be attached to the SAME records: expenses, assets, tickets, documents, domains, communications.
+  Assets ride the same spine:   ASSET → (client, project, supplier, parent asset) ; ASSET ← assignments, maintenance, tickets, warranties, documents, finance links
+
+  Still to be attached to the SAME records: expenses, documents, domains, communications.
   Each will reference client / project / staff / person, never copy them.
 ```
 
