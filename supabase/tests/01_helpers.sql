@@ -356,3 +356,28 @@ begin
   perform tests.scalar('fin', format('select invoice_transition(%L, ''issued'')::text', v_inv));
   return v_inv;
 end $$;
+
+-- An extra staff member with a login and one role (optionally division-scoped). Remembers 'staff:<name>'.
+create function tests.add_staff(p_name text, p_role text, p_division_key text default null) returns void language plpgsql as $$
+declare v_staff uuid;
+begin
+  insert into auth.users (id, email) values (tests.uid(p_name), p_name || '@ada.test');
+  insert into staff (user_id, full_name, email, account_status) values (tests.uid(p_name), initcap(p_name), p_name || '@ada.test', 'active') returning id into v_staff;
+  insert into staff_roles (staff_id, role_id, division_id)
+    select v_staff, r.id, case when p_division_key is not null then tests.id('div:' || p_division_key) end from roles r where r.key = p_role;
+  insert into tests.ids values ('staff:' || p_name, v_staff) on conflict (key) do update set id = excluded.id;
+end $$;
+
+-- A draft invoice of one manual charge, prepared by the given user (default finance). Returns the invoice id as text.
+create function tests.draft_invoice(p_key text, p_user text, p_client_key text, p_amount numeric, p_discount numeric default 0, p_division_key text default 'web') returns text language plpgsql as $$
+declare v_client uuid := tests.id(p_client_key); v_div uuid := tests.id('div:' || p_division_key); v_person uuid; v_bi text; v_inv text;
+begin
+  if not exists (select 1 from client_contacts where client_id = v_client and is_active) then
+    insert into people (full_name, email) values ('Billing ' || p_key, lower(p_key) || '.billing@example.test') returning id into v_person;
+    insert into client_contacts (client_id, person_id, is_billing, is_primary) values (v_client, v_person, true, true);
+  end if;
+  v_bi := tests.scalar(p_user, format('select billable_manual(%L, %L, %L, 1, %s, ''test charge'', null, %s)::text', v_client, v_div, 'Services ' || p_key, p_amount, p_discount));
+  v_inv := tests.scalar(p_user, format('select invoice_create(array[%L]::uuid[])::text', v_bi));
+  perform tests.remember('inv:' || p_key, v_inv);
+  return v_inv;
+end $$;
