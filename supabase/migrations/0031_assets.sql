@@ -455,8 +455,11 @@ create function asset_children_guard() returns trigger language plpgsql as $$
 begin
   if tg_op = 'DELETE' then raise exception '% rows cannot be deleted', tg_table_name using errcode = '42501'; end if;
   if tg_op = 'UPDATE' then
-    if tg_table_name = 'asset_warranties' and old.voided_at is null and (new.asset_id, new.provider_id, new.reference, new.starts_on, new.ends_on, new.terms) is not distinct from (old.asset_id, old.provider_id, old.reference, old.starts_on, old.ends_on, old.terms) then return new; end if;
-    if tg_table_name = 'asset_documents' and old.voided_at is null and (new.asset_id, new.kind, new.title, new.document_ref) is not distinct from (old.asset_id, old.kind, old.title, old.document_ref) then return new; end if;
+    if tg_table_name = 'asset_warranties' then
+      if old.voided_at is null and (new.asset_id, new.provider_id, new.reference, new.starts_on, new.ends_on, new.terms) is not distinct from (old.asset_id, old.provider_id, old.reference, old.starts_on, old.ends_on, old.terms) then return new; end if;
+    elsif tg_table_name = 'asset_documents' then
+      if old.voided_at is null and (new.asset_id, new.kind, new.title, new.document_ref) is not distinct from (old.asset_id, old.kind, old.title, old.document_ref) then return new; end if;
+    end if;
     raise exception '% rows cannot be rewritten (void with a reason instead)', tg_table_name using errcode = '42501';
   end if;
   return new;

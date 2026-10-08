@@ -63,7 +63,7 @@ select tests.check('web lead cannot move it to Tech (no assets.assign there)', t
 select tests.check('management moves the laptop to a Tech staff member: a NEW assignment, the old one is ended',
   (tests.scalar('ceo', format('select asset_assign(%L, %L, %L, ''Moved to Tech'')::text', tests.id('asset:lap1'), tests.id('staff:tech_staff'), tests.id('div:tech'))) ~ '^[0-9a-f-]{36}$')::text, 'true');
 select tests.check('history now holds both periods; only the new one is open',
-  (select string_agg((staff_id = tests.id('staff:web_staff'))::text || ':' || (ended_at is not null)::text || ':' || coalesce(end_reason, '-'), ',' order by started_at, id) from asset_assignments where asset_id = tests.id('asset:lap1')), 'true:true:reassigned,false:false:-');
+  (select string_agg((staff_id = tests.id('staff:web_staff'))::text || ':' || (ended_at is not null)::text || ':' || coalesce(end_reason, '-'), ',' order by ended_at nulls last) from asset_assignments where asset_id = tests.id('asset:lap1')), 'true:true:reassigned,false:false:-');
 select tests.check('responsibility moved with the assignment (and that is logged)', (select division_id = tests.id('div:tech') from assets where id = tests.id('asset:lap1'))::text || (select count(*)::text from asset_history where asset_id = tests.id('asset:lap1') and field = 'division_id'), 'true1');
 select tests.check('an assignment cannot be edited or deleted: history cannot be rewritten (owner)',
   tests.try_owner(format('update asset_assignments set staff_id = %L where asset_id = %L', tests.id('staff:ceo'), tests.id('asset:lap1'))) || tests.try_owner(format('delete from asset_assignments where asset_id = %L', tests.id('asset:lap1'))) ||
