@@ -129,3 +129,11 @@ A role assignment is organization-wide or scoped to one division. **Division Lea
 | `organizations.update` — Edit organization identity (legal name, registration number, address) | internal | x | x |  |  |  |  |  |
 | `partners.view` — View partners | internal | x | x | x | x |  | x |  |
 | `partners.manage` — Create and edit partners | internal | x | x |  |  |  |  |  |
+| `domains.view` — View domains (own division) | internal | x | x | x | x | x | x |  |
+| `domains.create` — Create domain records and bring existing domains under management | internal | x | x |  | x |  |  |  |
+| `domains.update` — Edit domain details and relationships | internal | x | x |  | x |  |  |  |
+| `domains.renew` — Record registrations and renewals | internal | x | x | x | x |  |  |  |
+| `domains.suspend` — Suspend and restore domains | restricted | x | x |  | x |  |  |  |
+| `domains.transfer` — Request complete and cancel transfers | restricted | x | x |  | x |  |  |  |
+| `domains.approve` — Approve domain transfers | restricted | x |  |  |  |  |  |  |
+| `domains.retire` — Retire domains and re-register retired ones | restricted | x | x |  |  |  |  |  |

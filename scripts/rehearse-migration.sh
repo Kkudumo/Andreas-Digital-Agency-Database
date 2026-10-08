@@ -42,6 +42,21 @@ insert into suppliers (name) values ('Rehearse Lookalike');
 insert into clients (name) values ('Rehearse Lookalikes');
 SQL
 [ "$(psql_ "$SRC_URL" -Atc "select (select count(*) from organizations where name_key = 'rehearsalorg')::text || ',' || (select count(*) from organization_reviews where status = 'open')")" = "1,1" ] || fail "demo organizations were not created as expected in the source"
+# committed demo domains: an active one with a client relation and a two-period ledger, a retired one, a hidden one, one with an open transfer
+psql_ "$SRC_URL" >/dev/null <<'SQL'
+insert into suppliers (name) values ('Rehearsal Registrar');
+insert into domains (name, division_id) select n, (select id from divisions where key = 'web') from unnest(array['rehearsal.example', 'retired-rehearsal.example', 'transferring-rehearsal.example']) n;
+insert into domains (name, division_id, classification) values ('hidden-rehearsal.example', (select id from divisions where key = 'web'), 'restricted');
+insert into domain_relations (domain_id, relation, entity_institutional_id)
+  select d.id, 'registrar', (select institutional_id from entity_registry where table_name = 'suppliers' and entity_id = (select id from suppliers where name = 'Rehearsal Registrar')) from domains d where d.name like '%rehearsal.example';
+insert into domain_relations (domain_id, relation, entity_institutional_id)
+  select d.id, 'client', (select institutional_id from entity_registry where table_name = 'clients' and entity_id = (select id from clients where name = 'C_web')) from domains d where d.name = 'rehearsal.example';
+insert into domain_registrations (domain_id, kind, period_start, period_end, order_reference) select d.id, 'registration', current_date - 65, current_date + 300, 'REH-1' from domains d where d.name like '%rehearsal.example';
+insert into domain_registrations (domain_id, kind, period_start, period_end, order_reference) select d.id, 'renewal', current_date + 300, current_date + 665, 'REH-2' from domains d where d.name = 'rehearsal.example';
+update domains set status = 'retired' where name = 'retired-rehearsal.example';
+insert into domain_transfers (domain_id, kind, destination_note, reason) select id, 'out', 'to another agency', 'rehearsal' from domains where name = 'transferring-rehearsal.example';
+SQL
+[ "$(psql_ "$SRC_URL" -Atc "select count(*) from domains")" = "4" ] || fail "demo domains were not created in the source"
 PGPASSWORD="${PGPASSWORD:-}" ADA_BACKUP_DIR="$WORK" DATABASE_URL="$SRC_URL" scripts/backup.sh >/dev/null
 DUMP=$(ls "$WORK"/*.dump); ok "backup created and checksummed ($(du -h "$DUMP" | cut -f1))"
 
@@ -90,6 +105,17 @@ psql_ "$DST_URL" -c "update clients set name = 'Rehearsal Org Renamed' where nam
 [ "$(psql_ "$DST_URL" -Atc "select (select o.name from organizations o join clients c on c.organization_id = o.id where c.registration_number = 'RO-1') || '|' || (select s.name from suppliers s join clients c on c.organization_id = s.organization_id where c.registration_number = 'RO-1') || '|' || (select count(*) from organization_mirror_drift())")" = "Rehearsal Org Renamed|Rehearsal Org Renamed|0" ] || fail "mirror redirect / sync does not work after restore"
 ok "after restore a direct write to a mirror is still redirected to the organization and every role follows"
 
+echo "== domains survive the restore: identity, ledger, relations, transfers, lifecycle rules"
+[ "$(psql_ "$SRC_URL" -Atc "select domain_backup_manifest()::text")" = "$(psql_ "$DST_URL" -Atc "select domain_backup_manifest()::text")" ] || fail "domain backup manifest differs (records / relations / ledger / transfers / history / registry)"
+ok "domain manifest identical (4 domains, relations with history, the ledger, transfers, events, registry entries)"
+[ "$(psql_ "$DST_URL" -Atc "select count(*) from domain_ledger_drift()")" = "0" ] || fail "ledger drift after restore"
+[ "$(psql_ "$DST_URL" -Atc "select count(*) from domains d join entity_registry r on r.table_name = 'domains' and r.entity_id = d.id")" = "4" ] || fail "restored domains lost their registry entries"
+ok "every restored domain has its permanent institutional ID; the expiry mirror agrees with the ledger"
+if psql_ "$DST_URL" -c "update domains set description = 'x' where name = 'retired-rehearsal.example'" >/dev/null 2>&1; then fail "a retired domain could be edited after restore"; fi
+if psql_ "$DST_URL" -c "update domain_registrations set period_end = period_end + 1" >/dev/null 2>&1; then fail "the registration ledger was editable after restore"; fi
+if psql_ "$DST_URL" -c "delete from domains" >/dev/null 2>&1; then fail "domains could be deleted after restore"; fi
+ok "retired-record, append-only ledger and never-delete rules still enforced after restore"
+
 echo "== verify the restored system behaves"
 before=$(psql_ "$SRC_URL" -Atc "select max(substring(ada_id from '[0-9]+\$')::int) from clients")
 psql_ "$DST_URL" -c "insert into clients (name) values ('Post-restore client')" >/dev/null
@@ -98,6 +124,12 @@ after=$(psql_ "$DST_URL" -Atc "select substring(ada_id from '[0-9]+\$')::int fro
 n=$(psql_ "$DST_URL" -Atc "select jsonb_array_length(public_api.divisions(encode(extensions.digest('testkey-main','sha256'),'hex')))")
 [ "$n" = "6" ] || fail "public API on restored DB returned $n divisions"; ok "public API works on the restored database (6 public divisions)"
 psql_ "$DST_URL" -f supabase/tests/01_helpers.sql >/dev/null
+r1=$(psql_ "$DST_URL" -At <<'SQL'
+select tests.scalar('web_lead', $q$ select (domain_renew((select id from domains where name = 'rehearsal.example'), 1, 'REH-POST') ->> 'period_start') $q$) || '|' || tests.scalar('web_lead', $q$ select count(*)::text from domains $q$) || '|' || tests.scalar('ceo', $q$ select count(*)::text from domains $q$);
+SQL
+)
+[ "$r1" = "$(psql_ "$SRC_URL" -Atc "select (current_date + 665)::text")|3|4" ] || fail "restored domain behaviour wrong: $r1 (expected renewal from the old end, web lead sees 3, CEO 4)"
+ok "after restore a renewal continues the ledger from where it ended; the hidden domain stays hidden from the web lead"
 c=$(psql_ "$DST_URL" -Atc "select tests.scalar('web_lead', 'select count(*)::text from clients')")
 [ "$c" = "1" ] || fail "web lead sees $c clients on the restored DB (expected 1: their own division's client, not the new organization-level one)"
 ok "row-level security still isolates divisions on the restored database"

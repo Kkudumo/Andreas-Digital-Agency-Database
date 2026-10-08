@@ -44,7 +44,8 @@ functions), so no client — IRM, a website, or a person with API access — can
 | Organizations | `organizations`, `partners`, `organization_reviews`, `organization_distinct_pairs` (+ clients / suppliers as roles) | built, tested |
 | Expenses, credit notes | — | not started |
 | Documents | `documents`, `document_versions`, `document_links`, `document_access`, `document_holds`, `document_comments`, `document_events`, `document_integrity_checks`, `document_disposals`, `document_publications`, `document_types`, `retention_classes`, `document_retention_status` | built, tested |
-| Domains, communications | — | not started |
+| Domains | `domains`, `domain_relations`, `domain_registrations`, `domain_transfers`, `domain_events`, `domain_reviews`, `domain_expiry_status`, `website_hostname_domains` | built, tested |
+| Communications | — | not started |
 | Search, reports, dashboards | — | not started |
 
 Documents: [Module checklist](MODULE_CHECKLIST.md) · [Institutional skeleton](architecture/INSTITUTIONAL_SKELETON.md) · [Entity graph](architecture/ENTITY_GRAPH.md) · [Data dictionary](architecture/DATA_DICTIONARY.md) · [ERD](architecture/ERD.md) ·
@@ -92,7 +93,7 @@ allocations. Rules were validated with mutation tests (deliberately breaking a r
 - Timing side channels are not equalised; the similarity threshold for "possible duplicate" (0.55) is a constant in `client_candidates`.
 - The approval gate covers prices, quotes, contracts, invoices, reversals/refunds and discounts; other kinds (vacancies, profiles, expenses, hiring) adopt it as their modules need thresholds.
 - Enquiries carry no registration number, so an exact normalised-name match to an existing client is treated as the same organization (a person who is a contact elsewhere is only ever a candidate).
-- Expenses, credit notes, recurring invoicing, domains and communications are not built; tickets have no e-mail/web intake, customer portal, business-hours SLA calendars or linked tickets; `asset_documents` is an interim link kept for compatibility (the Documents module supersedes it; `asset_360` shows both). Search is not built, so assets are findable by direct query only. The 360° views list them under `pending`. `project_financials.revenue_to_date` was removed (revenue is derived from invoices/payments); `cost_to_date` stays an interim planning field until expenses exist.
+- Expenses, credit notes, recurring invoicing and communications are not built; tickets have no e-mail/web intake, customer portal, business-hours SLA calendars or linked tickets; `asset_documents` is an interim link kept for compatibility (the Documents module supersedes it; `asset_360` shows both). Search is not built, so assets are findable by direct query only. The 360° views list them under `pending`. `project_financials.revenue_to_date` was removed (revenue is derived from invoices/payments); `cost_to_date` stays an interim planning field until expenses exist.
 - Historical `audit_log` rows keep the old `ADA-CON-…` text for contacts renamed to `ADA-CTC-…` in migration 0026 (the audit log is immutable); the registry and tables were rewritten.
 - Contracts keep a `document_ref` text until the documents module links real files; contract renewals are created explicitly, never automatically.
 

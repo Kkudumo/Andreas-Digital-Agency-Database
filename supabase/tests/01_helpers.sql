@@ -445,3 +445,29 @@ begin
   alter table document_links enable trigger document_links_guard_trg;
   alter table documents enable trigger documents_guard_trg;
 end $$;
+
+-- Domains -------------------------------------------------------------------------------------------------------------------------------------------
+-- Creates a domain record as p_user; remembers dom:<key>; returns the uuid text or ERR:<state>
+create function tests.mk_domain(p_user text, p_key text, p_name text, p_div text default 'web') returns text language plpgsql as $$
+declare v text;
+begin
+  v := tests.scalar(p_user, format($q$ select (domain_create(%L, %L)) ->> 'id' $q$, p_name, tests.id('div:' || p_div)));
+  if v is null or v like 'ERR:%' then return coalesce(v, 'NULL'); end if;
+  insert into tests.ids values ('dom:' || p_key, v::uuid) on conflict (key) do update set id = excluded.id;
+  return v;
+end $$;
+-- Relates a domain to a registered entity (by table + remembered key) as p_user; returns 'ok' or ERR:<state>
+create function tests.rel(p_user text, p_dom_key text, p_relation text, p_table text, p_entity_key text, p_reason text default 'test') returns text language sql as $$
+  select tests.try(p_user, format($q$ insert into domain_relations (domain_id, relation, entity_institutional_id, reason)
+     values (%L, %L, (select institutional_id from entity_registry where table_name = %L and entity_id = %L), %L) $q$, tests.id('dom:' || p_dom_key), p_relation, p_table, tests.id(p_entity_key), p_reason))
+$$;
+-- Registers + activates a domain: record, registrar relation, a one-year registration ending p_days days from today
+create function tests.live_domain(p_user text, p_key text, p_name text, p_days integer default 300, p_div text default 'web') returns text language plpgsql as $$
+declare v text;
+begin
+  v := tests.mk_domain(p_user, p_key, p_name, p_div);
+  if v like 'ERR:%' or v = 'NULL' then return v; end if;
+  v := tests.rel(p_user, p_key, 'registrar', 'suppliers', 'sup:namreg');
+  if v <> 'ok' then return 'rel ' || v; end if;
+  return tests.try(p_user, format($q$ select domain_activate(%L, current_date + %s - 365, current_date + %s, %L) $q$, tests.id('dom:' || p_key), p_days, p_days, 'REG-' || p_key));
+end $$;

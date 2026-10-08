@@ -827,6 +827,114 @@ Row-level security is enabled on every table; the policies are in the migrations
 | `archived_at` | timestamp with time zone | no |  |  |
 | `disposed_at` | timestamp with time zone | no |  |  |
 
+## `domain_events`
+
+**Purpose:** append-only history of everything that happens to a domain (creation, activation, every renewal and expiry, status changes, relationship changes, transfer steps, re-registration), with the acting staff identity (NULL only for the system sweep). Cannot be edited or deleted. [class: inherits the domain]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | bigint | yes |  |  |
+| `domain_id` | uuid | yes |  | `domains` |
+| `kind` | text | yes |  |  |
+| `actor_staff_id` | uuid | no |  | `staff` |
+| `occurred_at` | timestamp with time zone | yes | now() |  |
+| `detail` | jsonb | yes | '{}'::jsonb |  |
+
+## `domain_registrations`
+
+**Purpose:** the append-only ledger of registration periods and renewals. Periods are contiguous (each starts where the previous ended), an order reference makes a repeated submission a no-op, and the latest end date is the domain's expiry. Never edited or deleted. [class: inherits the domain]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | uuid | yes | gen_random_uuid() |  |
+| `domain_id` | uuid | yes |  | `domains` |
+| `kind` | text | yes |  |  |
+| `period_start` | date | yes |  |  |
+| `period_end` | date | yes |  |  |
+| `registrar_institutional_id` | text | no |  | `entity_registry` |
+| `order_reference` | text | no |  |  |
+| `note` | text | no |  |  |
+| `recorded_by` | uuid | no | current_staff_id() | `staff` |
+| `recorded_at` | timestamp with time zone | yes | now() |  |
+
+## `domain_relations`
+
+**Purpose:** which registered entities a domain relates to - registrant (organization), client, project, website, registrar (supplier) - as REFERENCES by institutional ID with valid_from / valid_to. Changing a single-valued relation ends the old row and opens a new one, so "who owned it then" stays answerable. Nothing about the entity is copied. [class: inherits the domain; a row is visible only if the domain AND the target entity are visible]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | uuid | yes | gen_random_uuid() |  |
+| `domain_id` | uuid | yes |  | `domains` |
+| `relation` | text | yes |  |  |
+| `entity_institutional_id` | text | yes |  | `entity_registry` |
+| `valid_from` | timestamp with time zone | yes | now() |  |
+| `valid_to` | timestamp with time zone | no |  |  |
+| `set_by` | uuid | no | current_staff_id() | `staff` |
+| `reason` | text | no |  |  |
+| `ended_by` | uuid | no |  | `staff` |
+| `end_reason` | text | no |  |  |
+
+## `domain_reviews`
+
+**Purpose:** two records for the same domain name where one is hidden from whoever created the other (so the creator was told nothing). Only matching.review holders see it. [class: restricted]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | uuid | yes | gen_random_uuid() |  |
+| `left_domain_id` | uuid | yes |  | `domains` |
+| `right_domain_id` | uuid | yes |  | `domains` |
+| `reason` | text | yes |  |  |
+| `status` | text | yes | 'open'::text |  |
+| `created_at` | timestamp with time zone | yes | now() |  |
+| `resolved_by` | uuid | no |  | `staff` |
+| `resolved_at` | timestamp with time zone | no |  |  |
+| `resolution_note` | text | no |  |  |
+
+## `domain_transfers`
+
+**Purpose:** controlled transfers of a domain - to another registrar, to another owner (organization, optionally client), or out of ADA's management. Requested (target must be visible to the requester), approved by a different person (approval engine), completed or cancelled with a note. Forward-only and never deleted; the domain is transfer_pending while one is open. Transfer authorisation codes are never stored. [class: inherits the domain]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | uuid | yes | gen_random_uuid() |  |
+| `domain_id` | uuid | yes |  | `domains` |
+| `kind` | text | yes |  |  |
+| `to_entity_institutional_id` | text | no |  | `entity_registry` |
+| `to_client_institutional_id` | text | no |  | `entity_registry` |
+| `destination_note` | text | no |  |  |
+| `reason` | text | yes |  |  |
+| `state` | text | yes | 'requested'::text |  |
+| `status_before` | domain_status | no |  |  |
+| `requested_by` | uuid | no | current_staff_id() | `staff` |
+| `requested_at` | timestamp with time zone | yes | now() |  |
+| `decided_by` | uuid | no |  | `staff` |
+| `decided_at` | timestamp with time zone | no |  |  |
+| `decision_note` | text | no |  |  |
+| `closed_by` | uuid | no |  | `staff` |
+| `closed_at` | timestamp with time zone | no |  |  |
+| `closing_note` | text | no |  |  |
+
+## `domains`
+
+**Purpose:** the authoritative record of a domain name under ADA management: name, purpose, owning division, lifecycle status, expiry, classification. Who owns / uses it is a reference in domain_relations; its registration and renewal history is domain_registrations. Registered through attach_entity (permanent institutional ID; origin division fixed). One record per name for ever: a dropped name that is taken again is the same record. [class: internal; inherits the strictest classification of its current relations]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | uuid | yes | gen_random_uuid() |  |
+| `name` | text | yes |  |  |
+| `purpose` | text | yes | 'website'::text |  |
+| `description` | text | no |  |  |
+| `division_id` | uuid | yes |  | `divisions` |
+| `status` | domain_status | yes | 'requested'::domain_status |  |
+| `expires_on` | date | no |  |  |
+| `classification` | data_classification | yes | 'internal'::data_classification |  |
+| `effective_classification` | data_classification | yes | 'internal'::data_classification |  |
+| `client_deleted` | boolean | yes | false |  |
+| `created_by` | uuid | no |  | `staff` |
+| `created_at` | timestamp with time zone | yes | now() |  |
+| `updated_at` | timestamp with time zone | yes | now() |  |
+| `retired_at` | timestamp with time zone | no |  |  |
+
 ## `enquiries`
 
 **Purpose:** one inbound enquiry with its full source tracking (website, page, referrer, campaign). Resolved to central person/client/lead records; the central records, not this row, are the source of truth. [class: confidential]

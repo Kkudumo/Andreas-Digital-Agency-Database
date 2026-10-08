@@ -59,6 +59,7 @@ for i in $(seq 1 $N_PROC); do
                    insert into assets (name, category_id, division_id) select 'm$i-' || g, (select id from asset_categories where key = 'other'), (select id from divisions where key = 'tech') from generate_series(1, $N_ROWS) g;
                    insert into people (full_name, email) select 'Person $i ' || g, 'p${i}_' || g || '@conc.test' from generate_series(1, $N_ROWS) g;
                    insert into tickets (title, division_id) select 'm$i-' || g, (select id from divisions where key = 'web') from generate_series(1, $N_ROWS) g;
+                   insert into domains (name, division_id) select 'm$i-' || g || '.example', (select id from divisions where key = 'web') from generate_series(1, $N_ROWS) g;
                    insert into documents (title, document_type_id, division_id, retention_class_id, retention_months) select 'm$i-' || g, (select id from document_types where key = 'report'), (select id from divisions where key = 'web'), (select id from retention_classes where key = 'general_5y'), 60 from generate_series(1, $N_ROWS) g;" >/dev/null &
 done
 wait
@@ -123,7 +124,7 @@ echo "== upgrade_0038"
 UDB="${DB}_up"; UURL="$BASE/$UDB"
 psql_ "$ADMIN_URL" -c "create database $UDB"
 psql_ "$UURL" -f supabase/tests/00_supabase_shim.sql >/dev/null
-for f in supabase/migrations/*.sql; do case "$f" in *0038_*) continue;; esac; psql_ "$UURL" -f "$f" >/dev/null; done
+for f in supabase/migrations/*.sql; do case "$f" in *0038_*|*0039_*) continue;; esac; psql_ "$UURL" -f "$f" >/dev/null; done
 psql_ "$UURL" -f supabase/tests/concurrency/org_legacy_seed.sql >/dev/null
 before=$(psql_ "$UURL" -At -c "select string_agg(id::text || ada_id, ',' order by id) from (select id, ada_id from clients union all select id, ada_id from suppliers) x")
 audit_before=$(psql_ "$UURL" -At -c "select count(*) from audit_log")
@@ -134,6 +135,25 @@ if [ "$before" = "$after" ] && [ "$res" = "9,0,0,3,0,3,9,13,1" ] && [ "$(psql_ "
   echo "  existing clients and suppliers upgraded: 9 organizations (3 shared by client + supplier), 3 ambiguous pairs queued for review, all role IDs and ADA aliases unchanged, audit history kept, no drift"
 else echo "  FAIL upgrade_0038: ids-same=$([ "$before" = "$after" ] && echo yes || echo no) got $res expected 9,0,0,3,0,3,9,13,1"; status=1; fi
 psql_ "$ADMIN_URL" -c "drop database if exists $UDB" >/dev/null 2>&1 || true
+
+# Concurrency: domains. Eight sessions create the SAME domain name at once (one record, one registry entry); eight renewals with DIFFERENT order references
+# extend the ledger without gaps or overlaps; eight renewals with the SAME reference add exactly one period; eight transfer requests open exactly one transfer.
+echo "== concurrent_domains"
+psql_ "$URL" -f supabase/tests/concurrency/domains_setup.sql >/dev/null
+DIVW=$(psql_ "$URL" -At -c "select id from divisions where key = 'web'")
+D1=$(psql_ "$URL" -At -c "select id from domains where name = 'race-distinct.example'")
+D2=$(psql_ "$URL" -At -c "select id from domains where name = 'race-same.example'")
+D3=$(psql_ "$URL" -At -c "select id from domains where name = 'race-transfer.example'")
+AS="select set_config('request.jwt.claim.sub', md5('conc-dom-user'), false); set role authenticated;"
+for i in $(seq 1 $N_PROC); do
+  ( psql -X -q "$URL" -c "$AS select domain_create('race-create.example', '$DIVW')" >/dev/null 2>&1 ) &
+  ( psql -X -q "$URL" -c "$AS select domain_renew('$D1', 1, 'DR-$i')" >/dev/null 2>&1 ) &
+  ( psql -X -q "$URL" -c "$AS select domain_renew('$D2', 1, 'SAME-REF')" >/dev/null 2>&1 ) &
+  ( psql -X -q "$URL" -c "$AS select domain_transfer_request('$D3', 'out', null, null, 'race', 'race')" >/dev/null 2>&1 ) &
+done
+wait
+res=$(psql_ "$URL" -At -c "select (select count(*) from domains where name = 'race-create.example') || ',' || (select count(*) from entity_registry r join domains d on d.id = r.entity_id and r.table_name = 'domains' where d.name = 'race-create.example') || ',' || (select count(*) from domain_registrations where domain_id = '$D1') || ',' || (select count(*) from (select period_start, lag(period_end) over (order by period_start) p from domain_registrations where domain_id = '$D1') x where p is not null and period_start <> p) || ',' || (select expires_on = (current_date + 300 + interval '8 years')::date from domains where id = '$D1') || ',' || (select count(*) from domain_registrations where domain_id = '$D2') || ',' || (select count(*) from domain_transfers where domain_id = '$D3') || ',' || (select status from domains where id = '$D3') || ',' || (select count(*) from domain_ledger_drift())")
+if [ "$res" = "1,1,9,0,true,2,1,transfer_pending,0" ]; then echo "  8 racing creations of one name: one record; 8 distinct renewals: gap-free 9-period ledger; 8 same-reference renewals: exactly one period added; 8 racing transfer requests: exactly one open transfer; no ledger drift"; else echo "  FAIL concurrent domains: got $res expected 1,1,9,0,true,2,1,transfer_pending,0"; status=1; fi
 
 [ "$status" -eq 0 ] && echo "ALL TESTS PASSED" || echo "TESTS FAILED"
 exit $status

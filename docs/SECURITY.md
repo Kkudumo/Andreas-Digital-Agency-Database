@@ -63,7 +63,11 @@ Records layer with its own full note in [workflows/DOCUMENTS.md](workflows/DOCUM
 ## Tickets
 Same model (see Assets): inherited classification, identical errors for hidden and missing tickets, internal notes limited to people working the ticket, no notifications for restricted tickets, tickets never publishable.
 
+## Domains
+See [workflows/DOMAINS.md](workflows/DOMAINS.md). Classification inherited from related client/project/registrant; hidden domains invisible everywhere (lookup, search, registry, 360, audit log) with identical errors; name uniqueness exempts hidden names; ledger and transfers append-only; guarded columns change only through the system paths for every caller; never publishable.
+
 ## Lessons encoded as tests
+- BEFORE ROW triggers run before RLS WITH CHECK: any error they raise that depends on hidden data discloses it. Put such validation in AFTER triggers (found in Domains: relation/transfer inserts).
 - Postgres `AFTER UPDATE OF col` triggers do not fire when a BEFORE trigger (not the statement) changes `col`: event/queue triggers fire on any update.
 - `pg_dump` records grants relative to the target's default privileges: restores neutralise permissive defaults and verify a security fingerprint.
 - Row-security helpers called by policies are executable by every signed-in user, so each must only describe the caller's own access (an allow-list test reviews every executable function).

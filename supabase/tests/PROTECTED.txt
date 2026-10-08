@@ -323,3 +323,44 @@ Client 360 carries the organization
 even if a mirror were tampered with
 organizations are never deleted
 organization access predicates never return NULL
+domains have no ID input and no generator of their own, and are never public
+the same name (any spelling) is the same record
+a failed registration leaves no registry row and no counter gap
+the name, creator and creation time are permanent, and a domain is never deleted
+a registration cannot be recorded until a registrar (a supplier) is named
+the expiry is a mirror of the ledger
+a domain cannot be made active (or expired) by a plain update
+repeating the same order reference is a no-op
+the ledger is contiguous
+a suspended domain can still be renewed
+a retired domain is a closed record
+re-registration is the SAME record
+a lapsed registration is adopted as expired
+the sweep marks past-due active domains expired
+running the sweep again repeats nothing
+relationship types are enforced
+changing the client ends the old relationship
+relationships can be ended explicitly with a reason, never deleted or edited
+which domains did the OLD client have 20 days ago
+websites keep their hostname string untouched
+no renewal, suspension or retirement while a transfer is open
+the requester cannot approve their own transfer
+completing before approval is refused
+a closed transfer is final
+a transfer OUT retires the domain and ends every current relationship
+transfers carry no secrets
+the client becomes restricted: the domain related to it AND the domain related to its project inherit the restriction
+every probe by an uncleared caller is indistinguishable from a random ID: 360, renew, update, suspend
+no error is raised before row security
+lookup by NAME: a hidden name answers exactly like one never registered
+a domain whose REGISTRANT organization is restricted becomes restricted
+a soft-deleted client hides its domains
+the web lead registers the SAME name: it succeeds silently
+un-restricting the hidden record would make two discoverable records of one name
+the audit log is not a back door
+repeated lookups of hidden names raise a flag in security_cases
+every domain has exactly one registry row
+the registry mirrors status, classification and the current division of every domain
+the domain counter equals the number of domain IDs issued
+the ledger and the expiry mirror agree for every domain
+domain access predicates never return NULL
