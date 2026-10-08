@@ -1966,7 +1966,7 @@ _(no description)_
 
 ## `search_index`
 
-**Purpose:** DERIVED lookup labels for fast retrieval, rebuildable at any time from the authoritative records by search_rebuild(). Not authoritative, not the registry. Visible only for entities the caller may read. [class: internal]
+**Purpose:** DERIVED retrieval structure - one row per searchable entity: its label and metadata terms (from search_sources), a hash of them, and the tsvector / trigram structures built from them. Linked to the registry by institutional ID; rebuildable at any time from the authoritative records by search_rebuild(); checked by search_drift(). Not authoritative, not the registry, holds no content. Visible only for entities the caller may read. [class: internal]
 
 | Column | Type | Required | Default | References |
 |---|---|---|---|---|
@@ -1976,6 +1976,32 @@ _(no description)_
 | `entity_id` | uuid | yes |  |  |
 | `label` | text | yes |  |  |
 | `refreshed_at` | timestamp with time zone | yes | now() |  |
+| `terms` | text | yes | ''::text |  |
+| `source_hash` | text | yes | ''::text |  |
+| `label_norm` | text | no | search_norm(label) |  |
+| `tsv` | tsvector | no | to_tsvector('simple'::regconfig, search_norm(((label \|\| ' '::text) \|\| terms))) |  |
+
+## `search_refresh_queue`
+
+**Purpose:** entities whose index row was found stale (or whose refresh failed) and awaits search_process_queue(). Derived bookkeeping; no API access. [class: internal]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `institutional_id` | text | yes |  |  |
+| `reason` | text | yes | 'stale'::text |  |
+| `queued_at` | timestamp with time zone | yes | now() |  |
+
+## `search_sources`
+
+**Purpose:** which metadata of each entity type is searchable. label_expr and attribute_exprs are SQL expressions over the authoritative table (alias x) and may use only its own columns that every viewer of the row can read. The check forbids content-like names; a permanent test proves API users can read every configured column. Owner-maintained configuration; no API access. [class: internal]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `entity_type` | text | yes |  | `entity_types` |
+| `label_expr` | text | yes |  |  |
+| `attribute_exprs` | text[] | yes | '{}'::text[] |  |
+| `is_active` | boolean | yes | true |  |
+| `note` | text | no |  |  |
 
 ## `security_case_events`
 

@@ -69,7 +69,11 @@ See [workflows/DOMAINS.md](workflows/DOMAINS.md). Classification inherited from 
 ## Communications
 See [workflows/COMMUNICATIONS.md](workflows/COMMUNICATIONS.md). **Metadata is not content**: `communications.view` discovers a thread; subject, participants, bodies, hashes and notes need `communications.read` and leave the database only through `communication_read` (column privileges withhold them from table readers; every read is logged). Attachments are Documents and need both rights. Threads inherit the strictest classification of links, participants and attached documents; hidden and critical threads answer like missing ones everywhere (errors, counts, lookups, registry, audit log, security records). Messages are append-only for every caller including the database owner; the audit log stores redacted content so a disposal is real. Participation is content (no participant enumeration by metadata readers). No public API.
 
+## Search
+See [workflows/SEARCH.md](workflows/SEARCH.md). A retrieval layer over the registry, never a source of truth: derived index, invoker functions, the caller's own row security before anything is matched, ranked, counted, faceted or suggested; each candidate re-verified against its authoritative record; no content is indexed; no staff identity, no result; query text never stored; no public search.
+
 ## Lessons encoded as tests
+- Row-level security on an index table is applied BEFORE the query's own conditions: do not truncate or rank in a definer function and filter afterwards (that makes results depend on hidden rows). Keep the search invoker-side so the policy filters first, and verify freshness against the record with the caller's rights.
 - Content columns need column-level privileges AND every invoker-side function that reads such a table must name its columns: `select *` fails for the caller. Hashes of short bodies are guessing oracles and are content too.
 - A permanent audit log must store content REDACTED (`attach_audit(table, redact_columns)`), otherwise a disposal cannot remove it.
 - BEFORE ROW triggers run before RLS WITH CHECK: any error they raise that depends on hidden data discloses it. Put such validation in AFTER triggers (found in Domains: relation/transfer inserts).

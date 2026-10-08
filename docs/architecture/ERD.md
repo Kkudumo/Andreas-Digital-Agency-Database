@@ -142,6 +142,7 @@ erDiagram
   entity_registry ||--o{ search_index : "institutional_id"
   entity_types ||--o{ entity_registry : "entity_type"
   entity_types ||--o{ id_sequences : "prefix"
+  entity_types ||--o{ search_sources : "entity_type"
   event_subscriptions ||--o{ event_deliveries : "subscription_id"
   events ||--o{ event_deliveries : "event_id"
   id_codebook_versions ||--o{ id_codebook : "version"

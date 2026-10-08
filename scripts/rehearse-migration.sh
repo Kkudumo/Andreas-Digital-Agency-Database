@@ -117,6 +117,18 @@ if psql_ "$DST_URL" -c "delete from document_events" >/dev/null 2>&1; then fail 
 ok "signed-version immutability, content permanence and append-only history still enforced after restore"
 echo "  (the same document checks run against the restored database's behaviour below)"
 
+echo "== search survives the restore: a derived index that matches, is verifiable against the records, and can be rebuilt from them"
+[ "$(psql_ "$SRC_URL" -Atc "select search_backup_manifest()::text")" = "$(psql_ "$DST_URL" -Atc "select search_backup_manifest()::text")" ] || fail "search index manifest differs after restore: $(psql_ "$SRC_URL" -Atc "select search_backup_manifest()::text") vs $(psql_ "$DST_URL" -Atc "select search_backup_manifest()::text")"
+ok "search index identical after restore ($(psql_ "$DST_URL" -Atc "select count(*) from search_index") rows)"
+[ "$(psql_ "$DST_URL" -Atc "select count(*) from search_drift()")" = "0" ] || fail "restored search index drifts from the authoritative records"
+ok "no drift between the restored index and the authoritative records"
+psql_ "$DST_URL" -Atc "delete from search_index" >/dev/null
+[ "$(psql_ "$DST_URL" -Atc "select count(*) from search_drift()")" -gt 0 ] || fail "an emptied index was not reported by the drift check"
+psql_ "$DST_URL" -Atc "select search_rebuild()" >/dev/null
+[ "$(psql_ "$SRC_URL" -Atc "select search_backup_manifest() ->> 'index_md5'")" = "$(psql_ "$DST_URL" -Atc "select search_backup_manifest() ->> 'index_md5'")" ] || fail "a rebuild from the restored records does not reproduce the original index"
+[ "$(psql_ "$DST_URL" -Atc "select count(*) from search_drift()")" = "0" ] || fail "drift after the rebuild"
+ok "the index was emptied and rebuilt from the restored authoritative data: byte-for-byte the same index, zero drift"
+
 echo "== organizations survive the restore: one identity, many roles, stable role IDs, mirrors, review queue"
 [ "$(psql_ "$SRC_URL" -Atc "select organization_backup_manifest()::text")" = "$(psql_ "$DST_URL" -Atc "select organization_backup_manifest()::text")" ] || fail "organization backup manifest differs (organizations / role links / reviews / registry)"
 ok "organization manifest identical (organizations, role links, review queue, zero mirror drift)"
@@ -178,6 +190,14 @@ SQL
 )
 [ "$c1" = "3|4|Rehearsal enquiry body|null|null|3|ERR:42501" ] || fail "restored communication behaviour wrong: $c1 (expected: lead sees 3, CEO 4, body readable by the lead, disposed and metadata-only reads null, numbering continues at 3, the held thread is not yet archived)"
 ok "after restore: the restricted thread stays hidden from the lead, content is readable only by those who may read it, numbering continues, disposed content stays gone"
+sr=$(psql_ "$DST_URL" -At <<'SQL'
+select tests.scalar('web_lead', $q$ select ((search('Rehearsal legal file')->'results')::text ~* 'legal file')::text || ((search('Rehearsal critical file')->'results')::text ~* 'critical file')::text || ((search('hidden-rehearsal.example')->'results')::text ~* 'hidden-rehearsal')::text || (search('Rehearsal restricted thread')->>'total') $q$) || '|' ||
+       tests.scalar('ceo', $q$ select ((search('Rehearsal legal file')->'results')::text ~* 'legal file')::text || ((search('Rehearsal critical file')->'results')::text ~* 'critical file')::text || ((search('hidden-rehearsal.example')->'results')::text ~* 'hidden-rehearsal')::text || (search('Rehearsal restricted thread')->>'total') $q$) || '|' ||
+       tests.scalar('web_lead', $q$ select search_suggest('hidden-reh')::text $q$) || '|' || tests.scalar('ceo', $q$ select jsonb_array_length(search_suggest('rehearsal ag'))::text $q$);
+SQL
+)
+[ "$sr" = "falsefalsefalse0|truetruetrue0|[]|1" ] || fail "restored search behaviour wrong: $sr (expected the lead to find none of the hidden records, the CEO all three, no subject searchable, no suggestion of a hidden name, one suggestion for the CEO)"
+ok "after restore: search finds only what each person may see (hidden documents, domains and threads stay hidden; subjects are not searchable); suggestions follow the same rule"
 c=$(psql_ "$DST_URL" -Atc "select tests.scalar('web_lead', 'select count(*)::text from clients')")
 [ "$c" = "1" ] || fail "web lead sees $c clients on the restored DB (expected 1: their own division's client, not the new organization-level one)"
 ok "row-level security still isolates divisions on the restored database"

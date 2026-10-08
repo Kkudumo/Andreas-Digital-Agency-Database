@@ -7,7 +7,7 @@
 |---|---|---|
 | Authoritative record | the actual business data | the domain table (`assets`, `clients`, `students`, …) |
 | Entity Registry | what is this, where does it belong, where is its authoritative record | `entity_registry` |
-| Search index | fast retrieval, rebuildable | `search_index` (derived) |
+| Search index | fast retrieval, rebuildable, verified against the records | `search_index` (derived; see [SEARCH](../workflows/SEARCH.md)) |
 | Codebook | the formal meaning of every code in an ID | `id_codebook` (versioned) |
 | ID service | the one generator of permanent IDs | `ada_mint_id()` |
 | Security | denied/unresolved lookups, escalation | `security_events`, `security_cases`, `security_policies` |

@@ -286,7 +286,7 @@ what is published is fixed
 a newer version does not change what is public
 re-classifying the document withdraws the projection automatically
 archiving the document withdraws it too
-the index holds labels only
+the index holds only labels and metadata terms
 the index is rebuildable
 repeated denied access to documents raises a flag in the SAME security case model
 there is no separate documents security mechanism
@@ -423,3 +423,61 @@ a hidden target is refused like an unknown one
 the disposal-blocker and hold helpers say nothing about a thread the caller cannot see
 a removed link no longer counts
 asking for both entities
+the configuration has no content-like attribute
+API users cannot change the configuration, the index or the queue
+every configured expression is readable by API users
+the index is derived: every row points at a real registry entry
+a new client is searchable at once
+a rename moves the index with it
+communication threads are indexed by a fixed label and status only
+an institutional ID is an exact lookup through the registry
+all words must match (as prefixes)
+the same query gives the same answer every time (deterministic, no AI)
+an empty or blank query returns nothing, not everything
+the request contract is strict
+no function of the module references anything but the database
+what is related to a client
+an unknown anchor answers exactly like a hidden one
+today the client no longer has the brief; a month ago it did
+communications likewise: related today = none
+tamper below the triggers
+a change that bypassed the triggers
+the whole index can be thrown away
+the rebuilt index equals the one before
+a stale index row is never suggested
+suggestions do not complete institutional IDs
+results, totals, ranking and facets for an uncleared caller are IDENTICAL
+suggestions are identical with and without hidden records
+even the size of the index as the caller can count it is unchanged
+an exact ID of a hidden record answers exactly like an ID that does not exist
+relationships of a hidden anchor answer exactly like those of an anchor that does not exist
+hiding does not depend on staleness
+text searches are NOT logged anywhere
+no table anywhere stores search queries
+suggestions for an uncleared caller never complete a hidden label
+another division cannot find the Web records
+the recruiter, a signed-in user who is not staff, and a suspended account
+the anonymous role can neither search, suggest nor read the tables
+API users cannot call the maintenance functions or write the index
+asking for a refresh is harmless and tells the asker nothing
+an index row of a hidden record tampered with below the commands
+the service role has no staff identity
+communication subjects and bodies are not searchable
+there is no public search
+a hand-set setting narrows
+search resets its settings when it finishes
+null, empty, odd and hostile input never errors
+an ordinary word that happens to look like an identifier
+an exact label match outranks a longer label that repeats the words
+near spellings are offered only when nothing matches exactly
+a search likewise answers with exact matches only when there are any
+a type filter on suggestions is honoured
+a domain moved from one client to another is related to the first client as of before the move
+entities that did not yet exist are not related to anything as of a past date
+a communication that carried a document and later dropped it
+a thread that existed earlier but whose participant was recorded only now
+a source switched off stops being indexed
+a rebuild corrects a row whose label is right but whose terms are wrong
+a hard delete of a record removes its index row
+a refresh request from someone who is not staff is ignored
+the live-field helper (granted to API users) answers nothing for a record the caller cannot see

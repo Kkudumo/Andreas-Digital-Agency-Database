@@ -440,6 +440,9 @@ begin
   update document_versions set uploaded_at = uploaded_at - p_by where document_id = v_doc;
   update document_links set linked_at = linked_at - p_by where document_id = v_doc;
   update documents set created_at = created_at - p_by where id = v_doc;
+  alter table entity_registry disable trigger entity_registry_guard_trg;
+  update entity_registry set created_at = created_at - p_by where table_name = 'documents' and entity_id = v_doc;
+  alter table entity_registry enable trigger entity_registry_guard_trg;
   alter table document_events enable trigger document_events_immutable;
   alter table document_versions enable trigger document_versions_guard_trg;
   alter table document_links enable trigger document_links_guard_trg;
@@ -516,6 +519,9 @@ begin
   update communication_links set linked_at = linked_at - p_by, removed_at = removed_at - p_by where thread_id = v;
   update communication_attachments set attached_at = attached_at - p_by, removed_at = removed_at - p_by where thread_id = v;
   update communication_threads set created_at = created_at - p_by, retention_start = retention_start - (extract(day from p_by))::integer where id = v;
+  alter table entity_registry disable trigger entity_registry_guard_trg;
+  update entity_registry set created_at = created_at - p_by where table_name = 'communication_threads' and entity_id = v;
+  alter table entity_registry enable trigger entity_registry_guard_trg;
   alter table communication_events enable trigger communication_events_immutable;
   alter table communication_messages enable trigger communication_messages_guard_trg;
   alter table communication_links enable trigger communication_links_guard_trg;
@@ -572,3 +578,5 @@ begin
     return sqlstate || ': ' || sqlerrm;
   end;
 end $$;
+-- The registry ID of a remembered record by authoritative table
+create function tests.inst_of(p_table text, p_key text) returns text language sql stable as $$ select institutional_id from entity_registry where table_name = p_table and entity_id = tests.id(p_key) $$;

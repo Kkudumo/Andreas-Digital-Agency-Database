@@ -145,7 +145,7 @@ select tests.check('no table has its own ID generator: the only function that mi
   (select coalesce(string_agg(proname, ','), 'none') from pg_proc where pronamespace = 'public'::regnamespace and prosrc ~* 'id_counters|id_sequences' and proname not in ('ada_mint_id', 'next_ada_id')), 'none');
 
 -- Search index: derived, rebuildable, visibility-bound ---------------------------------------------------------------------------------------------
-select tests.check('the search index starts empty and is built by the rebuild service from the authoritative records', (select count(*)::text from search_index), '0');
+select tests.check('the search index is maintained incrementally from the authoritative records (and can be rebuilt from them)', (select (count(*) > 5)::text from search_index), 'true');
 select tests.check('users cannot rebuild it', tests.scalar('ceo', 'select search_rebuild()::text'), 'ERR:42501');
 select search_rebuild() as rebuilt \gset
 select tests.check('the rebuild indexes labelled entities', (select (:rebuilt > 5)::text), 'true');
