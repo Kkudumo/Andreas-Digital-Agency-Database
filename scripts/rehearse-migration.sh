@@ -18,6 +18,21 @@ psql_ "$SRC_URL" -f supabase/tests/00_supabase_shim.sql >/dev/null
 for f in supabase/migrations/*.sql; do psql_ "$SRC_URL" -f "$f" >/dev/null; done
 psql_ "$SRC_URL" -f supabase/tests/01_helpers.sql >/dev/null
 psql_ "$SRC_URL" -c "select tests.setup(); select tests.setup_hr();" >/dev/null     # committed demo data
+# committed demo documents: a contract with a signed version and a draft amendment (plus a link and a legal hold), a restricted file and a critical file
+psql_ "$SRC_URL" >/dev/null <<'SQL'
+select tests.mk_doc('web_lead', 'rd1', 'Rehearsal agreement', 'contract', 'web', 'project:P_web');
+select tests.add_ver('web_lead', 'rd1', 'rd1v1', 'rehearsal agreement v1');
+select tests.scalar('web_lead', format($q$ select document_version_transition(%L, 'review')::text $q$, tests.id('ver:rd1v1')));
+select tests.scalar('ceo', format($q$ select document_version_transition(%L, 'approved')::text $q$, tests.id('ver:rd1v1')));
+select tests.scalar('ceo', format($q$ select document_version_transition(%L, 'signed', 'Signed by the client', current_date - 3)::text $q$, tests.id('ver:rd1v1')));
+select tests.add_ver('web_lead', 'rd1', 'rd1v2', 'rehearsal agreement amendment', 'Amendment 1');
+select tests.scalar('ceo', format($q$ select document_hold_place(%L, 'rehearsal hold')::text $q$, tests.id('doc:rd1')));
+select tests.mk_doc('ceo', 'rd2', 'Rehearsal legal file', 'legal', 'web');
+select tests.add_ver('ceo', 'rd2', 'rd2v1', 'rehearsal legal content');
+select tests.mk_doc('ceo', 'rd3', 'Rehearsal critical file', 'report', 'web', null, null, true);
+select tests.add_ver('ceo', 'rd3', 'rd3v1', 'rehearsal critical content');
+SQL
+[ "$(psql_ "$SRC_URL" -Atc "select count(*) from documents")" = "3" ] || fail "demo documents were not created in the source"
 PGPASSWORD="${PGPASSWORD:-}" ADA_BACKUP_DIR="$WORK" DATABASE_URL="$SRC_URL" scripts/backup.sh >/dev/null
 DUMP=$(ls "$WORK"/*.dump); ok "backup created and checksummed ($(du -h "$DUMP" | cut -f1))"
 
@@ -44,6 +59,17 @@ fn="select md5(string_agg(p.oid::regprocedure::text || md5(p.prosrc), '|' order 
 tg="select count(*) from pg_trigger t where not t.tgisinternal and t.tgrelid::regclass::text in (select 'public.' || tablename from pg_tables where schemaname = 'public') or (not t.tgisinternal and t.tgrelid::regclass::text in (select tablename from pg_tables where schemaname = 'public'))"
 [ "$(psql_ "$SRC_URL" -Atc "$tg")" = "$(psql_ "$DST_URL" -Atc "$tg")" ] || fail "trigger counts differ"; ok "all triggers present"
 
+echo "== documents survive the restore: records, versions, content references, links, classification, history, immutability"
+[ "$(psql_ "$SRC_URL" -Atc "select document_backup_manifest()::text")" = "$(psql_ "$DST_URL" -Atc "select document_backup_manifest()::text")" ] || fail "document backup manifest differs (records / versions / references / links / classification / history / registry)"
+ok "document manifest identical (3 documents, versions, content references and hashes, links, classification, history, registry entries)"
+[ "$(psql_ "$DST_URL" -Atc "select count(*) from documents d join entity_registry r on r.table_name = 'documents' and r.entity_id = d.id")" = "3" ] || fail "restored documents lost their registry entries"
+ok "every restored document still has its permanent institutional ID in the registry"
+if psql_ "$DST_URL" -c "update document_versions set label = 'tampered' where state = 'signed'" >/dev/null 2>&1; then fail "a signed version could be edited after restore"; fi
+if psql_ "$DST_URL" -c "update document_versions set content_hash = repeat('0', 64) where version_no = 1" >/dev/null 2>&1; then fail "version content was editable after restore"; fi
+if psql_ "$DST_URL" -c "delete from document_events" >/dev/null 2>&1; then fail "document history could be deleted after restore"; fi
+ok "signed-version immutability, content permanence and append-only history still enforced after restore"
+echo "  (the same document checks run against the restored database's behaviour below)"
+
 echo "== verify the restored system behaves"
 before=$(psql_ "$SRC_URL" -Atc "select max(substring(ada_id from '[0-9]+\$')::int) from clients")
 psql_ "$DST_URL" -c "insert into clients (name) values ('Post-restore client')" >/dev/null
@@ -55,5 +81,15 @@ psql_ "$DST_URL" -f supabase/tests/01_helpers.sql >/dev/null
 c=$(psql_ "$DST_URL" -Atc "select tests.scalar('web_lead', 'select count(*)::text from clients')")
 [ "$c" = "1" ] || fail "web lead sees $c clients on the restored DB (expected 1: their own division's client, not the new organization-level one)"
 ok "row-level security still isolates divisions on the restored database"
+d1=$(psql_ "$DST_URL" -Atc "select tests.scalar('web_lead', 'select count(*)::text from documents') || '/' || tests.scalar('ceo', 'select count(*)::text from documents')")
+[ "$d1" = "1/3" ] || fail "restored document visibility wrong (web lead / ceo): $d1 (expected 1/3: the lead sees only the agreement; the CEO sees the restricted and the critical file too)"
+ok "restored document access is unchanged: the web lead sees only the agreement; restricted and critical files are hidden from them"
+d2=$(psql_ "$DST_URL" -At <<'SQL'
+select tests.scalar('ceo', $q$ select (document_register('Post-restore document', 'report', (select id from divisions where key = 'web')) ->> 'institutional_id') $q$);
+SQL
+)
+echo "$d2" | grep -Eq '^[0-9A-HJKMNP-TV-Z]{9}$' || fail "registering a document after restore failed: $d2"
+[ "$(psql_ "$DST_URL" -Atc "select count(*) from entity_registry where institutional_id = '$d2'")" = "1" ] && [ "$(psql_ "$SRC_URL" -Atc "select count(*) from entity_registry where institutional_id = '$d2'")" = "0" ] || fail "post-restore document ID collides with an existing one"
+ok "document IDs keep being minted centrally after restore (new ID $d2, never reused)"
 psql_ "$DST_URL" -f supabase/tests/30_structure.sql 2>&1 >/dev/null | grep -E "checks" | sed 's/^psql:[^:]*:[0-9]*: NOTICE:  /  structure suite on restored DB: /'
 echo "MIGRATION REHEARSAL PASSED"

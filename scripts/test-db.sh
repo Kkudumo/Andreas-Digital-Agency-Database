@@ -58,7 +58,8 @@ for i in $(seq 1 $N_PROC); do
   psql_ "$URL" -c "insert into clients (name) select 'm$i-' || g from generate_series(1, $N_ROWS) g;
                    insert into assets (name, category_id, division_id) select 'm$i-' || g, (select id from asset_categories where key = 'other'), (select id from divisions where key = 'tech') from generate_series(1, $N_ROWS) g;
                    insert into people (full_name, email) select 'Person $i ' || g, 'p${i}_' || g || '@conc.test' from generate_series(1, $N_ROWS) g;
-                   insert into tickets (title, division_id) select 'm$i-' || g, (select id from divisions where key = 'web') from generate_series(1, $N_ROWS) g;" >/dev/null &
+                   insert into tickets (title, division_id) select 'm$i-' || g, (select id from divisions where key = 'web') from generate_series(1, $N_ROWS) g;
+                   insert into documents (title, document_type_id, division_id, retention_class_id, retention_months) select 'm$i-' || g, (select id from document_types where key = 'report'), (select id from divisions where key = 'web'), (select id from retention_classes where key = 'general_5y'), 60 from generate_series(1, $N_ROWS) g;" >/dev/null &
 done
 wait
 res=$(psql_ "$URL" -Atc "select count(*) || ',' || count(distinct institutional_id) || ',' || count(*) filter (where institutional_id !~ '^[0-9A-HJKMNP-TV-Z]{9}\$' or not ada_id_valid(institutional_id)) || ',' || (select count(*) from id_counters c where c.last_value <> (select count(*) from entity_registry r where substr(r.institutional_id, 1, 3) = c.type_code || c.cycle_code)) || ',' || (select count(*) from entity_registry where ada_id is not null and table_name in ('clients','assets','people','tickets') and (select count(*) from entity_registry x where x.ada_id = entity_registry.ada_id) > 1) from entity_registry")
@@ -87,6 +88,19 @@ wait
 res=$(psql_ "$URL" -At -c "select coalesce((select sum(amount) from payment_allocations where payment_id = '$SMALL' and status = 'active'), 0) || ',' || (select count(*) from payment_allocations where payment_id = '$SMALL') || ',' || coalesce((select sum(amount) from payment_allocations where invoice_id = '${INVS[8]}' and status = 'active'), 0)")
 rm -rf "$OKDIR" /tmp/conc_inv_$$.txt
 if [ "$res" = "1000.00,1,1000.00" ]; then echo "  22 racing allocations: the contested payment was spent exactly once and the invoice was never over-paid"; else echo "  FAIL concurrent allocations: got $res expected 1000.00,1,1000.00"; status=1; fi
+
+# Concurrency: versions of ONE document, added by eight sessions at once through the real command, stay consecutive and unique.
+echo "== concurrent_document_versions"
+psql_ "$URL" -f supabase/tests/concurrency/documents_setup.sql >/dev/null
+DOC=$(psql_ "$URL" -At -c "select id from documents where title = 'Concurrent versions'")
+for i in $(seq 1 $N_PROC); do
+  ( for k in 1 2 3 4 5; do
+      psql -X -q -v ON_ERROR_STOP=1 "$URL" -c "select set_config('request.jwt.claim.sub', md5('conc-doc-user'), false); set role authenticated; select document_add_version('$DOC', 'memstore', 'c/$i/$k', encode(sha256(convert_to('c$i-$k', 'UTF8')), 'hex'), 10, 'application/pdf')" >/dev/null 2>&1
+    done ) &
+done
+wait
+res=$(psql_ "$URL" -At -c "select count(*) || ',' || count(distinct version_no) || ',' || max(version_no) || ',' || min(version_no) from document_versions where document_id = '$DOC'")
+if [ "$res" = "40,40,40,1" ]; then echo "  40 versions added by 8 racing sessions: numbered 1..40, no duplicates, no gaps"; else echo "  FAIL concurrent document versions: got $res expected 40,40,40,1"; status=1; fi
 
 [ "$status" -eq 0 ] && echo "ALL TESTS PASSED" || echo "TESTS FAILED"
 exit $status

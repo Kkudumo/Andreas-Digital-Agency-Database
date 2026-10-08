@@ -248,3 +248,48 @@ ticket tables carry no public/publication state
 restricting the client restricts its tickets
 once a Web ticket names them as requester
 someone who can see a Web ticket and holds assignment rights only in the TARGET division cannot transfer it
+documents have no ID input, no number column
+identity facts are permanent: nobody changes the ID, the origin or the registry entry
+a division changes only through document_transfer
+metadata viewers cannot read the storage provider or key
+content columns are permanent for every caller
+a signed version is immutable for every caller
+an amendment is a NEW version
+separation of duties: the person who submitted a version cannot approve it
+a tampered file is detected as a mismatch
+opens an investigation case through the existing security model
+a metadata edit is a metadata change
+no entity details are copied into documents or links
+a link to a hidden record behaves exactly like a link to a record that does not exist
+the document inherits the highest classification of what it is linked to
+Project 360 has a Documents section
+a legal hold overrides retention
+no caller, not even the database owner, can dispose a held document
+the requester cannot approve their own request
+nothing was disposed automatically
+history cannot be rewritten
+action matrix (view read download upload edit comment share approve publish archive)
+entity visibility, metadata visibility, content access and modification are different questions
+to the uncleared, every probe of it is indistinguishable from a random ID
+the client becomes restricted: the document linked to its project inherits it
+a critical document is visible to its owner and to documents.view_critical holders
+no leakage anywhere for the auditor
+the audit log and the history show nothing about it to an auditor
+the security records do not reveal that a critical document exists
+a grant does not override classification
+an expired grant grants nothing
+nothing is public by default
+the requester cannot approve their own publication
+an approved projection is still not public
+the projection exposes no institutional ID, storage reference, internal title, uploader, classification, notes, or other versions
+what is published is fixed
+a newer version does not change what is public
+re-classifying the document withdraws the projection automatically
+archiving the document withdraws it too
+the index holds labels only
+the index is rebuildable
+repeated denied access to documents raises a flag in the SAME security case model
+there is no separate documents security mechanism
+document_can never returns NULL
+a document with no owner gives ownership rights to nobody
+the backup manifest accounts for documents, versions, links, history, holds, publications and registry entries

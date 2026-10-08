@@ -196,7 +196,7 @@ begin
   -- registered websites with known API keys (plaintext only exists in tests)
   insert into websites (name, domain, environment, status, capabilities, api_key_hash, api_key_prefix) values
     ('ADA Main Website', 'main.ada.test', 'production', 'active',
-       array['vacancies.read', 'team.read', 'divisions.read', 'statistics.read', 'applications.submit', 'services.read', 'portfolio.read', 'enquiries.submit'], tests.keyhash('testkey-main'), 'testkey-'),
+       array['vacancies.read', 'team.read', 'divisions.read', 'statistics.read', 'applications.submit', 'services.read', 'portfolio.read', 'enquiries.submit', 'documents.read'], tests.keyhash('testkey-main'), 'testkey-'),
     ('Limited Site', 'limited.ada.test', 'production', 'active', array['divisions.read'], tests.keyhash('testkey-limited'), 'testkey-'),
     ('ADA Tech Website', 'tech.ada.test', 'production', 'active', array['divisions.read', 'services.read', 'enquiries.submit'], tests.keyhash('testkey-tech'), 'testkey-'),
     ('Suspended Site', 'suspended.ada.test', 'production', 'suspended', array['vacancies.read', 'divisions.read'], tests.keyhash('testkey-susp'), 'testkey-');
@@ -396,4 +396,52 @@ begin
   if r like 'ERR:%' or r is null then return coalesce(r, 'null'); end if;
   perform tests.remember('asset:' || p_key, r);
   return r;
+end $$;
+
+-- Documents -----------------------------------------------------------------------------------------------------------------------------------------
+create function tests.h(p text) returns text language sql immutable as $$ select encode(sha256(convert_to(p, 'UTF8')), 'hex') $$;
+
+-- Registers a document as p_user, remembers doc:<key>; returns the uuid text or ERR:<state>. Optional links are added by the same user afterwards.
+create function tests.mk_doc(p_user text, p_key text, p_title text, p_type text default 'report', p_div text default 'web', p_link_key text default null,
+                             p_class text default null, p_critical boolean default null) returns text language plpgsql as $$
+declare v text; l text;
+begin
+  v := tests.scalar(p_user, format($q$ select (document_register(%L, %L, %L, p_classification => %s, p_critical => %s)) ->> 'id' $q$, p_title, p_type, tests.id('div:' || p_div),
+                         case when p_class is null then 'null' else quote_literal(p_class) || '::data_classification' end, coalesce(p_critical::text, 'null')));
+  if v like 'ERR:%' then return v; end if;
+  insert into tests.ids values ('doc:' || p_key, v::uuid) on conflict (key) do update set id = excluded.id;
+  if p_link_key is not null then
+    l := tests.scalar(p_user, format($q$ select document_link_add(%L, (select institutional_id from entity_registry where entity_id = %L))::text $q$, v, tests.id(p_link_key)));
+    if l like 'ERR:%' then return l; end if;
+  end if;
+  return v;
+end $$;
+
+-- Adds a version (content = the text, hashed) as p_user; remembers ver:<vkey>; returns the uuid text or ERR:<state>
+create function tests.add_ver(p_user text, p_doc_key text, p_vkey text, p_content text, p_label text default null, p_mime text default 'application/pdf') returns text language plpgsql as $$
+declare v text;
+begin
+  v := tests.scalar(p_user, format($q$ select (document_add_version(%L, 'memstore', %L, %L, %s, %L, %L, %L)) ->> 'version_id' $q$,
+                         tests.id('doc:' || p_doc_key), 'obj/' || p_vkey, tests.h(p_content), length(p_content) + 1, p_mime, p_vkey || '.pdf', p_label));
+  if v like 'ERR:%' then return v; end if;
+  insert into tests.ids values ('ver:' || p_vkey, v::uuid) on conflict (key) do update set id = excluded.id;
+  return v;
+end $$;
+
+-- Test-only: moves a document's whole history back in time (guards that forbid editing history are lifted inside this transaction only)
+create function tests.backdate_doc(p_doc_key text, p_by interval) returns void language plpgsql as $$
+declare v_doc uuid := tests.id(p_doc_key);
+begin
+  alter table document_events disable trigger document_events_immutable;
+  alter table document_versions disable trigger document_versions_guard_trg;
+  alter table document_links disable trigger document_links_guard_trg;
+  alter table documents disable trigger documents_guard_trg;
+  update document_events set occurred_at = occurred_at - p_by where document_id = v_doc;
+  update document_versions set uploaded_at = uploaded_at - p_by where document_id = v_doc;
+  update document_links set linked_at = linked_at - p_by where document_id = v_doc;
+  update documents set created_at = created_at - p_by where id = v_doc;
+  alter table document_events enable trigger document_events_immutable;
+  alter table document_versions enable trigger document_versions_guard_trg;
+  alter table document_links enable trigger document_links_guard_trg;
+  alter table documents enable trigger documents_guard_trg;
 end $$;

@@ -37,7 +37,7 @@ select tests.check('ada_public_api has no privileges on any table',
 select tests.check('ada_public_api can execute only the reviewed entry points',
   (select string_agg(proname, ',' order by proname) from pg_proc
    where pronamespace = 'public_api'::regnamespace and has_function_privilege('ada_public_api', oid, 'execute')),
-  'divisions,portfolio,services,statistics,submit_application,submit_enquiry,team,vacancies,vacancy');
+  'divisions,document,documents,portfolio,services,statistics,submit_application,submit_enquiry,team,vacancies,vacancy');
 select tests.check('ada_public_api cannot execute private helpers in public',
   (select coalesce(string_agg(proname, ','), 'none') from pg_proc
    where pronamespace = 'public'::regnamespace and prorettype <> 'trigger'::regtype
@@ -83,7 +83,13 @@ select tests.check('authenticated can execute only the reviewed functions',
        -- academy identity core
        'can_view_student_row', 'can_view_student', 'programme_create', 'cohort_create', 'student_admit', 'student_enrol', 'student_set_status', 'person_relationships', 'asset_register',
        -- tickets module
-       'can_work_ticket_row', 'can_work_ticket', 'ticket_comment_add', 'ticket_set_priority', 'ticket_transfer')), 'none');
+       'can_work_ticket_row', 'can_work_ticket', 'ticket_comment_add', 'ticket_set_priority', 'ticket_transfer',
+       -- documents module
+       'document_can_row', 'document_can', 'document_on_hold', 'document_note_denied', 'audit_document_visible', 'document_register', 'document_add_version', 'document_version_transition',
+       'document_open', 'document_update', 'document_set_classification', 'document_set_retention', 'document_transfer', 'document_archive', 'document_restore', 'document_link_add',
+       'document_link_remove', 'document_share', 'document_unshare', 'document_comment_add', 'document_hold_place', 'document_hold_release', 'document_record_integrity_check',
+       'document_relocate_content', 'document_request_disposal', 'document_disposal_decide', 'document_publication_request', 'document_publication_decide', 'document_publish',
+       'document_unpublish', 'document_version_as_of', 'documents_of', 'document_family_ids', 'documents_for_entity', 'period_resolve', 'document_360')), 'none');
 -- "Does this information already exist in ADA Core? Then REFERENCE it." Identity/contact columns may live only in
 -- these reviewed places; a new module that adds its own name/email/phone column fails here and must reference
 -- people / clients / staff instead.
@@ -111,7 +117,7 @@ select tests.check('every table that is not a link table has an updated_at trigg
 select tests.check('every business table is audited',
   (select coalesce(string_agg(c.relname, ','), 'none') from pg_class c
    where c.relnamespace = 'public'::regnamespace and c.relkind = 'r'
-     and c.relname not in ('audit_log', 'id_sequences', 'entity_registry', 'entity_types', 'permissions', 'events', 'event_deliveries', 'notifications', 'application_status_history', 'approval_requests', 'approval_decisions', 'contract_status_history', 'asset_history', 'id_settings', 'id_codebook', 'id_counters', 'entity_location_history', 'security_events', 'security_case_events', 'search_index', 'ticket_events')
+     and c.relname not in ('audit_log', 'id_sequences', 'entity_registry', 'entity_types', 'permissions', 'events', 'event_deliveries', 'notifications', 'application_status_history', 'approval_requests', 'approval_decisions', 'contract_status_history', 'asset_history', 'id_settings', 'id_codebook', 'id_counters', 'entity_location_history', 'security_events', 'security_case_events', 'search_index', 'ticket_events', 'document_events')
      and not exists (select 1 from pg_trigger t where t.tgrelid = c.oid and t.tgname = 'zz_audit')), 'none');
 
 -- Permission matrix: CSV (reviewed design document) must equal the database.
