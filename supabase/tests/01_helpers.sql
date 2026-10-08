@@ -292,3 +292,33 @@ declare a text := tests.outcome(p_user, format(p_template, p_a));
 begin
   return case when a = b then 'same' else 'DIFFERENT: [' || a || '] vs [' || b || ']' end;
 end $$;
+
+-- Finance fixture: ONE client (ABC Company, created by Tech, claimed by Web) with contact John, two priced services,
+-- an accepted quote (web N$5,000 x1 + cctv N$1,200 x4 with N$500 discount = N$9,300) and the ACTIVE contract made from it.
+-- Remembers: client:abc contact:john svc:web svc:cctv price:web price:cctv quote:1 contract:1 project:abc
+create function tests.finance_world() returns void language plpgsql as $$
+begin
+  perform tests.remember('client:abc', tests.mkclient_id('tech_lead', 'ABC Company', 'tech'));
+  perform tests.try('web_lead', format('select claim_client_for_division(%L, %L)', tests.id('client:abc'), tests.id('div:web')));
+  perform tests.remember('contact:john', tests.scalar('web_lead', format('select add_client_contact(%L, ''John Director'', ''john@abc.example'', null, ''Director'', true)::text', tests.id('client:abc'))));
+  perform tests.remember('svc:web', tests.scalar('web_lead', $q$ insert into services (division_id, name, summary, description) select id, 'Website Development', 's', 'd' from divisions where key = 'web' returning id::text $q$));
+  perform tests.remember('svc:cctv', tests.scalar('tech_lead', $q$ insert into services (division_id, name, summary, description, billing_unit) select id, 'CCTV Installation', 's', 'd', 'camera' from divisions where key = 'tech' returning id::text $q$));
+  perform tests.remember('price:web', tests.scalar('web_lead', format('select price_propose(%L, 5000, ''NAD'', current_date, ''launch'')::text', tests.id('svc:web'))));
+  perform tests.scalar('ceo', format('select (price_decide(%L, true)).status::text', tests.id('price:web')));
+  perform tests.remember('price:cctv', tests.scalar('tech_lead', format('select price_propose(%L, 1200, ''NAD'', current_date, ''launch'')::text', tests.id('svc:cctv'))));
+  perform tests.scalar('ceo', format('select (price_decide(%L, true)).status::text', tests.id('price:cctv')));
+  perform tests.remember('quote:1', tests.scalar('web_lead', format('select quote_create(%L, %L, ''Website and CCTV for ABC'', %L)::text', tests.id('client:abc'), tests.id('div:web'), tests.id('contact:john'))));
+  perform tests.scalar('web_lead', format('select quote_add_line(%L, %L)::text', tests.id('quote:1'), tests.id('svc:web')));
+  perform tests.scalar('web_lead', format('select quote_add_line(%L, %L, 4, null, null, null, 500)::text', tests.id('quote:1'), tests.id('svc:cctv')));
+  perform tests.scalar('web_lead', format('select quote_transition(%L, ''pending_approval'')::text', tests.id('quote:1')));
+  perform tests.scalar('ceo', format('select quote_transition(%L, ''approved'')::text', tests.id('quote:1')));
+  perform tests.scalar('web_lead', format('select quote_transition(%L, ''sent'')::text', tests.id('quote:1')));
+  perform tests.scalar('web_lead', format('select quote_transition(%L, ''accepted'', ''Signed by John'')::text', tests.id('quote:1')));
+  perform tests.remember('project:abc', tests.scalar('web_lead', format('select quote_convert_to_project(%L)::text', tests.id('quote:1'))));
+  perform tests.remember('contract:1', tests.scalar('web_lead', format('select contract_create_from_quote(%L)::text', tests.id('quote:1'))));
+  perform tests.scalar('web_lead', format('select contract_transition(%L, ''internal_review'')::text', tests.id('contract:1')));
+  perform tests.scalar('ceo', format('select contract_transition(%L, ''approved'')::text', tests.id('contract:1')));
+  perform tests.scalar('web_lead', format('select contract_transition(%L, ''sent'')::text', tests.id('contract:1')));
+  perform tests.scalar('web_lead', format('select contract_transition(%L, ''signed'')::text', tests.id('contract:1')));
+  perform tests.scalar('web_lead', format('select contract_transition(%L, ''active'')::text', tests.id('contract:1')));
+end $$;

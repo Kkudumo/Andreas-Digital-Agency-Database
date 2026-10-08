@@ -62,7 +62,11 @@ select tests.check('authenticated can execute only the reviewed functions',
        'quote_add_line', 'quote_remove_line', 'quote_transition', 'quote_convert_to_project',
        -- 360 views: SECURITY INVOKER, so they add no access beyond ordinary row-level security
        'client_360', 'project_360', 'staff_360', 'client_create', 'matching_resolve', 'enquiry_record', 'enquiry_resolve_candidate',
-       'lead_assign', 'lead_transition', 'lead_set_person', 'lead_qualify', 'quote_create_from_lead', 'classification_visible')), 'none');
+       'lead_assign', 'lead_transition', 'lead_set_person', 'lead_qualify', 'quote_create_from_lead', 'classification_visible',
+       -- contracts (each checks its own permission inside; visibility helpers read only the row's own columns)
+       'can_view_contract', 'can_view_contract_row', 'can_view_contract_version', 'contract_create', 'contract_create_from_quote', 'contract_add_line',
+       'contract_remove_line', 'contract_set_terms', 'contract_set_owner', 'contract_link_project', 'contract_transition', 'contract_amend',
+       'contract_renew', 'contracts_due_for_renewal', 'contract_terms')), 'none');
 -- "Does this information already exist in ADA Core? Then REFERENCE it." Identity/contact columns may live only in
 -- these reviewed places; a new module that adds its own name/email/phone column fails here and must reference
 -- people / clients / staff instead.
@@ -90,7 +94,7 @@ select tests.check('every table that is not a link table has an updated_at trigg
 select tests.check('every business table is audited',
   (select coalesce(string_agg(c.relname, ','), 'none') from pg_class c
    where c.relnamespace = 'public'::regnamespace and c.relkind = 'r'
-     and c.relname not in ('audit_log', 'id_sequences', 'entity_registry', 'entity_types', 'permissions', 'events', 'event_deliveries', 'notifications', 'application_status_history', 'approval_requests', 'approval_decisions')
+     and c.relname not in ('audit_log', 'id_sequences', 'entity_registry', 'entity_types', 'permissions', 'events', 'event_deliveries', 'notifications', 'application_status_history', 'approval_requests', 'approval_decisions', 'contract_status_history')
      and not exists (select 1 from pg_trigger t where t.tgrelid = c.oid and t.tgname = 'zz_audit')), 'none');
 
 -- Permission matrix: CSV (reviewed design document) must equal the database.
