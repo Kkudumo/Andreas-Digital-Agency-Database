@@ -89,3 +89,17 @@ A role assignment is organization-wide or scoped to one division. **Division Lea
 | `payments.reverse` — Request reversal or refund of a payment | confidential | x |  | x |  |  |  |  |
 | `finance.configure` — Configure finance settings (VAT, payment terms, bank accounts) | confidential | x |  |  |  |  |  |  |
 | `discounts.approve` — Approve discounts above the policy threshold | confidential | x |  |  |  |  |  |  |
+| `assets.view` — View the asset register (own division; assignees see their own assets) | internal | x | x | x | x | x | x |  |
+| `assets.create` — Register assets and report duplicates | internal | x | x |  | x |  |  |  |
+| `assets.update` — Edit asset details and record locations / condition / documents / warranties | internal | x | x |  | x |  |  |  |
+| `assets.assign` — Assign and return assets | internal | x | x |  | x |  |  |  |
+| `assets.maintain` — Schedule and record maintenance | internal | x | x |  | x | x |  |  |
+| `assets.retire` — Retire assets | restricted | x | x |  | x |  |  |  |
+| `assets.dispose` — Dispose of retired assets | restricted | x |  |  |  |  |  |  |
+| `assets.configure` — Manage asset categories | restricted | x | x |  |  |  |  |  |
+| `suppliers.view` — View suppliers and vendors | internal | x | x | x | x |  |  |  |
+| `suppliers.manage` — Create and edit suppliers and vendors | internal | x | x | x |  |  |  |  |
+| `tickets.view` — View tickets (own division; reporters and assignees see their own) | internal | x | x | x | x | x | x |  |
+| `tickets.create` — Open tickets | internal | x | x |  | x | x |  |  |
+| `tickets.update` — Work and resolve tickets | internal | x | x |  | x | x |  |  |
+| `tickets.assign` — Assign tickets to staff | internal | x | x |  | x |  |  |  |

@@ -134,6 +134,190 @@ Row-level security is enabled on every table; the policies are in the migrations
 | `required_approvals` | integer | no |  |  |
 | `classification` | data_classification | yes | 'internal'::data_classification |  |
 
+## `asset_assignments`
+
+**Purpose:** historical accountability. One row per period an asset was held by a staff member / division. At most one is open per asset; ending one sets ended_at (once); rows are never edited or deleted. The "current holder" is derived from the open row. [class: internal]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | uuid | yes | gen_random_uuid() |  |
+| `asset_id` | uuid | yes |  | `assets` |
+| `staff_id` | uuid | no |  | `staff` |
+| `division_id` | uuid | yes |  | `divisions` |
+| `project_id` | uuid | no |  | `projects` |
+| `started_at` | timestamp with time zone | yes | now() |  |
+| `ended_at` | timestamp with time zone | no |  |  |
+| `assigned_by` | uuid | no |  | `staff` |
+| `ended_by` | uuid | no |  | `staff` |
+| `end_reason` | text | no |  |  |
+| `note` | text | no |  |  |
+
+## `asset_categories`
+
+**Purpose:** asset types (laptop, server, CCTV camera, ...). A lookup managed by assets.configure. [class: internal]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | uuid | yes | gen_random_uuid() |  |
+| `key` | text | yes |  |  |
+| `name` | text | yes |  |  |
+| `is_active` | boolean | yes | true |  |
+| `sort_order` | integer | yes | 100 |  |
+
+## `asset_documents`
+
+**Purpose:** INTERIM link between an asset and its documents (warranty, supplier invoice, manual, handover form, photo). Visible exactly as the asset is. The documents module will replace document_ref with real document links. [class: internal; inherits the asset's classification]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | uuid | yes | gen_random_uuid() |  |
+| `asset_id` | uuid | yes |  | `assets` |
+| `kind` | text | yes |  |  |
+| `title` | text | yes |  |  |
+| `document_ref` | text | yes |  |  |
+| `voided_at` | timestamp with time zone | no |  |  |
+| `void_reason` | text | no |  |  |
+| `added_by` | uuid | no |  | `staff` |
+| `added_at` | timestamp with time zone | yes | now() |  |
+
+## `asset_duplicate_flags`
+
+**Purpose:** suspected duplicate assets, raised automatically, reviewed by people. Nothing is merged. A flag is visible only to someone who can see BOTH assets, so flagging cannot reveal a hidden asset. [class: internal]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | uuid | yes | gen_random_uuid() |  |
+| `asset_id` | uuid | yes |  | `assets` |
+| `other_asset_id` | uuid | yes |  | `assets` |
+| `reason` | text | yes |  |  |
+| `status` | text | yes | 'open'::text |  |
+| `reviewed_by` | uuid | no |  | `staff` |
+| `review_note` | text | no |  |  |
+| `created_at` | timestamp with time zone | yes | now() |  |
+
+## `asset_finance_links`
+
+**Purpose:** which invoices/payments concern an asset (e.g. hardware billed to a client). Only ids: the financial records stay authoritative in invoices/payments and are visible only to those who may see them. [class: confidential]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | uuid | yes | gen_random_uuid() |  |
+| `asset_id` | uuid | yes |  | `assets` |
+| `invoice_id` | uuid | no |  | `invoices` |
+| `payment_id` | uuid | no |  | `payments` |
+| `relation` | text | yes |  |  |
+| `note` | text | no |  |  |
+| `linked_by` | uuid | no |  | `staff` |
+| `linked_at` | timestamp with time zone | yes | now() |  |
+
+## `asset_history`
+
+**Purpose:** append-only trail of status, condition, location, ownership and relationship changes of an asset (in addition to audit_log). Never edited or deleted. [class: internal]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | bigint | yes |  |  |
+| `asset_id` | uuid | yes |  | `assets` |
+| `kind` | text | yes |  |  |
+| `field` | text | no |  |  |
+| `from_value` | text | no |  |  |
+| `to_value` | text | no |  |  |
+| `actor_staff_id` | uuid | no |  | `staff` |
+| `note` | text | no |  |  |
+| `created_at` | timestamp with time zone | yes | now() |  |
+
+## `asset_maintenance`
+
+**Purpose:** maintenance history of an asset. Rows move forward (scheduled -> in_progress -> completed/cancelled) and are never deleted. The cost of the work is NOT stored here: it belongs to the expense / supplier invoice. [class: internal]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | uuid | yes | gen_random_uuid() |  |
+| `asset_id` | uuid | yes |  | `assets` |
+| `kind` | maintenance_kind | yes |  |  |
+| `status` | maintenance_status | yes | 'scheduled'::maintenance_status |  |
+| `description` | text | yes |  |  |
+| `scheduled_for` | date | no |  |  |
+| `started_at` | timestamp with time zone | no |  |  |
+| `completed_at` | timestamp with time zone | no |  |  |
+| `performed_by` | uuid | no |  | `staff` |
+| `vendor_id` | uuid | no |  | `suppliers` |
+| `ticket_id` | uuid | no |  | `tickets` |
+| `outcome` | text | no |  |  |
+| `cancel_reason` | text | no |  |  |
+| `created_by` | uuid | no |  | `staff` |
+| `created_at` | timestamp with time zone | yes | now() |  |
+
+## `asset_retirements`
+
+**Purpose:** why and when an asset was retired, and later how it was disposed of. The sale value of a disposed asset is NOT stored here: link the sales invoice instead (asset_finance_links). [class: internal]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `asset_id` | uuid | yes |  | `assets` |
+| `retired_on` | date | yes | CURRENT_DATE |  |
+| `reason` | text | yes |  |  |
+| `retired_by` | uuid | no |  | `staff` |
+| `disposal_method` | asset_disposal_method | no |  |  |
+| `disposed_on` | date | no |  |  |
+| `disposal_note` | text | no |  |  |
+| `disposed_by` | uuid | no |  | `staff` |
+| `created_at` | timestamp with time zone | yes | now() |  |
+
+## `asset_warranties`
+
+**Purpose:** warranty coverage periods for an asset (manufacturer, extended, supplier). Append-only; a mistaken entry is voided with a reason, not edited. [class: internal]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | uuid | yes | gen_random_uuid() |  |
+| `asset_id` | uuid | yes |  | `assets` |
+| `provider_id` | uuid | no |  | `suppliers` |
+| `reference` | text | no |  |  |
+| `starts_on` | date | yes |  |  |
+| `ends_on` | date | yes |  |  |
+| `terms` | text | no |  |  |
+| `voided_at` | timestamp with time zone | no |  |  |
+| `void_reason` | text | no |  |  |
+| `created_by` | uuid | no |  | `staff` |
+| `created_at` | timestamp with time zone | yes | now() |  |
+
+## `assets`
+
+**Purpose:** the one authoritative record of a physical/technical asset. Holder, location history and maintenance live in their own append-only tables; client/project are references; no invoice or payment identity is stored. No unique index on serial or tag (it would reveal hidden assets): duplicates are flagged for review. [class: internal; per-record classification]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | uuid | yes | gen_random_uuid() |  |
+| `ada_id` | text | yes |  |  |
+| `name` | text | yes |  |  |
+| `category_id` | uuid | yes |  | `asset_categories` |
+| `manufacturer` | text | no |  |  |
+| `model` | text | no |  |  |
+| `serial_number` | text | no |  |  |
+| `asset_tag` | text | no |  |  |
+| `manufacturer_key` | text | no | lower(regexp_replace(COALESCE(manufacturer, ''::text), '[^A-Za-z0-9]'::text, ''::text, 'g'::text)) |  |
+| `serial_key` | text | no | upper(regexp_replace(COALESCE(serial_number, ''::text), '[^A-Za-z0-9]'::text, ''::text, 'g'::text)) |  |
+| `condition` | asset_condition | yes | 'good'::asset_condition |  |
+| `status` | asset_status | yes | 'proposed'::asset_status |  |
+| `acquisition_method` | asset_acquisition | no |  |  |
+| `acquisition_date` | date | no |  |  |
+| `acquisition_cost` | numeric(14,2) | no |  |  |
+| `acquisition_currency` | character(3) | no |  |  |
+| `supplier_id` | uuid | no |  | `suppliers` |
+| `current_location` | text | no |  |  |
+| `division_id` | uuid | yes |  | `divisions` |
+| `client_id` | uuid | no |  | `clients` |
+| `project_id` | uuid | no |  | `projects` |
+| `parent_asset_id` | uuid | no |  | `assets` |
+| `classification` | data_classification | yes | 'internal'::data_classification |  |
+| `effective_classification` | data_classification | yes | 'internal'::data_classification |  |
+| `client_deleted` | boolean | yes | false |  |
+| `notes` | text | no |  |  |
+| `created_by` | uuid | no |  | `staff` |
+| `created_at` | timestamp with time zone | yes | now() |  |
+| `updated_at` | timestamp with time zone | yes | now() |  |
+
 ## `audit_log`
 
 **Purpose:** immutable record of who changed what, when, from what to what. Written only by triggers. [class: restricted]
@@ -1199,6 +1383,24 @@ _(no description)_
 | `granted_at` | timestamp with time zone | yes | now() |  |
 | `reason` | text | no |  |  |
 
+## `suppliers`
+
+**Purpose:** the one record per supplier/vendor. Referenced by assets (supplier, warranty provider, maintenance vendor) and later by expenses. Contacts, when needed, are people. [class: internal]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | uuid | yes | gen_random_uuid() |  |
+| `ada_id` | text | yes |  |  |
+| `name` | text | yes |  |  |
+| `name_key` | text | yes |  |  |
+| `registration_number` | text | no |  |  |
+| `website` | text | no |  |  |
+| `status` | text | yes | 'active'::text |  |
+| `notes` | text | no |  |  |
+| `created_by` | uuid | no |  | `staff` |
+| `created_at` | timestamp with time zone | yes | now() |  |
+| `updated_at` | timestamp with time zone | yes | now() |  |
+
 ## `tasks`
 
 **Purpose:** work items within a project. [class: internal]
@@ -1219,6 +1421,35 @@ _(no description)_
 | `created_at` | timestamp with time zone | yes | now() |  |
 | `updated_at` | timestamp with time zone | yes | now() |  |
 | `milestone_id` | uuid | no |  | `milestones` |
+
+## `tickets`
+
+**Purpose:** a support/maintenance ticket. References asset, client, project, contact, reporter and assignee by id and inherits their classification; nothing about them is retyped. [class: internal; inherits]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | uuid | yes | gen_random_uuid() |  |
+| `ada_id` | text | yes |  |  |
+| `title` | text | yes |  |  |
+| `description` | text | no |  |  |
+| `kind` | ticket_kind | yes | 'incident'::ticket_kind |  |
+| `priority` | priority_level | yes | 'normal'::priority_level |  |
+| `status` | ticket_status | yes | 'open'::ticket_status |  |
+| `division_id` | uuid | yes |  | `divisions` |
+| `asset_id` | uuid | no |  | `assets` |
+| `client_id` | uuid | no |  | `clients` |
+| `project_id` | uuid | no |  | `projects` |
+| `contact_id` | uuid | no |  | `client_contacts` |
+| `reporter_staff_id` | uuid | no |  | `staff` |
+| `assignee_staff_id` | uuid | no |  | `staff` |
+| `classification` | data_classification | yes | 'internal'::data_classification |  |
+| `effective_classification` | data_classification | yes | 'internal'::data_classification |  |
+| `client_deleted` | boolean | yes | false |  |
+| `resolution` | text | no |  |  |
+| `resolved_at` | timestamp with time zone | no |  |  |
+| `closed_at` | timestamp with time zone | no |  |  |
+| `created_at` | timestamp with time zone | yes | now() |  |
+| `updated_at` | timestamp with time zone | yes | now() |  |
 
 ## `vacancies`
 

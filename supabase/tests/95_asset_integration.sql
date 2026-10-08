@@ -75,6 +75,14 @@ select tests.scalar('web_staff', format($q$ select maintenance_schedule(%L, 'ins
 select tests.scalar('web_lead', format('select asset_retire(%L, ''Replaced'')::text', tests.id('asset:sched')));
 select tests.check('...recorded as cancelled with the reason', (select status::text || '/' || cancel_reason from asset_maintenance where asset_id = tests.id('asset:sched')), 'cancelled/asset retired');
 
+select tests.mk_asset('web_lead', 'busy', 'Held and in the workshop', 'web');
+select tests.scalar('web_lead', format('select asset_assign(%L, %L)::text', tests.id('asset:busy'), tests.id('staff:web_staff')));
+select tests.remember('mnt:busy', tests.scalar('web_staff', format($q$ select maintenance_schedule(%L, 'repair', 'Workshop')::text $q$, tests.id('asset:busy'))));
+select tests.scalar('web_staff', format('select maintenance_start(%L)::text', tests.id('mnt:busy')));
+select tests.check('an asset in the workshop that still has an open assignment cannot be retired', tests.scalar('web_lead', format('select asset_retire(%L, ''Beyond repair'')::text', tests.id('asset:busy'))), 'ERR:23514');
+select tests.check('...cancelling the maintenance works', tests.try('web_staff', format('select maintenance_cancel(%L, ''Not needed'')', tests.id('mnt:busy'))), 'ok');
+select tests.check('...and returns the asset to its holder', (select status::text from assets where id = tests.id('asset:busy')), 'assigned');
+
 -- Resolve and close the ticket ------------------------------------------------------------------------------------------------------------------------
 select tests.check('resolve with a resolution', tests.scalar('web_staff', format('select ticket_transition(%L, ''resolved'', ''Display cable replaced'')::text', tests.id('tkt:1'))), 'resolved');
 select tests.check('a resolved ticket can be reopened', tests.scalar('web_lead', format('select ticket_transition(%L, ''open'')::text', tests.id('tkt:1'))), 'open');
@@ -128,7 +136,7 @@ select tests.check('...and its (retired) asset and ticket then disappear for ord
 -- Views and structure -------------------------------------------------------------------------------------------------------------------------------
 select tests.check('the client 360 lists the client''s assets and tickets', (tests.scalar('ceo', format('select client_360(%L)::text', tests.id('client:abc')))::jsonb) -> 'assets' -> 0 ->> 'name', 'Lenovo ThinkPad X1');
 select tests.check('the project 360 lists them too', jsonb_array_length((tests.scalar('ceo', format('select project_360(%L)::text', tests.id('project:abc')))::jsonb) -> 'tickets')::text, '1');
-select tests.check('the staff 360 lists the assets a person holds', jsonb_array_length((tests.scalar('ceo', format('select staff_360(%L)::text', tests.id('staff:web_staff')))::jsonb) -> 'assets')::text, '0');
+select tests.check('the staff 360 lists the assets a person holds (the workshop asset, now back with its holder)', jsonb_array_length((tests.scalar('ceo', format('select staff_360(%L)::text', tests.id('staff:web_staff')))::jsonb) -> 'assets')::text, '1');
 select tests.check('the registry knows every supplier, asset and ticket', tests.unregistered_tables(), 'none');
 
 select tests.finish();
