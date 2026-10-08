@@ -143,8 +143,8 @@ $$;
 -- People working a ticket (division ticket staff or the assignee) may see internal comments; a reporter alone may not
 create function can_work_ticket_row(p_division uuid, p_class data_classification, p_client_deleted boolean, p_assignee uuid) returns boolean
 language sql stable security definer set search_path = public, pg_temp as $$
-  select (has_permission('tickets.view', p_division) or (current_staff_id() is not null and current_staff_id() = p_assignee))
-     and classification_visible(p_class) and (not p_client_deleted or has_permission('records.view_deleted'))
+  select coalesce((has_permission('tickets.view', p_division) or coalesce(current_staff_id() = p_assignee, false))
+     and classification_visible(p_class) and (not p_client_deleted or has_permission('records.view_deleted')), false)
 $$;
 create function can_work_ticket(p_id uuid) returns boolean
 language sql stable security definer set search_path = public, pg_temp as $$

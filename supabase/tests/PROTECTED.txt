@@ -219,3 +219,29 @@ a change of division keeps the Staff ID and the origin
 even leaving the organization keeps the Staff ID reserved
 relationships carry privacy
 students are invisible outside Academy
+# tickets
+the ticket is a registered entity with a generated institutional ID
+tickets have no ID input and no generator of their own
+the ticket type is in the codebook and is never publishable
+the publication flag exists
+the ticket REFERENCES requester, client, project, asset, service, category, division by id
+no identity is copied into tickets, comments or events
+requester: a person the creator cannot see behaves like a random id
+SLA targets were agreed from the policy
+a division-specific policy wins in its division
+SLA state is derived
+an internal note by the handler does not count as a response
+the first public staff reply is the first response
+comments cannot be edited or deleted
+raising the priority is an ESCALATION
+the permanent ID and the ORIGIN division are unchanged
+the division cannot be changed any other way
+the reporter (no longer in the handling division) sees the public conversation but NOT the internal notes
+a closed ticket takes no more comments
+the full history is on record, in order
+no access predicate returns NULL for any row
+a ticket for a restricted client inherits the restriction
+probes: ticket_comment_add
+probes: ticket_transfer
+probes: ticket_create for the restricted client
+ticket tables carry no public/publication state

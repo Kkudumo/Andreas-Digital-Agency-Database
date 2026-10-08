@@ -117,8 +117,9 @@ create trigger tickets_follow_project_trg after update on projects for each row 
 -- Visibility: the division's ticket viewers, plus the reporter and the assignee - always subject to classification
 create function can_view_ticket_row(p_division uuid, p_class data_classification, p_client_deleted boolean, p_assignee uuid, p_reporter uuid) returns boolean
 language sql stable security definer set search_path = public, pg_temp as $$
-  select (has_permission('tickets.view', p_division) or (current_staff_id() is not null and current_staff_id() in (p_assignee, p_reporter)))
-     and classification_visible(p_class) and (not p_client_deleted or has_permission('records.view_deleted'))
+  -- coalesce: a NULL assignee / reporter must read as "no", never as an unknown that plpgsql IF treats as permission
+  select coalesce((has_permission('tickets.view', p_division) or coalesce(current_staff_id() = p_assignee, false) or coalesce(current_staff_id() = p_reporter, false))
+     and classification_visible(p_class) and (not p_client_deleted or has_permission('records.view_deleted')), false)
 $$;
 create function can_view_ticket(p_id uuid) returns boolean
 language sql stable security definer set search_path = public, pg_temp as $$
