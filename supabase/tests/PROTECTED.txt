@@ -245,3 +245,6 @@ probes: ticket_comment_add
 probes: ticket_transfer
 probes: ticket_create for the restricted client
 ticket tables carry no public/publication state
+restricting the client restricts its tickets
+once a Web ticket names them as requester
+someone who can see a Web ticket and holds assignment rights only in the TARGET division cannot transfer it

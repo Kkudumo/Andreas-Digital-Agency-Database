@@ -122,6 +122,31 @@ select tests.check('no access predicate returns NULL for any row, as the owner',
 select tests.check('...nor for an unprivileged login, a division staff member, a recruiter or a login with no staff record',
   (select string_agg(tests.scalar(u, 'select (select count(*) from tickets where can_view_ticket(id) is null)::text || (select count(*) from tickets where can_work_ticket(id) is null) || (select count(*) from assets where can_view_asset(id) is null) || (select count(*) from clients where can_view_client(id) is null) || (select count(*) from projects where can_view_project(id) is null)'), ',' order by u) from unnest(array['outsider', 'recruiter', 'tech_staff', 'web_staff']) u), '00000,00000,00000,00000');
 
+-- A ticket follows its client when the client's classification changes (no asset involved)
+select tests.remember('t:C', tests.scalar('web_staff', format($q$ select ticket_create(p_title => 'Client-only ticket', p_division => %L, p_client => %L)::text $q$, tests.id('div:web'), tests.id('client:abc'))));
+select tests.check('before: a client-only ticket is visible to the division lead', tests.scalar('web_lead', format('select count(*)::text from tickets where id = %L', tests.id('t:C'))), '1');
+update clients set classification = 'restricted' where id = tests.id('client:abc');
+select tests.check('restricting the client restricts its tickets (and hides them from ordinary users, reporter included)',
+  (select effective_classification::text from tickets where id = tests.id('t:C')) || tests.scalar('web_lead', format('select count(*)::text from tickets where id = %L', tests.id('t:C'))) || tests.scalar('web_staff', format('select count(*)::text from tickets where id = %L', tests.id('t:C'))), 'restricted00');
+update clients set classification = 'internal' where id = tests.id('client:abc');
+select tests.check('...and restoring it brings them back', tests.scalar('web_lead', format('select count(*)::text from tickets where id = %L', tests.id('t:C'))), '1');
+
+-- The requester's person record is visible through the ticket, and only through the ticket
+insert into vacancies (position_id, title, description, requirements, status, published_at) select id, 'Web Developer', 'd', 'r', 'published', now() from positions where title = 'Web Developer';
+select tests.try('recruiter', $q$ select staff_record_application((select id from vacancies where title = 'Web Developer'), 'Walter Walkin', 'walter@walkin.example') $q$);
+insert into tests.ids select 'person:walter', id from people where email = 'walter@walkin.example';
+select tests.check('before any ticket, an applicant is invisible to Web staff', tests.scalar('web_staff', format('select count(*)::text from people where id = %L', tests.id('person:walter'))), '0');
+select tests.remember('t:P', tests.scalar('ceo', format($q$ select ticket_create(p_title => 'Walk-in request', p_division => %L, p_requester => %L)::text $q$, tests.id('div:web'), tests.id('person:walter'))));
+select tests.check('once a Web ticket names them as requester, Web staff can see that person (and Tech cannot)',
+  tests.scalar('web_staff', format('select count(*)::text from people where id = %L', tests.id('person:walter'))) || tests.scalar('tech_lead', format('select count(*)::text from people where id = %L', tests.id('person:walter'))), '10');
+
+-- Transfer rights are checked on the SOURCE division as well as the target
+select tests.add_staff('mixed', 'division_staff', 'web');
+insert into staff_roles (staff_id, role_id, division_id) select tests.id('staff:mixed'), id, tests.id('div:tech') from roles where key = 'division_lead';
+select tests.remember('t:M', tests.scalar('web_lead', format($q$ select ticket_create(p_title => 'Needs moving', p_division => %L)::text $q$, tests.id('div:web'))));
+select tests.check('someone who can see a Web ticket and holds assignment rights only in the TARGET division cannot transfer it',
+  tests.scalar('mixed', format($q$ select ticket_transfer(%L, %L, 'Mine now')::text $q$, tests.id('t:M'), tests.id('div:tech'))), 'ERR:42501');
+
 -- Restricted clients ----------------------------------------------------------------------------------------------------------------------------------------
 select tests.remember('client:R', tests.mkclient_id('ceo', 'Secret Ticket Holdings'));
 update clients set classification = 'restricted' where id = tests.id('client:R');
