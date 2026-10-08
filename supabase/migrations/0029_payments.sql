@@ -37,10 +37,9 @@ create table payments (
   check (received_on <= current_date + 1)
 );
 create index payments_client_idx on payments (client_id);
--- A bank reference is unique per account. Only DISCOVERABLE payments take part in the global rule, so a restricted
--- client's payment can never make someone else's insert fail (that would reveal it exists); within one client it always applies.
-create unique index payments_reference_discoverable on payments (received_account_id, lower(reference))
-  where reference is not null and status <> 'reversed' and effective_classification in ('public', 'internal');
+-- A bank reference is unique per account WITHIN a client (hard rule). Across clients the duplicate check is made by
+-- payment_record against the payments the caller can see - an index here would let a restricted client's payment
+-- block (and so reveal itself to) someone else, or make un-restricting a client fail.
 create unique index payments_reference_per_client on payments (client_id, received_account_id, lower(reference))
   where reference is not null and status <> 'reversed';
 comment on table payments is 'Purpose: money received. References the client and the receiving bank account. Immutable; corrected by reversal. No balance column: allocation and credit are derived. [class: confidential]';
@@ -273,6 +272,11 @@ begin
   select * into a from bank_accounts where id = p_account;
   if not found then raise exception 'bank account not found' using errcode = 'P0002'; end if;
   if p_invoice is not null and not has_permission('payments.allocate') then raise exception 'payments.allocate is required to allocate on receipt' using errcode = '42501'; end if;
+  if nullif(btrim(p_reference), '') is not null and exists (
+       select 1 from payments x where x.received_account_id = p_account and lower(x.reference) = lower(btrim(p_reference)) and x.status <> 'reversed'
+         and can_view_payment_row(x.effective_classification, x.client_deleted)) then
+    raise exception 'a payment with this reference has already been recorded on this account' using errcode = '23505';
+  end if;
   insert into payments (client_id, received_account_id, method, reference, amount, currency, received_on, notes)
   values (p_client, p_account, p_method, nullif(btrim(p_reference), ''), p_amount, a.currency, coalesce(p_received_on, current_date), p_notes)
   returning id into v_id;
@@ -286,7 +290,7 @@ language plpgsql security definer set search_path = public, pg_temp as $$
 declare a payment_allocations%rowtype; p payments%rowtype;
 begin
   select * into a from payment_allocations where id = p_allocation;
-  if not found then raise exception 'allocation not found' using errcode = 'P0002'; end if;
+  if not found or not can_view_payment(a.payment_id) or not can_view_invoice(a.invoice_id) then raise exception 'allocation not found' using errcode = 'P0002'; end if;
   p := payment_load(a.payment_id);
   perform invoice_load(a.invoice_id);
   if not has_permission('payments.allocate') then raise exception 'payments.allocate is required' using errcode = '42501'; end if;
@@ -327,8 +331,8 @@ language plpgsql security definer set search_path = public, pg_temp as $$
 declare r payment_reversals%rowtype; p payments%rowtype; v_gate text; v_kind text;
 begin
   select * into r from payment_reversals where id = p_reversal;
-  if not found then raise exception 'reversal request not found' using errcode = 'P0002'; end if;
-  p := payment_load(r.payment_id);                                -- visibility + lock
+  if not found or not can_view_payment(r.payment_id) then raise exception 'reversal request not found' using errcode = 'P0002'; end if;
+  p := payment_load(r.payment_id);                                -- lock
   select * into r from payment_reversals where id = p_reversal for update;
   if r.status <> 'pending_approval' then raise exception 'this request is already %', r.status using errcode = '23514'; end if;
   v_kind := case when r.kind = 'reversal' then 'payment_reversal' else 'refund' end;

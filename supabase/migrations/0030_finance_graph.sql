@@ -21,8 +21,8 @@ begin
     update billable_items  set effective_classification = new.classification, client_deleted = new.deleted_at is not null where client_id = new.id;
     update invoices        set effective_classification = new.classification, client_deleted = new.deleted_at is not null where client_id = new.id;
     update payments        set effective_classification = new.classification, client_deleted = new.deleted_at is not null where client_id = new.id;
-    update approval_requests set classification = greatest(new.classification, 'internal'::data_classification)
-     where status = 'pending' and (
+    update approval_requests set classification = new.classification      -- every request, decided ones included: history must not reveal the client either
+     where (
            (entity_table = 'contract_versions' and entity_id in (select v.id from contract_versions v join contracts c on c.id = v.contract_id where c.client_id = new.id))
         or (entity_table = 'invoices' and entity_id in (select id from invoices where client_id = new.id))
         or (entity_table = 'payment_reversals' and entity_id in (select r.id from payment_reversals r join payments p on p.id = r.payment_id where p.client_id = new.id))

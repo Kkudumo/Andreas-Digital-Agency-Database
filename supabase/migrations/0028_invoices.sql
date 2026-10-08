@@ -423,7 +423,7 @@ language plpgsql security definer set search_path = public, pg_temp as $$
 declare i invoices%rowtype; l invoice_lines%rowtype;
 begin
   select * into l from invoice_lines where id = p_line;
-  if not found then raise exception 'invoice line not found' using errcode = 'P0002'; end if;
+  if not found or not can_view_invoice(l.invoice_id) then raise exception 'invoice line not found' using errcode = 'P0002'; end if;
   i := invoice_load(l.invoice_id);
   if not has_permission('invoices.update', i.division_id) then raise exception 'invoices.update is required' using errcode = '42501'; end if;
   if i.status <> 'draft' then raise exception 'an invoice can only be edited while it is a draft' using errcode = '42501'; end if;

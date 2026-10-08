@@ -378,7 +378,7 @@ language plpgsql security definer set search_path = public, pg_temp as $$
 declare c contracts%rowtype; v_contract uuid;
 begin
   select v.contract_id into v_contract from contract_lines l join contract_versions v on v.id = l.version_id where l.id = p_line;
-  if v_contract is null then raise exception 'contract line not found' using errcode = 'P0002'; end if;
+  if v_contract is null or not can_view_contract(v_contract) then raise exception 'contract line not found' using errcode = 'P0002'; end if;
   c := contract_load(v_contract);
   if not has_permission('contracts.update', c.division_id) then raise exception 'contracts.update is required' using errcode = '42501'; end if;
   delete from contract_lines where id = p_line;
