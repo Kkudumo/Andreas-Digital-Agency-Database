@@ -83,7 +83,7 @@ select tests.check('adding the same John from Web returns the SAME contact (no d
   tests.scalar('web_lead', $q$ select add_client_contact((select id from tests.ids where key = 'client:abc'), 'Johnny D', 'john@ABC.example')::text $q$), tests.id('contact:john')::text);
 select tests.check('one person record behind the contact', (select count(*)::text from people where lower(email) = 'john@abc.example'), '1');
 select tests.check('the existing identity is not overwritten by a later entry', (select full_name from people where lower(email) = 'john@abc.example'), 'John Director');
-select tests.check('contact has an ADA ID', (select (ada_id ~ '^ADA-CON-\d{4}-\d{4}$')::text from client_contacts where id = tests.id('contact:john')), 'true');
+select tests.check('contact has an ADA ID', (select (ada_id ~ '^ADA-CTC-\d{4}-\d{4}$')::text from client_contacts where id = tests.id('contact:john')), 'true');
 select tests.check('the same John can be a contact of a second client - still one person',
   tests.try('web_lead', $q$ select add_client_contact((select id from tests.ids where key = 'client:C_web'), 'John Director', 'john@abc.example', null, 'Consultant') $q$) ||
   (select count(*)::text from people where lower(email) = 'john@abc.example'), 'ok1');

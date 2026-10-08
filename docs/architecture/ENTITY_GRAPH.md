@@ -10,7 +10,7 @@
 |---|---|---|
 | A human (applicant, hire, client contact) | `people` (`ADA-PER-…`) | references `person_id`; **relationship tables** decide who may see it |
 | A client company | `clients` (`ADA-CLI-…`) | references `client_id`; divisions join it via `client_divisions`; duplicates are blocked |
-| A client's contact | `client_contacts` (`ADA-CON-…`) = person + role at a client | projects and quotes reference this row |
+| A client's contact | `client_contacts` (`ADA-CTC-…`) = person + role at a client | projects and quotes reference this row |
 | Staff | `staff` (`ADA-STF-…`), one per person ever (`staff.person_id`) | roles, assignments, projects reference `staff_id`; history in `staff_assignments` |
 | A service | `services` (`ADA-SVC-…`) | quotes, projects, websites, reports reference `service_id` |
 | A price | `service_prices` (immutable versions) | quote lines and project services copy the amount **and** point at the version used |
