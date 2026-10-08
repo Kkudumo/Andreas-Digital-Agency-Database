@@ -562,3 +562,13 @@ end $$;
 create function tests.cacts(p_user text, p_thr_key text) returns text language sql as $$
   select tests.scalar(p_user, format($q$ select string_agg(case when communication_can(%L, a) then '1' else '0' end, '' order by n) from unnest(array['view','read','attachment','append','edit','comment','share','archive']) with ordinality t(a, n) $q$, tests.id(p_thr_key)))
 $$;
+-- Run a statement as the migration owner and return the state AND message (to tell apart two refusals that share a state)
+create function tests.msg_owner(p_sql text) returns text language plpgsql as $$
+begin
+  begin
+    execute p_sql;
+    return 'ok';
+  exception when others then
+    return sqlstate || ': ' || sqlerrm;
+  end;
+end $$;

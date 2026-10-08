@@ -261,5 +261,56 @@ select tests.say('web_lead', 'a', 'refused1', 'telepathy', 'inbound', 'x');
 select tests.check('a refused recording leaves no registry row and no counter gap: the message counter equals the number of messages, always', (select (msgs = n)::text from ctr) || (select (coalesce(sum(last_value), 0) = (select count(*) from communication_messages))::text from id_counters where type_code = (select id_code from entity_types where key = 'communication_message')), 'truetrue');
 select tests.check('the thread counter equals the number of threads too', (select (coalesce(sum(last_value), 0) = (select count(*) from communication_threads))::text from id_counters where type_code = (select id_code from entity_types where key = 'communication')), 'true');
 select tests.check('the backup manifest counts what exists and the drift checks are clean', (select (communication_backup_manifest() ->> 'threads')::int = (select count(*) from communication_threads) and (communication_backup_manifest() ->> 'messages')::int = (select count(*) from communication_messages))::text || (select count(*)::text from communication_integrity_drift()), 'true0');
+
+-- Further pins, each from a rule that a mutation of the migration showed was held up by only one line ---------------------------------------------------------
+select tests.check('a staff member starts their own thread', (tests.mk_thread('web_staff', 'own', 'Staff-owned') ~ '^[0-9a-f-]{36}$')::text, 'true');
+select tests.check('an owner has the rights of the person working the thread - view, read, attachments, append, edit, comment - but NOT sharing or archiving', tests.cacts('web_staff', 'thr:own'), '11111100');
+select tests.check('classifying needs records.classify, in the command''s own words, even for a plain downgrade by the lead', (tests.try_msg('web_lead', format($q$ select communication_set_classification(%L, 'public', null, 'make public') $q$, tests.id('thr:own'))) ~ 'edit|records.classify')::text, 'true');
+select tests.check('...and the lead (who can edit their own thread but cannot classify) is told exactly that', (tests.try_msg('web_lead', format($q$ select communication_set_classification(%L, 'public', null, 'make public') $q$, tests.id('thr:m'))) ~ 'records.classify is required')::text, 'true');
+insert into roles (key, name) values ('classifier_test', 'May classify and start communications but holds no restricted clearance (test)');
+insert into role_permissions (role_id, permission_id) select (select id from roles where key = 'classifier_test'), id from permissions where key in ('communications.view', 'communications.create', 'records.classify');
+select tests.add_staff('clsnc', 'classifier_test');
+select tests.check('someone allowed to classify but not cleared for restricted records cannot start a restricted communication (they could not see their own thread)',
+  (tests.try_msg('clsnc', format($q$ select communication_start(%L, 'x', 'restricted') $q$, tests.id('div:web'))) ~ 'above your own classification clearance')::text, 'true');
+select tests.add_staff('ceo2', 'ceo');
+select tests.mk_thread('ceo', 'sd', 'Self-approval');
+select tests.say('ceo', 'sd', 'sd1', 'email', 'inbound', 'x');
+select tests.try('ceo', format($q$ select communication_set_retention(%L, 'transient_1y', null, 'short') $q$, tests.id('thr:sd')));
+select tests.try('ceo', format($q$ select communication_archive(%L, 'x') $q$, tests.id('thr:sd')));
+select tests.backdate_thread('thr:sd', interval '400 days');
+select tests.remember_ok('disp:sd', tests.scalar('ceo', format($q$ select communication_request_disposal(%L, 'old')::text $q$, tests.id('thr:sd'))));
+select tests.check('with more than one person able to approve, nobody approves their own disposal request; another approver can', tests.try('ceo', format($q$ select communication_disposal_decide(%L, true) $q$, tests.id('disp:sd'))) || tests.scalar('ceo2', format($q$ select communication_disposal_decide(%L, true, 'ok') $q$, tests.id('disp:sd'))), 'ERR:42501approved');
+create temp table lk0 as select count(*) n from security_events where actor_staff_id = tests.id('staff:web_lead') and requested_action = 'communications_for_entity';
+select tests.scalar('web_lead', $q$ select coalesce(communications_for_entity('QQQQQQQQQ')::text, 'null') $q$);
+select tests.check('asking about an unknown entity is recorded as a lookup for investigators', (select (count(*) - (select n from lk0))::text from security_events where actor_staff_id = tests.id('staff:web_lead') and requested_action = 'communications_for_entity'), '1');
+-- history as of a date, with several entities: a link removed BEFORE the date is not reported; a link still live then is
+select tests.remember('dom:techonly', (tests.scalar('tech_lead', format($q$ select (domain_create('tech-only.example', %L) ->> 'id') $q$, tests.id('div:tech')))));
+select tests.mk_thread('web_lead', 'asof', 'As-of with two links');
+select tests.say('web_lead', 'asof', 'asof1', 'email', 'inbound', 'x');
+select tests.clink('web_lead', 'asof', 'clients', 'client:C_web');
+select tests.clink('web_lead', 'asof', 'projects', 'project:P_web', 'related');
+select tests.backdate_thread('thr:asof', interval '60 days');
+select tests.try('web_lead', format($q$ select communication_link_remove(%L, 'client link dropped') $q$, (select l.id from communication_links l where l.thread_id = tests.id('thr:asof') and l.role = 'subject')));
+select tests.check('asking for both entities "as of 30 days ago" lists the thread with BOTH relationships (both were in force then); asking about today lists only the project''s',
+  tests.scalar('web_lead', format($q$ select jsonb_array_length(communications_of(array[%L, %L], null, null, now() - interval '30 days') -> 0 -> 'relationships')::text $q$, tests.inst('clients', 'client:C_web'), tests.inst('projects', 'project:P_web'))) ||
+  tests.scalar('web_lead', format($q$ select jsonb_array_length(communications_of(array[%L, %L]) -> 0 -> 'relationships')::text $q$, tests.inst('clients', 'client:C_web'), tests.inst('projects', 'project:P_web'))), '21');
+select tests.backdate_thread('thr:asof', interval '10 days');
+select tests.check('...and "as of 5 days ago" (after the removal) lists only the project''s', tests.scalar('web_lead', format($q$ select jsonb_array_length(communications_of(array[%L, %L], null, null, now() - interval '1 days') -> 0 -> 'relationships')::text $q$, tests.inst('clients', 'client:C_web'), tests.inst('projects', 'project:P_web'))), '1');
+-- a link to something the reader cannot see is invisible to the reader (the thread itself is not elevated: the target is only division-hidden)
+select tests.check('the CEO links an ordinary web thread to a Tech-only domain', (tests.clink('ceo', 'm', 'domains', 'dom:techonly', 'related') ~ '^[0-9a-f-]{36}$')::text, 'true');
+select tests.check('...the web lead (who cannot see that domain) sees the thread but not that link: not in the rows, not in the 360, not in the entity answer; the CEO sees it',
+  tests.scalar('web_lead', format($q$ select (select count(*) from communication_links where thread_id = %L)::text || (select count(*) from jsonb_array_elements(communication_360(%L) -> 'relationships'))::text $q$, tests.id('thr:m'), tests.id('thr:m'))) ||
+  tests.scalar('ceo', format($q$ select (select count(*) from communication_links where thread_id = %L)::text || (select count(*) from jsonb_array_elements(communication_360(%L) -> 'relationships'))::text $q$, tests.id('thr:m'), tests.id('thr:m'))), '0011');
+select tests.check('...a link: a hidden target is refused like an unknown one', (tests.outcome('web_lead', format($q$ insert into communication_links (thread_id, entity_institutional_id) values (%L, %L) $q$, tests.id('thr:m'), tests.inst('domains', 'dom:techonly'))) =
+  tests.outcome('web_lead', format($q$ insert into communication_links (thread_id, entity_institutional_id) values (%L, %L) $q$, tests.id('thr:m'), 'ZZZZZZZZZ')))::text, 'true');
+select tests.check('...an attachment: a hidden document is refused like an unknown one', (tests.outcome('web_lead', format($q$ insert into communication_attachments (thread_id, message_id, document_id) values (%L, %L, %L) $q$, tests.id('thr:m'), tests.id('msg:m1'), tests.id('doc:techdoc'))) =
+  tests.outcome('web_lead', format($q$ insert into communication_attachments (thread_id, message_id, document_id) values (%L, %L, %L) $q$, tests.id('thr:m'), tests.id('msg:m1'), tests.id('x:random'))))::text, 'true');
+select tests.check('...a participant: a hidden party is refused like an unknown one', (tests.outcome('web_lead', format($q$ insert into communication_participants (message_id, role, entity_institutional_id) values (%L, 'to', %L) $q$, tests.id('msg:m1'), tests.inst('domains', 'dom:techonly'))) =
+  tests.outcome('web_lead', format($q$ insert into communication_participants (message_id, role, entity_institutional_id) values (%L, 'to', %L) $q$, tests.id('msg:m1'), 'ZZZZZZZZZ')))::text, 'true');
+-- information that must not flow from the helpers either
+select tests.remember_ok('hold:crit', tests.scalar('ceo', format($q$ select communication_hold_place(%L, 'hold on the restricted thread')::text $q$, tests.id('thr:rc'))));
+select tests.check('the disposal-blocker and hold helpers say nothing about a thread the caller cannot see (a hold would otherwise be an existence oracle)',
+  tests.scalar('web_lead', format($q$ select coalesce(communication_disposal_blockers(%L), 'null') || communication_on_hold(%L)::text $q$, tests.id('thr:rc'), tests.id('thr:rc'))) || tests.scalar('ceo', format($q$ select coalesce(communication_disposal_blockers(%L), 'null') || communication_on_hold(%L)::text $q$, tests.id('thr:rc'), tests.id('thr:rc'))),
+  'nullfalse' || 'a legal hold prevents disposaltrue');
 select tests.finish();
 rollback;

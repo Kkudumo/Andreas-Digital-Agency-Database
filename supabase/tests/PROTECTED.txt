@@ -411,3 +411,15 @@ the service role (no staff identity) cannot use any command
 every access predicate answers a definite true / false
 every thread and every message has exactly one registry row
 a refused recording leaves no registry row and no counter gap
+with more than one person able to approve, nobody approves their own disposal request
+the CEO - the only person who can approve disposals here
+nothing recorded can be deleted, by anyone, and the refusal says so
+the guard itself refuses disposal before retention has elapsed
+a permanent record is never disposed, however old
+the guard refuses disposal of a thread whose attached document is under legal hold
+an owner has the rights of the person working the thread
+someone allowed to classify but not cleared for restricted records cannot start a restricted communication
+a hidden target is refused like an unknown one
+the disposal-blocker and hold helpers say nothing about a thread the caller cannot see
+a removed link no longer counts
+asking for both entities

@@ -261,5 +261,63 @@ select tests.check('the thread''s own 360 has identity, retention, a message ind
                                        ((communication_360(%L)::text) ~* 'Project kickoff|Recent follow|stranger|@|"(body|subject|address)":')::text) $q$, tests.id('thr:h'), tests.id('thr:h'), tests.id('thr:h'), tests.id('thr:h'))), '3|true|communication|false');
 select tests.check('Domain 360 and Document 360 carry a Communications section as well', tests.scalar('web_lead', format($q$ select jsonb_typeof(document_360(%L) -> 'communications') $q$, tests.id('doc:att1'))), 'array');
 select tests.check('the document''s communications are found through the attachment: "what was attached to this document"', tests.scalar('web_lead', format($q$ select jsonb_array_length(communications_for_entity((select institutional_id from entity_registry where entity_id = %L)))::text $q$, tests.id('doc:att1'))), '2');
+
+-- Guards that stand behind the commands (each refusal is checked by its own words, so a second line of defence cannot hide a removed first one) -------------
+select tests.mk_thread('web_lead', 'gd', 'Guards');
+select tests.say('web_lead', 'gd', 'gd1', 'email', 'inbound', 'Guard body', '[{"role":"from","address":"someone@guard.example"}]');
+select tests.clink('web_lead', 'gd', 'clients', 'client:C_web');
+select tests.try('web_lead', format($q$ select communication_comment_add(%L, 'a guarded note') $q$, tests.id('thr:gd')));
+select tests.remember_ok('hold:gd', tests.scalar('ceo', format($q$ select communication_hold_place(%L, 'guard hold')::text $q$, tests.id('thr:gd'))));
+select tests.check('nothing recorded can be deleted, by anyone, and the refusal says so: messages, participants, links, notes',
+  (tests.msg_owner(format($q$ delete from communication_messages where id = %L $q$, tests.id('msg:gd1'))) ~ 'messages are never deleted')::text || (tests.msg_owner(format($q$ delete from communication_participants where message_id = %L $q$, tests.id('msg:gd1'))) ~ 'participants are never deleted')::text ||
+  (tests.msg_owner(format($q$ delete from communication_links where thread_id = %L $q$, tests.id('thr:gd'))) ~ 'links are never deleted')::text || (tests.msg_owner(format($q$ delete from communication_comments where thread_id = %L $q$, tests.id('thr:gd'))) ~ 'append')::text, 'truetruetruetrue');
+select tests.check('notes cannot be edited; holds cannot be edited (only released, once); a decided disposal is permanent',
+  (tests.msg_owner(format($q$ update communication_comments set body = 'changed' where thread_id = %L $q$, tests.id('thr:gd'))) ~ 'notes are permanent')::text || (tests.msg_owner(format($q$ update communication_holds set reason = 'changed' where thread_id = %L $q$, tests.id('thr:gd'))) ~ 'only be released')::text, 'truetrue');
+select tests.check('a participant without a registered party or an address is refused by the command in its own words', (tests.try_msg('web_lead', format($q$ select communication_message_add(%L, 'email', 'inbound', now() - interval '1 minute', 'x', '[{"role":"from"}]') $q$, tests.id('thr:gd'))) ~ 'needs a registered party or an address')::text, 'true');
+select tests.check('a closed thread cannot be appended to, even by someone whose role allows it, and cannot be closed again; reopening is possible only when closed',
+  tests.try('web_lead', format($q$ select communication_close(%L, 'finished') $q$, tests.id('thr:gd'))) || tests.scalar('web_lead', format($q$ select communication_can(%L, 'append')::text || communication_can(%L, 'close')::text || communication_can(%L, 'reopen')::text $q$, tests.id('thr:gd'), tests.id('thr:gd'), tests.id('thr:gd'))), 'okfalsefalsetrue');
+select tests.try('web_lead', format($q$ select communication_reopen(%L, 'again') $q$, tests.id('thr:gd')));
+select tests.check('removing a link takes its classification away again: a restricted client linked, then unlinked, leaves the thread as it was',
+  tests.try('ceo', format($q$ select communication_link_remove(%L, 'not about this client') $q$, (select id from communication_links where thread_id = tests.id('thr:gd') and removed_at is null))) , 'ok');
+update clients set classification = 'restricted' where id = tests.id('client:C_web');
+select tests.check('(the client is now restricted; the thread, already unlinked from it, stays internal and visible)', (select effective_classification::text from communication_threads where id = tests.id('thr:gd')), 'internal');
+update clients set classification = 'internal' where id = tests.id('client:C_web');
+select tests.mk_thread('web_lead', 'gl', 'Link then unlink');
+select tests.clink('web_lead', 'gl', 'clients', 'client:C_web');
+update clients set classification = 'restricted' where id = tests.id('client:C_web');
+select tests.check('linked to a client that is restricted: the thread is restricted', (select effective_classification::text from communication_threads where id = tests.id('thr:gl')), 'restricted');
+select tests.try('ceo', format($q$ select communication_link_remove(%L, 'unlinked') $q$, (select id from communication_links where thread_id = tests.id('thr:gl') and removed_at is null)));
+select tests.check('...unlinked: it is internal again (a removed link no longer counts)', (select effective_classification::text from communication_threads where id = tests.id('thr:gl')), 'internal');
+update clients set classification = 'internal' where id = tests.id('client:C_web');
+
+-- Disposal: the guard below the commands -------------------------------------------------------------------------------------------------------------------
+select tests.mk_thread('web_lead', 'dg1', 'Not yet eligible');
+select tests.say('web_lead', 'dg1', 'dg1a', 'email', 'inbound', 'x');
+select tests.try('ceo', format($q$ select communication_archive(%L, 'x') $q$, tests.id('thr:dg1')));
+select tests.check('the guard itself refuses disposal before retention has elapsed (whatever flag is set)', (tests.msg_owner(format($q$ select set_config('ada.communication_disposal', 'on', true); update communication_threads set status = 'disposed' where id = %L $q$, tests.id('thr:dg1'))) ~ 'retention period has not elapsed')::text, 'true');
+select tests.mk_thread('web_lead', 'dg2', 'Permanent');
+select tests.say('web_lead', 'dg2', 'dg2a', 'email', 'inbound', 'x');
+select tests.try('ceo', format($q$ select communication_set_retention(%L, 'permanent', null, 'founding record') $q$, tests.id('thr:dg2')));
+select tests.try('ceo', format($q$ select communication_archive(%L, 'x') $q$, tests.id('thr:dg2')));
+select tests.backdate_thread('thr:dg2', interval '4000 days');
+select tests.check('a permanent record is never disposed, however old', (tests.msg_owner(format($q$ select set_config('ada.communication_disposal', 'on', true); update communication_threads set status = 'disposed' where id = %L $q$, tests.id('thr:dg2'))) ~ 'permanent record')::text, 'true');
+select tests.mk_thread('web_lead', 'dg3', 'Attached document under hold');
+select tests.say('web_lead', 'dg3', 'dg3a', 'email', 'inbound', 'x');
+select tests.mk_doc('web_lead', 'dg3doc', 'Held attachment');
+select tests.scalar('web_lead', format($q$ select communication_attach_document(%L, %L)::text $q$, tests.id('msg:dg3a'), tests.id('doc:dg3doc')));
+select tests.try('ceo', format($q$ select communication_set_retention(%L, 'transient_1y', null, 'short') $q$, tests.id('thr:dg3')));
+select tests.try('ceo', format($q$ select communication_archive(%L, 'x') $q$, tests.id('thr:dg3')));
+select tests.backdate_thread('thr:dg3', interval '400 days');
+select tests.try('ceo', format($q$ select document_hold_place(%L, 'hold on the attachment') $q$, tests.id('doc:dg3doc')));
+select tests.check('the guard refuses disposal of a thread whose attached document is under legal hold - with the retention long elapsed', (tests.msg_owner(format($q$ select set_config('ada.communication_disposal', 'on', true); update communication_threads set status = 'disposed' where id = %L $q$, tests.id('thr:dg3'))) ~ 'attached document')::text, 'true');
+
+-- Separation of duties holds even for the only person who could approve --------------------------------------------------------------------------------------
+select tests.mk_thread('ceo', 'sole', 'Sole approver');
+select tests.say('ceo', 'sole', 'sole1', 'email', 'inbound', 'x');
+select tests.try('ceo', format($q$ select communication_set_retention(%L, 'transient_1y', null, 'short') $q$, tests.id('thr:sole')));
+select tests.try('ceo', format($q$ select communication_archive(%L, 'x') $q$, tests.id('thr:sole')));
+select tests.backdate_thread('thr:sole', interval '400 days');
+select tests.remember_ok('disp:sole', tests.scalar('ceo', format($q$ select communication_request_disposal(%L, 'old')::text $q$, tests.id('thr:sole'))));
+select tests.check('the CEO - the only person who can approve disposals here - still cannot approve a disposal they requested themselves', tests.try('ceo', format($q$ select communication_disposal_decide(%L, true) $q$, tests.id('disp:sole'))), 'ERR:42501');
 select tests.finish();
 rollback;
