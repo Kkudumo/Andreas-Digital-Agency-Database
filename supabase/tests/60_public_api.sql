@@ -4,7 +4,7 @@ select tests.setup();
 select tests.setup_hr();
 
 -- Website registry & API keys ---------------------------------------------------------------
-select tests.check('administration can see the website registry', tests.scalar('admin', 'select count(*)::text from websites'), '3');
+select tests.check('administration can see the website registry', tests.scalar('admin', 'select count(*)::text from websites'), '4');
 select tests.check('division staff cannot see the website registry', tests.scalar('web_lead', 'select count(*)::text from websites'), '0');
 select tests.check('administration cannot register websites',
   tests.try('admin', $q$ insert into websites (name, domain) values ('Rogue', 'rogue.test') $q$), 'ERR:42501');

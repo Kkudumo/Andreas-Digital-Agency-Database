@@ -16,7 +16,7 @@ select tests.check('authenticated may DELETE only from link tables',
   'client_staff,project_contacts,project_divisions,project_members,role_permissions,staff_roles');
 select tests.check('authenticated has no write access to audit_log or service tables',
   (select coalesce(string_agg(c.relname, ','), 'none') from pg_class c
-   where c.relnamespace = 'public'::regnamespace and c.relname in ('audit_log', 'id_sequences', 'entity_registry', 'entity_types', 'permissions', 'events', 'event_deliveries', 'notifications', 'application_status_history', 'applications', 'approval_requests', 'service_prices')
+   where c.relnamespace = 'public'::regnamespace and c.relname in ('audit_log', 'id_sequences', 'entity_registry', 'entity_types', 'permissions', 'events', 'event_deliveries', 'notifications', 'application_status_history', 'applications', 'approval_requests', 'approval_decisions', 'service_prices', 'enquiries', 'enquiry_candidates', 'matching_reviews', 'client_distinct_pairs')
      and (has_table_privilege('authenticated', c.oid, 'insert') or has_table_privilege('authenticated', c.oid, 'update')
        or has_table_privilege('authenticated', c.oid, 'delete'))), 'none');
 select tests.check('every SECURITY DEFINER function pins its search_path',
@@ -37,7 +37,7 @@ select tests.check('ada_public_api has no privileges on any table',
 select tests.check('ada_public_api can execute only the reviewed entry points',
   (select string_agg(proname, ',' order by proname) from pg_proc
    where pronamespace = 'public_api'::regnamespace and has_function_privilege('ada_public_api', oid, 'execute')),
-  'divisions,portfolio,services,statistics,submit_application,team,vacancies,vacancy');
+  'divisions,portfolio,services,statistics,submit_application,submit_enquiry,team,vacancies,vacancy');
 select tests.check('ada_public_api cannot execute private helpers in public',
   (select coalesce(string_agg(proname, ','), 'none') from pg_proc
    where pronamespace = 'public'::regnamespace and prorettype <> 'trigger'::regtype
@@ -61,14 +61,23 @@ select tests.check('authenticated can execute only the reviewed functions',
        'project_lead_division', 'portfolio_transition', 'can_view_quote', 'can_view_quote_row', 'quote_create',
        'quote_add_line', 'quote_remove_line', 'quote_transition', 'quote_convert_to_project',
        -- 360 views: SECURITY INVOKER, so they add no access beyond ordinary row-level security
-       'client_360', 'project_360', 'staff_360')), 'none');
+       'client_360', 'project_360', 'staff_360', 'client_create', 'matching_resolve', 'enquiry_record', 'enquiry_resolve_candidate',
+       'lead_assign', 'lead_transition', 'lead_set_person', 'lead_qualify', 'quote_create_from_lead', 'classification_visible')), 'none');
 -- "Does this information already exist in ADA Core? Then REFERENCE it." Identity/contact columns may live only in
 -- these reviewed places; a new module that adds its own name/email/phone column fails here and must reference
 -- people / clients / staff instead.
 select tests.check('contact and identity columns exist only where reviewed',
   (select string_agg(table_name || '.' || column_name, ', ' order by table_name, column_name) from information_schema.columns
    where table_schema = 'public' and (column_name ~ '(email|phone)' or column_name in ('full_name', 'first_name', 'last_name'))),
-  'clients.email, clients.phone, organization.email, organization.phone, people.email, people.full_name, people.phone, staff.email, staff.full_name, staff.work_phone, staff_private.emergency_contact_phone, staff_private.personal_email, staff_private.personal_phone, staff_profiles.public_email');
+  'clients.email, clients.phone, enquiries.submitted_email, enquiries.submitted_phone, organization.email, organization.phone, people.email, people.full_name, people.phone, staff.email, staff.full_name, staff.work_phone, staff_private.emergency_contact_phone, staff_private.personal_email, staff_private.personal_phone, staff_profiles.public_email');
+select tests.check('any identity-like column outside the core tables is explicitly documented as a SNAPSHOT of what was submitted',
+  (select coalesce(string_agg(c.table_name || '.' || c.column_name, ', ' order by 1), 'none') from information_schema.columns c
+   where c.table_schema = 'public' and (c.column_name ~ '(email|phone|name)' and c.column_name ~ '^(submitted|customer|client|contact|staff|person|applicant)_')
+     and coalesce(col_description((c.table_schema || '.' || c.table_name)::regclass, c.ordinal_position), '') not like 'SNAPSHOT:%'), 'none');
+select tests.check('submitted_* columns are all documented snapshots',
+  (select coalesce(string_agg(c.table_name || '.' || c.column_name, ', '), 'none') from information_schema.columns c
+   where c.table_schema = 'public' and c.column_name like 'submitted\_%' and c.column_name not in ('submitted_at')
+     and coalesce(col_description((c.table_schema || '.' || c.table_name)::regclass, c.ordinal_position), '') not like 'SNAPSHOT:%'), 'none');
 select tests.check('every business table that points at a client points at clients(id), never at a copy',
   (select coalesce(string_agg(c.conrelid::regclass::text || '.' || a.attname, ',' order by 1), 'none') from pg_constraint c join pg_attribute a on a.attrelid = c.conrelid and a.attnum = c.conkey[1]
    where c.contype = 'f' and c.conrelid::regclass::text in ('projects', 'quotes', 'client_contacts', 'client_divisions', 'client_staff')
@@ -81,7 +90,7 @@ select tests.check('every table that is not a link table has an updated_at trigg
 select tests.check('every business table is audited',
   (select coalesce(string_agg(c.relname, ','), 'none') from pg_class c
    where c.relnamespace = 'public'::regnamespace and c.relkind = 'r'
-     and c.relname not in ('audit_log', 'id_sequences', 'entity_registry', 'entity_types', 'permissions', 'events', 'event_deliveries', 'notifications', 'application_status_history', 'approval_requests')
+     and c.relname not in ('audit_log', 'id_sequences', 'entity_registry', 'entity_types', 'permissions', 'events', 'event_deliveries', 'notifications', 'application_status_history', 'approval_requests', 'approval_decisions')
      and not exists (select 1 from pg_trigger t where t.tgrelid = c.oid and t.tgname = 'zz_audit')), 'none');
 
 -- Permission matrix: CSV (reviewed design document) must equal the database.

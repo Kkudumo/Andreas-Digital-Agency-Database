@@ -4,7 +4,7 @@ select tests.setup();
 select tests.setup_hr();
 
 -- The central client (created by Tech) and its contact; the catalogue with approved prices ----------------------------------------
-select tests.remember('client:abc', tests.scalar('tech_lead', $q$ insert into clients (name, owner_division_id) select 'ABC Company', id from divisions where key = 'tech' returning id::text $q$));
+select tests.remember('client:abc', tests.mkclient_id('tech_lead', 'ABC Company', 'tech'));
 select tests.try('web_lead', $q$ select claim_client_for_division((select id from tests.ids where key = 'client:abc'), (select id from tests.ids where key = 'div:web')) $q$);
 select tests.remember('contact:john', tests.scalar('web_lead', $q$ select add_client_contact((select id from tests.ids where key = 'client:abc'), 'John Director', 'john@abc.example', null, 'Director', true)::text $q$));
 select tests.remember('svc:web', tests.scalar('web_lead', $q$ insert into services (division_id, name, summary, description) select id, 'Website Development', 's', 'd' from divisions where key = 'web' returning id::text $q$));

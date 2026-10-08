@@ -8,8 +8,8 @@ select tests.check('client ADA ID format', (select ada_id ~ '^ADA-CLI-\d{4}-\d{4
 select tests.check('ADA IDs are unique and sequential per prefix',
   (select (count(*) = count(distinct ada_id))::text from staff), 'true');
 select tests.check('forged ada_id on insert is overridden',
-  tests.scalar('ceo', $q$ with i as (insert into clients (name, ada_id) values ('Forge', 'ADA-CLI-1999-0001') returning ada_id)
-                       select (ada_id <> 'ADA-CLI-1999-0001')::text from i $q$), 'true');
+  tests.scalar('admin', $q$ with i as (insert into staff (full_name, email, ada_id) values ('Forge S', 'forge.s@ada.test', 'ADA-STF-1999-0001') returning ada_id)
+                       select (ada_id <> 'ADA-STF-1999-0001')::text from i $q$), 'true');
 select tests.check('ada_id is immutable for API users',
   tests.try('ceo', $q$ update clients set ada_id = 'ADA-CLI-2000-0001' where name = 'C_web' $q$), 'ERR:42501');
 select tests.check('every identified record is in the entity registry',

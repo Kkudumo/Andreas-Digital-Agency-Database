@@ -119,18 +119,17 @@ select tests.check('Delegated admin can grant what they hold',
   tests.try('admin', $q$ insert into staff_roles (staff_id, role_id, division_id) select s.id, r.id, d.id from staff s, roles r, divisions d where s.email = 'web_staff@ada.test' and r.key = 'division_staff' and d.key = 'consulting' $q$), 'ok');
 
 -- Write scoping ---------------------------------------------------------------
-select tests.check('Web lead can create a client owned by Web',
-  tests.try('web_lead', $q$ insert into clients (name, owner_division_id) select 'New Web client', id from divisions where key = 'web' $q$), 'ok');
+select tests.check('Web lead can create a client owned by Web (controlled creation)',
+  (tests.mkclient('web_lead', 'New Web client', 'web')::jsonb ->> 'status'), 'created');
 select tests.check('Creating a client records the creator',
-  (select (created_by = (select id from staff where email = 'web_lead@ada.test'))::text from clients where name = 'New Web client'), 'true');
+  (select created_by = (select id from staff where email = 'web_lead@ada.test') from clients where name = 'New Web client')::text, 'true');
 select tests.check('New client is linked to its owner division',
   (select count(*)::text from client_divisions cd join clients c on c.id = cd.client_id join divisions d on d.id = cd.division_id where c.name = 'New Web client' and d.key = 'web'), '1');
-select tests.check('Web lead cannot create a client owned by Tech',
-  tests.try('web_lead', $q$ insert into clients (name, owner_division_id) select 'Sneaky', id from divisions where key = 'tech' $q$), 'ERR:42501');
-select tests.check('Web lead cannot create an unowned (org-level) client',
-  tests.try('web_lead', $q$ insert into clients (name) values ('Unowned') $q$), 'ERR:42501');
-select tests.check('Web staff (no clients.create) cannot create clients',
-  tests.try('web_staff', $q$ insert into clients (name, owner_division_id) select 'X', id from divisions where key = 'web' $q$), 'ERR:42501');
+select tests.check('Web lead cannot create a client owned by Tech', tests.mkclient('web_lead', 'Sneaky', 'tech'), 'ERR:42501');
+select tests.check('Web lead cannot create an unowned (organization-level) client', tests.mkclient('web_lead', 'Unowned', null), 'ERR:42501');
+select tests.check('Web staff (no clients.create) cannot create clients', tests.mkclient('web_staff', 'X Corp', 'web'), 'ERR:42501');
+select tests.check('users cannot bypass the controlled path with a direct INSERT',
+  tests.try('ceo', $q$ insert into clients (name) values ('Direct Insert Ltd') $q$), 'ERR:42501');
 select tests.check('Web lead cannot edit Tech''s client',
   pg_temp.affected('web_lead', $q$ update clients set notes = 'x' where name = 'C_tech' $q$), '0');
 select tests.check('Web lead can edit Web''s client',
@@ -213,9 +212,8 @@ select tests.check('Restricted client visible to assigned staff', pg_temp.n('web
 select tests.check('Restricted client visible with records.view_restricted', pg_temp.n('admin', 'clients', $q$ name = 'C_web' $q$), '1');
 
 -- INSERT ... RETURNING (what supabase-js .insert().select() does) must work under RLS.
-select tests.check('Division lead can insert a client and read it back in one statement',
-  tests.scalar('web_lead', $q$ with i as (insert into clients (name, owner_division_id) select 'Returned', id from divisions where key = 'web' returning id, ada_id)
-                             select (ada_id ~ '^ADA-CLI-')::text from i $q$), 'true');
+select tests.check('Division lead creates a client and gets its ID back in one call',
+  ((tests.mkclient('web_lead', 'Returned', 'web')::jsonb ->> 'client') ~ '^ADA-CLI-')::text, 'true');
 select tests.check('Division lead can insert a project and read it back in one statement',
   tests.scalar('web_lead', $q$ with i as (insert into projects (client_id, lead_division_id, name)
                                            select c.id, c.owner_division_id, 'Returned P' from clients c where c.name = 'Returned' returning ada_id)

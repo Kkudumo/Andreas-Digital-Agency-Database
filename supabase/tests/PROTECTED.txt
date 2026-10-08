@@ -1,0 +1,74 @@
+# Regression checks that must never be removed or renamed to make future work easier.
+# Each line is a phrase that must still appear in the test suite (scripts/check-protected-tests.mjs enforces it in CI).
+# To change one, replace it with an equal-or-stronger check AND update this line in the same commit, explaining why.
+
+# restricted-client existence leakage
+a lookup of a confidential client returns NOTHING
+claiming a confidential client fails exactly like claiming one that does not exist
+creating a client whose name matches a confidential one simply succeeds
+projects of the client
+leads of the client
+quote_create
+authorization helper: can_view_client
+an enquiry matching a restricted client looks IDENTICAL to one matching nothing
+control: a visible client is distinguishable from a hidden one
+# public / private separation and website permissions
+ada_public_api has no privileges on any table
+ada_public_api can execute only the reviewed entry points
+plaintext key is not accepted in place of its hash
+a site without the capability is refused
+a suspended website is refused entirely
+no staff email, phone or ADA staff ID leaks
+the website receives only the approved projection
+the website receives only a reference
+anon has no table privileges at all
+# duplicates: clients and people
+Web cannot create a second ABC Company
+the same registration number cannot be registered twice
+still one person
+one person record behind the contact
+no two discoverable clients share a normalised name
+no two people share an email
+a former employee is rehired onto the SAME staff record
+# price immutability and history
+an approved amount cannot be changed - not even by the database owner
+an approved effective date cannot be moved
+approved prices cannot be deleted
+July 2026 price was N$5,000
+the quote line still shows N$5,000 after the catalogue changed
+# quote locking and conversion
+the database itself refuses any write path to a locked quote's lines
+converting again returns the same project (idempotent)
+# approvals
+a sole approver may approve their own small quote
+the CEO can no longer approve their own request
+with allow_self_approval = false even a sole approver cannot approve their own request
+the same approver cannot approve twice
+the self-approval is recorded on the request
+# events and publication
+publishing queued a cache-revalidation delivery
+the website no longer lists it
+...and the websites are told (profile.unpublished)
+events never carry personal data
+no event ever carried personal data
+# RLS, authorization and privacy isolation
+every public table has RLS enabled
+authenticated can execute only the reviewed functions
+contact and identity columns exist only where reviewed
+...but cannot see that he applied for a job
+Finance cannot read confidential HR
+Web staff cannot read project financials
+Web lead cannot read project financials
+# audit
+audit rows cannot be updated, even by the owner
+audit rows cannot be deleted, even by the owner
+audit log cannot be truncated, even by the owner
+snapshot columns never reach the audit trail
+# soft delete and deleted records
+deleted client is hidden from division staff
+hard delete of clients is not available to API users
+# ID generation and registry
+every record with an ADA ID is in the central entity registry
+ADA IDs are unique and sequential per prefix
+# permission matrix
+matrix CSV == database (missing from DB)

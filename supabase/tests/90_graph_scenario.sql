@@ -4,13 +4,14 @@ select tests.setup();
 select tests.setup_hr();
 
 -- 1. ABC Company first contacts ADA Tech: Tech creates the central client and its contact.
-select tests.remember('client:abc', tests.scalar('tech_lead', $q$ insert into clients (name, legal_name, industry, owner_division_id)
-  select 'ABC Company', 'ABC Company (Pty) Ltd', 'Retail', id from divisions where key = 'tech' returning id::text $q$));
+select tests.remember('client:abc', tests.mkclient_id('tech_lead', 'ABC Company', 'tech'));
+select tests.try('tech_lead', $q$ update clients set legal_name = 'ABC Company (Pty) Ltd', industry = 'Retail' where name = 'ABC Company' $q$);
 select tests.remember('contact:john', tests.scalar('tech_lead', $q$ select add_client_contact((select id from tests.ids where key = 'client:abc'), 'John Director', 'john@abc.example', '+264811000001', 'Director', true)::text $q$));
 select tests.try('tech_lead', $q$ select set_client_owner((select id from tests.ids where key = 'client:abc'), (select id from tests.ids where key = 'staff:tech_lead')) $q$);
 
 -- 2. ADA Web later wants to sell to the same company: it joins the existing record instead of creating another.
-select tests.check('2. a second ABC Company cannot be created', tests.try('web_lead', $q$ insert into clients (name, owner_division_id) select 'ABC Company', id from divisions where key = 'web' $q$), 'ERR:23505');
+select tests.check('2. a second ABC Company is not created: Web is pointed at the existing record',
+  (tests.mkclient('web_lead', 'ABC Company', 'web')::jsonb ->> 'status') || '/' || (select count(*)::text from clients where name_key = 'abc'), 'exists/1');
 select tests.check('2b. Web joins the same client', tests.try('web_lead', $q$ select claim_client_for_division((select id from tests.ids where key = 'client:abc'), (select id from tests.ids where key = 'div:web')) $q$), 'ok');
 
 -- 3. One catalogue, one price list, both divisions.

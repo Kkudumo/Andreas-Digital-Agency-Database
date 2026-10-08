@@ -196,10 +196,12 @@ begin
   -- registered websites with known API keys (plaintext only exists in tests)
   insert into websites (name, domain, environment, status, capabilities, api_key_hash, api_key_prefix) values
     ('ADA Main Website', 'main.ada.test', 'production', 'active',
-       array['vacancies.read', 'team.read', 'divisions.read', 'statistics.read', 'applications.submit', 'services.read', 'portfolio.read'], tests.keyhash('testkey-main'), 'testkey-'),
+       array['vacancies.read', 'team.read', 'divisions.read', 'statistics.read', 'applications.submit', 'services.read', 'portfolio.read', 'enquiries.submit'], tests.keyhash('testkey-main'), 'testkey-'),
     ('Limited Site', 'limited.ada.test', 'production', 'active', array['divisions.read'], tests.keyhash('testkey-limited'), 'testkey-'),
+    ('ADA Tech Website', 'tech.ada.test', 'production', 'active', array['divisions.read', 'services.read', 'enquiries.submit'], tests.keyhash('testkey-tech'), 'testkey-'),
     ('Suspended Site', 'suspended.ada.test', 'production', 'suspended', array['vacancies.read', 'divisions.read'], tests.keyhash('testkey-susp'), 'testkey-');
   insert into tests.ids select 'site:' || split_part(domain, '.', 1), id from websites;
+  update websites set division_id = tests.id('div:tech') where domain = 'tech.ada.test';
 end $$;
 
 -- Call a public_api function as the website role: tests.pub('main', 'vacancy', quote_literal('ADA-VAC-...'))
@@ -234,4 +236,59 @@ begin
     if n > 0 then bad := bad || r.table_name::text; end if;
   end loop;
   return case when cardinality(bad) = 0 then 'none' else array_to_string(bad, ',') end;
+end $$;
+
+-- Controlled client creation as a user. mkclient returns the jsonb result as text (or ERR:<state>);
+-- mkclient_id returns just the new client's uuid (or the status / error, so remember() fails loudly).
+create function tests.mkclient(p_user text, p_name text, p_division_key text default null, p_registration text default null, p_reason text default null) returns text
+language sql as $$
+  select tests.scalar(p_user, format('select client_create(%L, %s, ''company'', %L, null, null, %L)::text', p_name,
+         case when p_division_key is null then 'null::uuid' else format('(select id from divisions where key = %L)', p_division_key) end, p_registration, p_reason))
+$$;
+create function tests.mkclient_id(p_user text, p_name text, p_division_key text default null, p_registration text default null, p_reason text default null) returns text
+language plpgsql as $$
+declare r text := tests.mkclient(p_user, p_name, p_division_key, p_registration, p_reason);
+begin
+  if r like 'ERR:%' then return r; end if;
+  return coalesce(r::jsonb ->> 'id', 'status:' || (r::jsonb ->> 'status'));
+end $$;
+
+-- Submit an enquiry as a connected website. enq returns the JSON response (or ERR:<state>); enq_id returns the enquiry's uuid.
+create function tests.enq(p_site text, p_name text, p_email text, p_phone text default null, p_org text default null, p_service text default null,
+                          p_message text default null, p_page text default null, p_referrer text default null, p_utm text default '{}') returns text
+language sql as $$
+  select tests.pub(p_site, 'submit_enquiry', format('%L, %L, %L, %L, %L, %L, %L, %L, %L::jsonb', p_name, p_email, p_phone, p_org, p_service, p_message, p_page, p_referrer, p_utm))
+$$;
+create function tests.enq_id(p_site text, p_name text, p_email text, p_phone text default null, p_org text default null, p_service text default null,
+                             p_message text default null, p_page text default null, p_referrer text default null, p_utm text default '{}') returns text
+language plpgsql as $$
+declare r text := tests.enq(p_site, p_name, p_email, p_phone, p_org, p_service, p_message, p_page, p_referrer, p_utm);
+begin
+  if r like 'ERR:%' then return r; end if;
+  return (select id::text from enquiries where ada_id = r::jsonb ->> 'reference');
+end $$;
+
+-- Existence-leakage probing: run a statement as a user and report exactly what they could observe
+-- (value or SQLSTATE + message). same_for() runs one template against two ids and says whether the
+-- observable outcomes are identical.
+create function tests.outcome(p_user text, p_sql text) returns text language plpgsql as $$
+declare v text;
+begin
+  perform set_config('request.jwt.claim.sub', case when p_user is null then '' else tests.uid(p_user)::text end, true);
+  set local role authenticated;
+  begin
+    execute p_sql into v;
+    reset role;
+    return 'ok:' || coalesce(v, '<null>');
+  exception when others then
+    reset role;
+    return sqlstate || ': ' || sqlerrm;
+  end;
+end $$;
+
+create function tests.same_for(p_user text, p_template text, p_a uuid, p_b uuid) returns text language plpgsql as $$
+declare a text := tests.outcome(p_user, format(p_template, p_a));
+        b text := tests.outcome(p_user, format(p_template, p_b));
+begin
+  return case when a = b then 'same' else 'DIFFERENT: [' || a || '] vs [' || b || ']' end;
 end $$;
