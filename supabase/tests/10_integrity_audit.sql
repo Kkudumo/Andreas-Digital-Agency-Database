@@ -14,7 +14,8 @@ select tests.check('ada_id is immutable for API users',
   tests.try('ceo', $q$ update clients set ada_id = 'ADA-CLI-2000-0001' where name = 'C_web' $q$), 'ERR:42501');
 select tests.check('every identified record is in the entity registry',
   (select (count(*) = 0)::text from clients c where not exists (select 1 from entity_registry r where r.ada_id = c.ada_id)), 'true');
-select tests.check('API users cannot read entity_registry', tests.try('ceo', 'select * from entity_registry'), 'ERR:42501');
+select tests.check('API users can never write the registry or its service tables', tests.try('ceo', $q$ insert into entity_registry (institutional_id) values ('AAAAAAAAA') $q$) || tests.try('ceo', 'update entity_registry set status = ''x''') || tests.try('ceo', 'select * from id_counters') || tests.try('ceo', 'select * from id_settings') || tests.try('ceo', 'select * from id_codebook'), 'ERR:42501ERR:42501ERR:42501ERR:42501ERR:42501');
+select tests.check('API users read only the registry rows of entities they may read (their own authorisation, via the authoritative table)', tests.scalar('web_staff', 'select (count(*) > 0)::text from entity_registry') || tests.scalar('web_staff', 'select (count(*) filter (where entity_type = ''client''))::text from entity_registry'), 'true' || (select count(*)::text from clients where name = 'C_web'));
 select tests.check('API users cannot read id_sequences',   tests.try('ceo', 'select * from id_sequences'),   'ERR:42501');
 select tests.check('API users cannot call next_ada_id',     tests.try('ceo', $q$ select next_ada_id('client') $q$), 'ERR:42501');
 
