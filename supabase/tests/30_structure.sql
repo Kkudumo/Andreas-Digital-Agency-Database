@@ -79,7 +79,7 @@ select tests.check('authenticated can execute only the reviewed functions',
        'asset_360', 'can_view_ticket_row', 'can_view_ticket', 'ticket_create', 'ticket_assign', 'ticket_transition',
        'maintenance_schedule', 'maintenance_start', 'maintenance_complete', 'maintenance_cancel',
        -- institutional skeleton: validation, routing and the caller's own security reporting (all describe only the caller's own access)
-       'ada_id_valid', 'entity_visible', 'entity_resolve', 'entity_get', 'search_route', 'security_note_lookup', 'security_report_denial', 'security_case_update',
+       'ada_id_valid', 'entity_visible', 'entity_resolve', 'entity_get', 'entity_view_fn', 'search_route', 'security_note_lookup', 'security_report_denial', 'security_case_update',
        -- academy identity core
        'can_view_student_row', 'can_view_student', 'programme_create', 'cohort_create', 'student_admit', 'student_enrol', 'student_set_status', 'person_relationships', 'asset_register')), 'none');
 -- "Does this information already exist in ADA Core? Then REFERENCE it." Identity/contact columns may live only in

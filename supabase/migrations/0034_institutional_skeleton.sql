@@ -270,7 +270,7 @@ end $$;
 
 -- Is this a well-formed institutional ID (9 chars, allowed alphabet, correct check char)? Reveals nothing about existence.
 create function ada_id_valid(p_id text) returns boolean
-language sql immutable as $$
+language sql immutable security definer set search_path = public, pg_temp as $$
   select p_id ~ '^[0-9A-HJKMNP-TV-Z]{9}$' and substr(p_id, 9, 1) = id_check_char(substr(p_id, 1, 8))
 $$;
 
@@ -451,7 +451,9 @@ revoke execute on function attach_entity(regclass, text, text) from public, anon
 do $$
 declare r record;
 begin
-  for r in select distinct table_name from entity_registry loop
+  -- driven by the entity-type map, not by existing rows: a fresh database has no rows yet but must be wired identically
+  for r in select distinct domain_table as table_name from entity_types where domain_table is not null and to_regclass('public.' || domain_table) is not null loop
+    if exists (select 1 from pg_trigger where tgrelid = to_regclass('public.' || r.table_name) and tgname = 'registry_sync_trg') then continue; end if;
     execute format('create trigger registry_sync_trg after update or delete on public.%I for each row execute function registry_sync_trigger()', r.table_name);
   end loop;
   insert into entity_location_history (institutional_id, to_division_id, to_location, reason)
@@ -617,7 +619,10 @@ begin
            status = case when c.status = 'flagged' and p.case_status = 'open' then 'open' else status end where id = c.id returning * into c;
     v_new := true;
   end if;
-  insert into security_case_events (case_id, event_id) values (c.id, e.id) on conflict do nothing;
+  -- the case references the whole pattern, including the earlier related attempts in the window
+  insert into security_case_events (case_id, event_id)
+  select c.id, x.id from security_events x where x.kind = e.kind and coalesce(x.actor_staff_id, x.actor_user_id) is not distinct from coalesce(e.actor_staff_id, e.actor_user_id)
+     and x.occurred_at > e.occurred_at - make_interval(mins => p.window_minutes) on conflict do nothing;
   update security_cases set event_count = (select count(*) from security_case_events where case_id = c.id), last_event_at = now() where id = c.id;
   if v_new then
     perform notify_holders('security.view', null, 'security.case', 'Security ' || case when c.status = 'flagged' then 'flag' else 'case' end || ' raised (' || c.severity || ')', null, 'security_cases', c.id, null);
@@ -717,17 +722,19 @@ begin
 end $$;
 
 -- Resolve, then fetch the authoritative record through the type's 360 function (invoker rights: row security applies again)
+create function entity_view_fn(p_type text) returns text
+language sql stable security definer set search_path = public, pg_temp as $$ select view_fn from entity_types where key = p_type $$;
 create function entity_get(p_id text) returns jsonb
 language plpgsql volatile set search_path = public, pg_temp as $$
 declare m jsonb := entity_resolve(p_id); fn text; rec jsonb;
 begin
   if m is null then return null; end if;
-  select view_fn into fn from entity_types where key = m ->> 'entity_type';
+  fn := entity_view_fn(m ->> 'entity_type');
   if fn is not null then execute format('select public.%I($1)', fn) into rec using (m ->> 'authoritative_record_key')::uuid; end if;
   return m || jsonb_build_object('record', rec);
 end $$;
-revoke execute on function entity_resolve(text), entity_get(text) from public, anon;
-grant execute on function entity_resolve(text), entity_get(text) to authenticated;
+revoke execute on function entity_resolve(text), entity_get(text), entity_view_fn(text) from public, anon;
+grant execute on function entity_resolve(text), entity_get(text), entity_view_fn(text) to authenticated;
 
 -- Derived, rebuildable search index: NOT a source of truth. Rows are visible exactly as the authoritative record is.
 create table search_index (
@@ -771,7 +778,7 @@ begin
     return jsonb_build_object('route', 'registry', 'results', case when res is null then '[]'::jsonb else jsonb_build_array(res) end);
   end if;
   return jsonb_build_object('route', 'index', 'results', coalesce((
-    select jsonb_agg(jsonb_build_object('institutional_id', s.institutional_id, 'entity_type', s.entity_type, 'label', s.label) order by extensions.similarity(s.label, v) desc, s.label)
+    select jsonb_agg(jsonb_build_object('institutional_id', s.institutional_id, 'entity_type', s.entity_type, 'label', s.label) order by s.label)
     from (select * from search_index where label ilike '%' || v || '%' limit 20) s), '[]'::jsonb));
 end $$;
 revoke execute on function search_route(text) from public, anon;
