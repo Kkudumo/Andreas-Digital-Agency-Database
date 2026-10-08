@@ -77,6 +77,27 @@ Row-level security is enabled on every table; the policies are in the migrations
 | `created_at` | timestamp with time zone | yes | now() |  |
 | `updated_at` | timestamp with time zone | yes | now() |  |
 
+## `approval_requests`
+
+**Purpose:** one uniform queue and history of everything awaiting or having received approval (vacancies, profiles, services, prices, quotes, ...). Written only by triggers. [class: restricted]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | uuid | yes | gen_random_uuid() |  |
+| `kind` | text | yes |  |  |
+| `entity_table` | text | yes |  |  |
+| `entity_id` | uuid | yes |  |  |
+| `entity_ada_id` | text | no |  |  |
+| `division_id` | uuid | no |  | `divisions` |
+| `required_permission` | text | yes |  |  |
+| `summary` | text | no |  |  |
+| `requested_by` | uuid | no |  | `staff` |
+| `requested_at` | timestamp with time zone | yes | now() |  |
+| `status` | approval_status | yes | 'pending'::approval_status |  |
+| `decided_by` | uuid | no |  | `staff` |
+| `decided_at` | timestamp with time zone | no |  |  |
+| `decision_note` | text | no |  |  |
+
 ## `audit_log`
 
 **Purpose:** immutable record of who changed what, when, from what to what. Written only by triggers. [class: restricted]
@@ -100,21 +121,20 @@ Row-level security is enabled on every table; the policies are in the migrations
 
 ## `client_contacts`
 
-**Purpose:** people at a client. Visible to whoever can see the client. [class: internal]
+**Purpose:** a person's role at a client (one row per client+person). Projects reference this row, so the same contact serves every project. Identity (name, email, phone) lives in people. [class: internal]
 
 | Column | Type | Required | Default | References |
 |---|---|---|---|---|
 | `id` | uuid | yes | gen_random_uuid() |  |
 | `ada_id` | text | yes |  |  |
 | `client_id` | uuid | yes |  | `clients` |
-| `full_name` | text | yes |  |  |
 | `role_title` | text | no |  |  |
-| `email` | text | no |  |  |
-| `phone` | text | no |  |  |
 | `is_primary` | boolean | yes | false |  |
 | `is_active` | boolean | yes | true |  |
 | `created_at` | timestamp with time zone | yes | now() |  |
 | `updated_at` | timestamp with time zone | yes | now() |  |
+| `person_id` | uuid | yes |  | `people` |
+| `is_billing` | boolean | yes | false |  |
 
 ## `client_divisions`
 
@@ -165,6 +185,12 @@ Row-level security is enabled on every table; the policies are in the migrations
 | `deletion_reason` | text | no |  |  |
 | `created_at` | timestamp with time zone | yes | now() |  |
 | `updated_at` | timestamp with time zone | yes | now() |  |
+| `legal_name` | text | no |  |  |
+| `trading_name` | text | no |  |  |
+| `industry` | text | no |  |  |
+| `billing_address` | text | no |  |  |
+| `social_links` | jsonb | yes | '{}'::jsonb |  |
+| `name_key` | text | no | client_name_key(name) |  |
 
 ## `divisions`
 
@@ -263,6 +289,22 @@ _(no description)_
 | `year` | integer | yes |  |  |
 | `last_value` | integer | yes | 0 |  |
 
+## `milestones`
+
+**Purpose:** delivery checkpoints within a project. [class: internal]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | uuid | yes | gen_random_uuid() |  |
+| `project_id` | uuid | yes |  | `projects` |
+| `title` | text | yes |  |  |
+| `due_date` | date | no |  |  |
+| `status` | text | yes | 'pending'::text |  |
+| `completed_at` | timestamp with time zone | no |  |  |
+| `sort_order` | integer | yes | 100 |  |
+| `created_at` | timestamp with time zone | yes | now() |  |
+| `updated_at` | timestamp with time zone | yes | now() |  |
+
 ## `notifications`
 
 **Purpose:** central in-app notification inbox. Each row is addressed to one staff member. [class: internal]
@@ -320,14 +362,14 @@ _(no description)_
 
 ## `people`
 
-**Purpose:** one record per human known to ADA (applicant, hire, former staff). Personal data. A person may apply many times. [class: confidential]
+**Purpose:** ONE record per human known to ADA, whatever their relationships (applicant, staff, client contact). Relationship tables decide who may see it; this table holds identity only. [class: confidential]
 
 | Column | Type | Required | Default | References |
 |---|---|---|---|---|
 | `id` | uuid | yes | gen_random_uuid() |  |
 | `ada_id` | text | yes |  |  |
 | `full_name` | text | yes |  |  |
-| `email` | text | yes |  |  |
+| `email` | text | no |  |  |
 | `phone` | text | no |  |  |
 | `created_at` | timestamp with time zone | yes | now() |  |
 | `updated_at` | timestamp with time zone | yes | now() |  |
@@ -345,6 +387,32 @@ _(no description)_
 | `description` | text | yes |  |  |
 | `sensitivity` | data_classification | yes | 'internal'::data_classification |  |
 
+## `portfolio_entries`
+
+**Purpose:** what the public may see about a finished project. Requires a completed project and the client's consent; the client's name is shown only if show_client_name is also true. Internal project data is never exposed. [class: internal; public when published]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | uuid | yes | gen_random_uuid() |  |
+| `ada_id` | text | yes |  |  |
+| `project_id` | uuid | yes |  | `projects` |
+| `title` | text | yes |  |  |
+| `summary` | text | no |  |  |
+| `description` | text | no |  |  |
+| `technologies` | text[] | yes | '{}'::text[] |  |
+| `image_refs` | text[] | yes | '{}'::text[] |  |
+| `client_consent` | boolean | yes | false |  |
+| `show_client_name` | boolean | yes | false |  |
+| `completed_on` | date | no |  |  |
+| `status` | publication_state | yes | 'draft'::publication_state |  |
+| `approved_by` | uuid | no |  | `staff` |
+| `approved_at` | timestamp with time zone | no |  |  |
+| `published_at` | timestamp with time zone | no |  |  |
+| `status_reason` | text | no |  |  |
+| `created_by` | uuid | no |  | `staff` |
+| `created_at` | timestamp with time zone | yes | now() |  |
+| `updated_at` | timestamp with time zone | yes | now() |  |
+
 ## `positions`
 
 **Purpose:** job positions, optionally tied to a division. A position is descriptive; access comes from roles, not positions. [class: internal]
@@ -361,6 +429,17 @@ _(no description)_
 | `updated_at` | timestamp with time zone | yes | now() |  |
 | `headcount` | integer | yes | 1 |  |
 
+## `project_contacts`
+
+**Purpose:** which of the client's contacts a project involves. References the shared client_contacts row; never a copy. [class: internal]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `project_id` | uuid | yes |  | `projects` |
+| `contact_id` | uuid | yes |  | `client_contacts` |
+| `role` | text | no |  |  |
+| `added_at` | timestamp with time zone | yes | now() |  |
+
 ## `project_divisions`
 
 **Purpose:** every division participating in a project (the lead division is always included). [class: internal]
@@ -372,13 +451,12 @@ _(no description)_
 
 ## `project_financials`
 
-**Purpose:** money attached to a project, isolated so project access never implies finance access. [class: confidential]
+**Purpose:** internal budget/cost PLANNING numbers only. Quoted, invoiced and received amounts are derived from quotes, invoices and payments (finance module), never stored here. [class: confidential]
 
 | Column | Type | Required | Default | References |
 |---|---|---|---|---|
 | `project_id` | uuid | yes |  | `projects` |
 | `currency` | character(3) | yes | 'NAD'::bpchar |  |
-| `quoted_amount` | numeric(14,2) | no |  |  |
 | `budget` | numeric(14,2) | no |  |  |
 | `revenue_to_date` | numeric(14,2) | yes | 0 |  |
 | `cost_to_date` | numeric(14,2) | yes | 0 |  |
@@ -395,6 +473,27 @@ _(no description)_
 | `staff_id` | uuid | yes |  | `staff` |
 | `member_role` | text | yes | 'member'::text |  |
 | `added_at` | timestamp with time zone | yes | now() |  |
+
+## `project_services`
+
+**Purpose:** which catalogue services a project delivers, with the price ACTUALLY used (unit_price is a snapshot; price_id points at the catalogue version it came from). [class: restricted]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | uuid | yes | gen_random_uuid() |  |
+| `project_id` | uuid | yes |  | `projects` |
+| `service_id` | uuid | yes |  | `services` |
+| `quote_line_id` | uuid | no |  | `quote_lines` |
+| `price_id` | uuid | no |  | `service_prices` |
+| `description` | text | no |  |  |
+| `quantity` | numeric(12,2) | yes | 1 |  |
+| `unit_price` | numeric(14,2) | yes |  |  |
+| `discount_amount` | numeric(14,2) | yes | 0 |  |
+| `line_total` | numeric(14,2) | no | round(((quantity * unit_price) - discount_amount), 2) |  |
+| `currency` | character(3) | yes | 'NAD'::bpchar |  |
+| `price_override_reason` | text | no |  |  |
+| `created_by` | uuid | no |  | `staff` |
+| `created_at` | timestamp with time zone | yes | now() |  |
 
 ## `projects`
 
@@ -420,6 +519,58 @@ _(no description)_
 | `deletion_reason` | text | no |  |  |
 | `created_at` | timestamp with time zone | yes | now() |  |
 | `updated_at` | timestamp with time zone | yes | now() |  |
+| `completed_at` | timestamp with time zone | no |  |  |
+
+## `quote_lines`
+
+**Purpose:** quote line items. unit_price is a SNAPSHOT of the catalogue price version in price_id (or a stated override). Locked once the quote leaves draft. [class: restricted]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | uuid | yes | gen_random_uuid() |  |
+| `quote_id` | uuid | yes |  | `quotes` |
+| `position` | integer | yes | 100 |  |
+| `service_id` | uuid | no |  | `services` |
+| `price_id` | uuid | no |  | `service_prices` |
+| `description` | text | yes |  |  |
+| `quantity` | numeric(12,2) | yes | 1 |  |
+| `unit_price` | numeric(14,2) | yes |  |  |
+| `discount_amount` | numeric(14,2) | yes | 0 |  |
+| `price_override_reason` | text | no |  |  |
+| `line_total` | numeric(14,2) | no | round(((quantity * unit_price) - discount_amount), 2) |  |
+| `created_at` | timestamp with time zone | yes | now() |  |
+
+## `quotes`
+
+**Purpose:** a priced proposal from a division to an existing client. Links to client, contact, division, project and (via lines) services and price versions. total is maintained from the lines. [class: restricted]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | uuid | yes | gen_random_uuid() |  |
+| `ada_id` | text | yes |  |  |
+| `client_id` | uuid | yes |  | `clients` |
+| `contact_id` | uuid | no |  | `client_contacts` |
+| `division_id` | uuid | yes |  | `divisions` |
+| `project_id` | uuid | no |  | `projects` |
+| `title` | text | yes |  |  |
+| `intro` | text | no |  |  |
+| `terms` | text | no |  |  |
+| `currency` | character(3) | yes | 'NAD'::bpchar |  |
+| `valid_until` | date | yes | (CURRENT_DATE + 30) |  |
+| `assigned_staff_id` | uuid | no |  | `staff` |
+| `status` | quote_status | yes | 'draft'::quote_status |  |
+| `total` | numeric(14,2) | yes | 0 |  |
+| `requested_by` | uuid | no |  | `staff` |
+| `approved_by` | uuid | no |  | `staff` |
+| `approved_at` | timestamp with time zone | no |  |  |
+| `sent_at` | timestamp with time zone | no |  |  |
+| `decided_at` | timestamp with time zone | no |  |  |
+| `decision_note` | text | no |  |  |
+| `status_reason` | text | no |  |  |
+| `converted_at` | timestamp with time zone | no |  |  |
+| `created_by` | uuid | no |  | `staff` |
+| `created_at` | timestamp with time zone | yes | now() |  |
+| `updated_at` | timestamp with time zone | yes | now() |  |
 
 ## `role_permissions`
 
@@ -442,6 +593,58 @@ _(no description)_
 | `name` | text | yes |  |  |
 | `description` | text | no |  |  |
 | `is_system` | boolean | yes | false |  |
+| `created_at` | timestamp with time zone | yes | now() |  |
+| `updated_at` | timestamp with time zone | yes | now() |  |
+
+## `service_prices`
+
+**Purpose:** immutable price versions. An approved version never changes (only effective_to is set when a later version takes over). Quotes and invoices copy the version they used. [class: restricted until approved; internal after]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | uuid | yes | gen_random_uuid() |  |
+| `service_id` | uuid | yes |  | `services` |
+| `version` | integer | yes |  |  |
+| `amount` | numeric(14,2) | no |  |  |
+| `currency` | character(3) | yes | 'NAD'::bpchar |  |
+| `effective_from` | date | yes |  |  |
+| `effective_to` | date | no |  |  |
+| `status` | price_status | yes | 'pending_approval'::price_status |  |
+| `reason` | text | yes |  |  |
+| `proposed_by` | uuid | no |  | `staff` |
+| `proposed_at` | timestamp with time zone | yes | now() |  |
+| `approved_by` | uuid | no |  | `staff` |
+| `approved_at` | timestamp with time zone | no |  |  |
+| `decision_note` | text | no |  |  |
+| `created_at` | timestamp with time zone | yes | now() |  |
+
+## `services`
+
+**Purpose:** the ONE service catalogue. Websites, quotes, projects and reports reference these rows; none keeps its own list. Public only when status = published. [class: internal]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | uuid | yes | gen_random_uuid() |  |
+| `ada_id` | text | yes |  |  |
+| `division_id` | uuid | yes |  | `divisions` |
+| `name` | text | yes |  |  |
+| `category` | text | no |  |  |
+| `summary` | text | no |  |  |
+| `description` | text | no |  |  |
+| `pricing_model` | pricing_model | yes | 'fixed'::pricing_model |  |
+| `billing_unit` | text | yes | 'project'::text |  |
+| `is_active` | boolean | yes | true |  |
+| `show_price` | boolean | yes | true |  |
+| `status` | publication_state | yes | 'draft'::publication_state |  |
+| `approved_by` | uuid | no |  | `staff` |
+| `approved_at` | timestamp with time zone | no |  |  |
+| `published_at` | timestamp with time zone | no |  |  |
+| `status_reason` | text | no |  |  |
+| `classification` | data_classification | yes | 'internal'::data_classification |  |
+| `created_by` | uuid | no |  | `staff` |
+| `deleted_at` | timestamp with time zone | no |  |  |
+| `deleted_by` | uuid | no |  | `staff` |
+| `deletion_reason` | text | no |  |  |
 | `created_at` | timestamp with time zone | yes | now() |  |
 | `updated_at` | timestamp with time zone | yes | now() |  |
 
@@ -561,6 +764,7 @@ _(no description)_
 | `created_by` | uuid | no |  | `staff` |
 | `created_at` | timestamp with time zone | yes | now() |  |
 | `updated_at` | timestamp with time zone | yes | now() |  |
+| `milestone_id` | uuid | no |  | `milestones` |
 
 ## `vacancies`
 

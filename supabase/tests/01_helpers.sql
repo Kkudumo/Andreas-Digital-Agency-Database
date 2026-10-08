@@ -117,7 +117,7 @@ begin
   insert into clients (name, classification)    values ('C_conf', 'confidential') returning id into c_conf;
   insert into projects (client_id, lead_division_id, name) values (c_web,  v_div_web,  'P_web')  returning id into p_web;
   insert into projects (client_id, lead_division_id, name) values (c_tech, v_div_tech, 'P_tech') returning id into p_tech;
-  insert into project_financials (project_id, quoted_amount, budget) values (p_web, 5000, 3000), (p_tech, 9000, 6000);
+  insert into project_financials (project_id, budget) values (p_web, 3000), (p_tech, 6000);
   insert into tasks (project_id, title) values (p_web, 'T_web'), (p_tech, 'T_tech');
   insert into staff_private (staff_id, national_id, emergency_contact_name)
     select id, '123456789', 'Someone' from staff where email = 'web_staff@ada.test';
@@ -196,7 +196,7 @@ begin
   -- registered websites with known API keys (plaintext only exists in tests)
   insert into websites (name, domain, environment, status, capabilities, api_key_hash, api_key_prefix) values
     ('ADA Main Website', 'main.ada.test', 'production', 'active',
-       array['vacancies.read', 'team.read', 'divisions.read', 'statistics.read', 'applications.submit'], tests.keyhash('testkey-main'), 'testkey-'),
+       array['vacancies.read', 'team.read', 'divisions.read', 'statistics.read', 'applications.submit', 'services.read', 'portfolio.read'], tests.keyhash('testkey-main'), 'testkey-'),
     ('Limited Site', 'limited.ada.test', 'production', 'active', array['divisions.read'], tests.keyhash('testkey-limited'), 'testkey-'),
     ('Suspended Site', 'suspended.ada.test', 'production', 'suspended', array['vacancies.read', 'divisions.read'], tests.keyhash('testkey-susp'), 'testkey-');
   insert into tests.ids select 'site:' || split_part(domain, '.', 1), id from websites;
@@ -207,3 +207,31 @@ create function tests.pub(p_site text, p_fn text, p_extra text default '') retur
   select tests.scalar_pub(format('select public_api.%s(%L%s)::text', p_fn, tests.keyhash('testkey-' || p_site),
                                  case when p_extra = '' then '' else ', ' || p_extra end))
 $$;
+
+-- Like tests.try but returns 'ok' or '<sqlstate>: <message>' so a test can assert on the user-facing message.
+create function tests.try_msg(p_user text, p_sql text) returns text language plpgsql as $$
+begin
+  perform set_config('request.jwt.claim.sub', case when p_user is null then '' else tests.uid(p_user)::text end, true);
+  set local role authenticated;
+  begin
+    execute p_sql;
+    reset role;
+    return 'ok';
+  exception when others then
+    reset role;
+    return sqlstate || ': ' || sqlerrm;
+  end;
+end $$;
+
+-- Tables that have an ada_id column but contain rows missing from entity_registry ('none' when consistent).
+create function tests.unregistered_tables() returns text language plpgsql as $$
+declare r record; n bigint; bad text[] := '{}';
+begin
+  for r in select c.table_name from information_schema.columns c join information_schema.tables t
+             on t.table_schema = c.table_schema and t.table_name = c.table_name and t.table_type = 'BASE TABLE'
+           where c.table_schema = 'public' and c.column_name = 'ada_id' and c.table_name <> 'entity_registry' order by 1 loop
+    execute format('select count(*) from %I x where not exists (select 1 from entity_registry g where g.ada_id = x.ada_id)', r.table_name) into n;
+    if n > 0 then bad := bad || r.table_name::text; end if;
+  end loop;
+  return case when cardinality(bad) = 0 then 'none' else array_to_string(bad, ',') end;
+end $$;

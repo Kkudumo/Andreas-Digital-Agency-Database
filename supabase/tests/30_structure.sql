@@ -13,10 +13,10 @@ select tests.check('anon has no table privileges at all',
 select tests.check('authenticated may DELETE only from link tables',
   (select string_agg(c.relname, ',' order by c.relname) from pg_class c
    where c.relnamespace = 'public'::regnamespace and c.relkind = 'r' and has_table_privilege('authenticated', c.oid, 'delete')),
-  'client_staff,project_divisions,project_members,role_permissions,staff_roles');
+  'client_staff,project_contacts,project_divisions,project_members,role_permissions,staff_roles');
 select tests.check('authenticated has no write access to audit_log or service tables',
   (select coalesce(string_agg(c.relname, ','), 'none') from pg_class c
-   where c.relnamespace = 'public'::regnamespace and c.relname in ('audit_log', 'id_sequences', 'entity_registry', 'entity_types', 'permissions', 'events', 'event_deliveries', 'notifications', 'application_status_history', 'applications')
+   where c.relnamespace = 'public'::regnamespace and c.relname in ('audit_log', 'id_sequences', 'entity_registry', 'entity_types', 'permissions', 'events', 'event_deliveries', 'notifications', 'application_status_history', 'applications', 'approval_requests', 'service_prices')
      and (has_table_privilege('authenticated', c.oid, 'insert') or has_table_privilege('authenticated', c.oid, 'update')
        or has_table_privilege('authenticated', c.oid, 'delete'))), 'none');
 select tests.check('every SECURITY DEFINER function pins its search_path',
@@ -34,15 +34,45 @@ select tests.check('ada_public_api has no privileges on any table',
    where c.relnamespace in ('public'::regnamespace, 'public_api'::regnamespace) and c.relkind in ('r', 'v', 'm')
      and (has_table_privilege('ada_public_api', c.oid, 'select') or has_table_privilege('ada_public_api', c.oid, 'insert')
        or has_table_privilege('ada_public_api', c.oid, 'update') or has_table_privilege('ada_public_api', c.oid, 'delete'))), 'none');
-select tests.check('ada_public_api can execute only the six entry points',
+select tests.check('ada_public_api can execute only the reviewed entry points',
   (select string_agg(proname, ',' order by proname) from pg_proc
    where pronamespace = 'public_api'::regnamespace and has_function_privilege('ada_public_api', oid, 'execute')),
-  'divisions,statistics,submit_application,team,vacancies,vacancy');
+  'divisions,portfolio,services,statistics,submit_application,team,vacancies,vacancy');
 select tests.check('ada_public_api cannot execute private helpers in public',
   (select coalesce(string_agg(proname, ','), 'none') from pg_proc
    where pronamespace = 'public'::regnamespace and prorettype <> 'trigger'::regtype
      and proname in ('site_from_key_hash', 'create_application_internal', 'emit_event', 'notify_holders', 'next_ada_id', 'has_permission')
      and has_function_privilege('ada_public_api', oid, 'execute')), 'none');
+select tests.check('authenticated can execute only the reviewed functions',
+  (select coalesce(string_agg(proname, ',' order by proname), 'none') from pg_proc
+   where pronamespace = 'public'::regnamespace and prorettype <> 'trigger'::regtype
+     and has_function_privilege('authenticated', oid, 'execute')
+     and proname not in (
+       -- authorization helpers (RLS policies call them as the invoker; they only describe the caller's own access)
+       'current_staff_id', 'is_active_staff', 'is_untrusted_caller', 'has_permission', 'has_permission_anywhere', 'my_access',
+       'can_view_client', 'can_edit_client', 'can_view_client_row', 'can_edit_client_row', 'can_view_person', 'can_edit_person',
+       'can_view_project', 'can_edit_project', 'can_view_project_row', 'can_edit_project_row', 'has_project_permission', 'has_project_permission_row',
+       'can_view_vacancy_row', 'can_view_application_row', 'application_division', 'can_view_service', 'can_view_service_row', 'service_division',
+       'position_open_capacity', 'client_duplicate_message', 'client_name_key', 'price_on',
+       -- workflow / command functions (each checks its own permission inside)
+       'link_staff_account', 'issue_website_key', 'vacancy_transition', 'staff_record_application', 'application_transition', 'make_offer',
+       'accept_application', 'profile_transition', 'terminate_staff', 'client_lookup', 'claim_client_for_division', 'set_client_owner',
+       'add_client_contact', 'price_propose', 'price_decide', 'price_withdraw', 'service_transition', 'project_transition', 'project_add_service',
+       'project_lead_division', 'portfolio_transition', 'can_view_quote', 'can_view_quote_row', 'quote_create',
+       'quote_add_line', 'quote_remove_line', 'quote_transition', 'quote_convert_to_project',
+       -- 360 views: SECURITY INVOKER, so they add no access beyond ordinary row-level security
+       'client_360', 'project_360', 'staff_360')), 'none');
+-- "Does this information already exist in ADA Core? Then REFERENCE it." Identity/contact columns may live only in
+-- these reviewed places; a new module that adds its own name/email/phone column fails here and must reference
+-- people / clients / staff instead.
+select tests.check('contact and identity columns exist only where reviewed',
+  (select string_agg(table_name || '.' || column_name, ', ' order by table_name, column_name) from information_schema.columns
+   where table_schema = 'public' and (column_name ~ '(email|phone)' or column_name in ('full_name', 'first_name', 'last_name'))),
+  'clients.email, clients.phone, organization.email, organization.phone, people.email, people.full_name, people.phone, staff.email, staff.full_name, staff.work_phone, staff_private.emergency_contact_phone, staff_private.personal_email, staff_private.personal_phone, staff_profiles.public_email');
+select tests.check('every business table that points at a client points at clients(id), never at a copy',
+  (select coalesce(string_agg(c.conrelid::regclass::text || '.' || a.attname, ',' order by 1), 'none') from pg_constraint c join pg_attribute a on a.attrelid = c.conrelid and a.attnum = c.conkey[1]
+   where c.contype = 'f' and c.conrelid::regclass::text in ('projects', 'quotes', 'client_contacts', 'client_divisions', 'client_staff')
+     and a.attname = 'client_id' and c.confrelid <> 'clients'::regclass), 'none');
 select tests.check('every table that is not a link table has an updated_at trigger or is append-only',
   (select coalesce(string_agg(c.relname, ','), 'none') from pg_class c
    where c.relnamespace = 'public'::regnamespace and c.relkind = 'r'
@@ -51,7 +81,7 @@ select tests.check('every table that is not a link table has an updated_at trigg
 select tests.check('every business table is audited',
   (select coalesce(string_agg(c.relname, ','), 'none') from pg_class c
    where c.relnamespace = 'public'::regnamespace and c.relkind = 'r'
-     and c.relname not in ('audit_log', 'id_sequences', 'entity_registry', 'entity_types', 'permissions', 'events', 'event_deliveries', 'notifications', 'application_status_history')
+     and c.relname not in ('audit_log', 'id_sequences', 'entity_registry', 'entity_types', 'permissions', 'events', 'event_deliveries', 'notifications', 'application_status_history', 'approval_requests')
      and not exists (select 1 from pg_trigger t where t.tgrelid = c.oid and t.tgname = 'zz_audit')), 'none');
 
 -- Permission matrix: CSV (reviewed design document) must equal the database.

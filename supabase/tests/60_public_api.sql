@@ -137,7 +137,7 @@ update staff set employment_status = 'active' where email = 'web_staff@ada.test'
 select tests.check('statistics match live records',
   (tests.pub('main', 'statistics')::jsonb = jsonb_build_object(
      'staff', (select count(*) from staff where deleted_at is null and employment_status in ('active', 'on_leave', 'contractor')),
-     'team_members', 2, 'open_vacancies', 1, 'divisions', 6))::text, 'true');
+     'team_members', 2, 'open_vacancies', 1, 'divisions', 6, 'services', 0, 'portfolio_projects', 0))::text, 'true');
 update vacancies set deleted_at = now(), deletion_reason = 'test' where id = tests.id('vac:v');
 select tests.check('statistics follow the data (soft-deleted vacancy no longer counts)', (tests.pub('main', 'statistics')::jsonb ->> 'open_vacancies'), '0');
 

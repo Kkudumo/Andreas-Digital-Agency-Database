@@ -21,7 +21,16 @@ every important change is attributable · secrets are references, never values.
    and truncate raise), readable only with `audit.view`. Sensitive columns are redacted from audit payloads.
 7. **Public boundary** — role `ada_public_api` has **no table privileges**; it may execute six `public_api` functions.
    Each authenticates the website by key *hash*, checks the site's capability, and returns an explicitly built JSON DTO.
-8. **Events** carry identifiers and states only (a test asserts no `@`, names or phone numbers ever appear).
+8. **Relationship-based privacy** — a person is one record, but who may see it follows the *relationship* (client contact, applicant, staff). Seeing someone as a client contact never reveals recruitment data and vice versa.
+9. **Invoker views** — the 360° functions are SECURITY INVOKER, so they inherit row-level security instead of re-implementing it.
+10. **Immutable history** — approved prices, status histories, review notes and the audit log reject updates and deletes at the database level, for every caller.
+11. **Events** carry identifiers and states only (a test asserts no `@`, names or phone numbers ever appear).
+
+## Lessons encoded as tests
+- Postgres `AFTER UPDATE OF col` triggers do not fire when a BEFORE trigger (not the statement) changes `col`: event/queue triggers fire on any update.
+- `pg_dump` records grants relative to the target's default privileges: restores neutralise permissive defaults and verify a security fingerprint.
+- Row-security helpers called by policies are executable by every signed-in user, so each must only describe the caller's own access (an allow-list test reviews every executable function).
+- `INSERT … RETURNING` re-checks the SELECT policy against the new row, so visibility predicates evaluate the row's own columns.
 
 ## Data classification
 | Class | Examples | Who |

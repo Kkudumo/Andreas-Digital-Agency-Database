@@ -23,13 +23,19 @@ functions), so no client — IRM, a website, or a person with API access — can
 | Identity & access | `staff`, `roles`, `permissions`, `role_permissions`, `staff_roles`, `staff_assignments` | built, tested |
 | Recruitment | `vacancies`, `people`, `applications`, `application_*`, `onboarding_tasks`, `staff_profiles` | built, tested |
 | Websites & public API | `websites`, `event_subscriptions`, `public_api.*` | built, tested (HTTP layer not yet) |
-| CRM / projects | `clients`, `client_*`, `projects`, `project_*`, `tasks`, `project_financials` | built, tested (leads/quotes still to do) |
-| Services & pricing, finance, assets, tickets, documents, domains | — | not started |
+| People & clients | `people`, `clients` (full profile), `client_contacts`, `client_divisions`, `client_staff`, duplicate prevention | built, tested |
+| Services & pricing | `services`, `service_prices` (immutable versions), approvals queue | built, tested |
+| Quotes | `quotes`, `quote_lines` (price snapshots), conversion to project | built, tested |
+| Projects | `projects`, `project_services`, `project_contacts`, `project_divisions`, `project_members`, `milestones`, `tasks`, `portfolio_entries` | built, tested |
+| 360° views | `client_360`, `project_360`, `staff_360` | built, tested (sections for unbuilt modules are declared `pending`) |
+| Leads / enquiries from websites | — | not started |
+| Finance (invoices, payments, expenses), contracts | — | not started |
+| Assets, tickets, documents, domains, communications | — | not started |
 | Search, reports, dashboards | — | not started |
 
-Documents: [Data dictionary](architecture/DATA_DICTIONARY.md) · [ERD](architecture/ERD.md) ·
+Documents: [Entity graph](architecture/ENTITY_GRAPH.md) · [Data dictionary](architecture/DATA_DICTIONARY.md) · [ERD](architecture/ERD.md) ·
 [Permission matrix](architecture/PERMISSION_MATRIX.md) · [Security](SECURITY.md) · [Public API](api/PUBLIC_API.md) ·
-[Recruitment workflow](workflows/RECRUITMENT.md) · [Development](operations/DEVELOPMENT.md) ·
+[Recruitment workflow](workflows/RECRUITMENT.md) · [Services, pricing & quotes](workflows/QUOTES_PRICING.md) · [Development](operations/DEVELOPMENT.md) ·
 [Backup, restore & migration](operations/BACKUP_RESTORE_MIGRATION.md) · [Deployment](operations/DEPLOYMENT.md) ·
 [Original audit/gap report](architecture/ARCHITECTURE_REPORT.md)
 
@@ -45,12 +51,16 @@ Documents: [Data dictionary](architecture/DATA_DICTIONARY.md) · [ERD](architect
 | Public API = our own route handlers over `public_api` functions, called as a database role with no table access | Smaller blast radius than exposing the auto-generated REST API; also portable. |
 | The API server hashes website keys; the database stores and sees only hashes | Keys never appear in query logs or backups. |
 | Events are an outbox of identifiers and states only | Websites revalidate caches without redeploying, and events can never leak personal data (tested). |
+| ONE client, ONE person, ONE catalogue | Contacts are relationships to a shared `people` record; clients are claimed by divisions, never re-created; every module references existing records. Enforced by tests that fail on new identity columns or unregistered IDs. |
+| Prices are immutable versions; documents of commerce copy the version used | History is true by construction; changing a price never changes a quote, project or (later) invoice. |
+| One approvals queue | Every pending approval is visible to the right approvers in one place, with history. |
+| 360° views are SECURITY INVOKER | They inherit row-level security; nothing to keep in sync. |
 | Supabase is today's host, not the architecture | The only provider-specific dependencies are `auth.users`/`auth.uid()` and (later) Storage. |
 
 ## What is verified, and what is not
 
 Verified by `./scripts/test-db.sh` on plain PostgreSQL 16 with a stand-in for Supabase's auth schema/roles:
-**432 checks** — authorization, integrity, audit immutability, public/private exposure, the full hire-to-departure
+**698 checks** — authorization, integrity, audit immutability, public/private exposure, the full hire-to-departure
 scenario, structural guarantees (RLS everywhere, least-privilege grants, matrix == CSV), and 320 parallel ID
 allocations. Rules were validated with mutation tests (deliberately breaking a rule makes the suite fail).
 `./scripts/rehearse-migration.sh` proves dump → restore → identical security posture → working system.
@@ -60,7 +70,10 @@ allocations. Rules were validated with mutation tests (deliberately breaking a r
 
 ## Known limitations
 
-- Editing a *published* staff profile returns it to draft (it leaves the website until re-approved). A
+- Leads/enquiries from websites, contracts, invoices, payments, expenses, assets, tickets, documents, domains and communications are not built. The 360° views list them under `pending`.
+- `project_financials.revenue_to_date`/`cost_to_date` are interim planning fields and will be removed when finance exists (derived, not stored).
+
+- Editing a *published* staff profile, service or portfolio entry returns it to draft (it leaves the website until re-approved). A
   "pending changes" model that keeps the old version live needs a versions table — not built.
 - Approval is a single approver with the right permission (no four-eyes rule yet); the approver is recorded.
 - The generic approval/workflow engine is per-entity today. A shared engine is planned when price changes,

@@ -146,9 +146,9 @@ select tests.check('Web lead cannot link their client to another division',
 select tests.check('Web lead cannot soft-delete a client',
   tests.try('web_lead', $q$ update clients set deleted_at = now(), deletion_reason = 'no' where name = 'C_web' $q$), 'ERR:42501');
 select tests.check('Web lead cannot add a contact to Tech''s client',
-  tests.try('web_lead', $q$ insert into client_contacts (client_id, full_name) values ((select id from tests.ids where key = 'client:C_tech'), 'Spy') $q$), 'ERR:42501');
+  tests.scalar('web_lead', $q$ select add_client_contact((select id from tests.ids where key = 'client:C_tech'), 'Spy', 'spy@example.com')::text $q$), 'ERR:42501');
 select tests.check('Web lead can add a contact to Web''s client',
-  tests.try('web_lead', $q$ insert into client_contacts (client_id, full_name) select id, 'Pat' from clients where name = 'C_web' $q$), 'ok');
+  tests.try('web_lead', $q$ select add_client_contact((select id from tests.ids where key = 'client:C_web'), 'Pat Contact', 'pat@example.com') $q$), 'ok');
 
 select tests.check('Web lead can create a Web project for a Web client',
   tests.try('web_lead', $q$ insert into projects (client_id, lead_division_id, name) select c.id, d.id, 'P_new' from clients c, divisions d where c.name = 'C_web' and d.key = 'web' $q$), 'ok');
@@ -178,8 +178,19 @@ select tests.check('Completing a task stamps completed_at',
   (select (completed_at is not null)::text from tasks where title = 'T_web'), 'true');
 select tests.check('Web staff cannot update another division''s tasks',
   pg_temp.affected('web_staff', $q$ update tasks set status = 'done' where title = 'T_tech' $q$), '0');
-select tests.check('Web lead can archive a Web project',
-  tests.try('web_lead', $q$ update projects set status = 'archived' where name = 'P_new' $q$), 'ok');
+select tests.check('project status cannot be edited directly', tests.try('web_lead', $q$ update projects set status = 'completed' where name = 'P_new' $q$), 'ERR:42501');
+select tests.check('web staff cannot move a project through its lifecycle',
+  tests.scalar('web_staff', $q$ select project_transition((select id from projects where name = 'P_new'), 'approved')::text $q$), 'ERR:42501');
+select tests.check('projects cannot skip stages',
+  tests.scalar('web_lead', $q$ select project_transition((select id from projects where name = 'P_new'), 'completed')::text $q$), 'ERR:23514');
+select tests.check('Web lead moves a Web project through its lifecycle',
+  tests.scalar('web_lead', $q$ select project_transition((select id from projects where name = 'P_new'), 'approved')::text $q$) ||
+  tests.scalar('web_lead', $q$ select project_transition((select id from projects where name = 'P_new'), 'active')::text $q$) ||
+  tests.scalar('web_lead', $q$ select project_transition((select id from projects where name = 'P_new'), 'completed')::text $q$), 'approvedactivecompleted');
+select tests.check('Web lead can archive a completed Web project',
+  tests.scalar('web_lead', $q$ select project_transition((select id from projects where name = 'P_new'), 'archived')::text $q$), 'archived');
+select tests.check('Web lead cannot change a Tech project''s status',
+  tests.scalar('web_lead', $q$ select project_transition((select id from projects where name = 'P_tech'), 'approved')::text $q$), 'ERR:P0002');
 select tests.check('Web lead cannot soft-delete a project',
   tests.try('web_lead', $q$ update projects set deleted_at = now(), deletion_reason = 'x' where name = 'P_new' $q$), 'ERR:42501');
 

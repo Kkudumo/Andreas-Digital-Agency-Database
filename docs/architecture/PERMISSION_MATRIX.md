@@ -55,3 +55,16 @@ A role assignment is organization-wide or scoped to one division. **Division Lea
 | `profiles.publish` — Approve, publish and unpublish public staff profiles | restricted | x |  |  |  |  |  |  |
 | `websites.view` — View the registry of connected websites | restricted | x | x |  |  |  | x |  |
 | `websites.manage` — Register websites and issue or rotate their API keys | restricted | x |  |  |  |  |  |  |
+| `services.create` — Create services in the catalogue | internal | x |  |  | x |  |  |  |
+| `services.update` — Edit services in the catalogue | internal | x |  |  | x |  |  |  |
+| `services.publish` — Approve, publish and unpublish services on public websites | restricted | x |  |  |  |  |  |  |
+| `pricing.propose` — Propose a new price version for a service | restricted | x |  | x | x |  |  |  |
+| `pricing.approve` — Approve or reject proposed prices | restricted | x |  |  |  |  |  |  |
+| `pricing.approve_own` — Approve a price change you proposed yourself | restricted | x |  |  |  |  |  |  |
+| `quotes.view` — View quotes | restricted | x | x | x | x | x |  |  |
+| `quotes.create` — Create quotes | restricted | x |  |  | x |  |  |  |
+| `quotes.update` — Edit quotes and record the client decision | restricted | x |  |  | x |  |  |  |
+| `quotes.approve` — Approve quotes before they are sent | restricted | x |  |  |  |  |  |  |
+| `quotes.approve_own` — Approve a quote you prepared yourself | restricted | x |  |  |  |  |  |  |
+| `portfolio.edit` — Prepare portfolio entries from completed projects | internal | x | x |  | x |  |  |  |
+| `portfolio.publish` — Approve, publish and unpublish portfolio entries | restricted | x |  |  |  |  |  |  |
