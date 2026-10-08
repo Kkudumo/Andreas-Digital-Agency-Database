@@ -229,10 +229,12 @@ end $$;
 create function tests.unregistered_tables() returns text language plpgsql as $$
 declare r record; n bigint; bad text[] := '{}';
 begin
-  for r in select c.table_name from information_schema.columns c join information_schema.tables t
-             on t.table_schema = c.table_schema and t.table_name = c.table_name and t.table_type = 'BASE TABLE'
-           where c.table_schema = 'public' and c.column_name = 'ada_id' and c.table_name <> 'entity_registry' order by 1 loop
-    execute format('select count(*) from %I x where not exists (select 1 from entity_registry g where g.ada_id = x.ada_id)', r.table_name) into n;
+  -- every table that carries a legacy ada_id, and every table the registry routes to, must have a registry row for each record
+  for r in select distinct table_name from (
+             select c.table_name from information_schema.columns c join information_schema.tables t on t.table_schema = c.table_schema and t.table_name = c.table_name and t.table_type = 'BASE TABLE'
+              where c.table_schema = 'public' and c.column_name = 'ada_id' and c.table_name <> 'entity_registry'
+             union select domain_table from entity_types where is_built and domain_table is not null) q order by 1 loop
+    execute format('select count(*) from %I x where not exists (select 1 from entity_registry g where g.table_name = %L and g.entity_id = x.id)', r.table_name, r.table_name) into n;
     if n > 0 then bad := bad || r.table_name::text; end if;
   end loop;
   return case when cardinality(bad) = 0 then 'none' else array_to_string(bad, ',') end;
