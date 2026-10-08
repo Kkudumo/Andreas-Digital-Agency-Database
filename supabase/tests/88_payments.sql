@@ -106,6 +106,11 @@ select tests.check('management approves the refund', tests.scalar('ceo', format(
 select tests.check('the refund reduces the credit; allocations stay valid', (select refunded::text || '/' || credit::text || '/' || allocated::text from payment_balances where payment_id = tests.id('pay:4')), '1000.00/0.00/5000.00');
 select tests.check('a partly refunded payment cannot be wholly reversed', tests.scalar('fin', format('select payment_request_reversal(%L, ''reversal'', null, ''x'')::text', tests.id('pay:4'))), 'ERR:23514');
 
+select tests.issued_invoice('E', 'client:abc', 300);
+select tests.check('after the refund the payment has no credit left: it cannot fund another invoice', tests.scalar('fin', format('select payment_allocate(%L, %L, 100)::text', tests.id('pay:4'), tests.id('inv:E'))), 'ERR:23514');
+select tests.check('...nor can the database be made to by the owner', tests.try_owner(format('insert into payment_allocations (payment_id, invoice_id, amount) values (%L, %L, 100)', tests.id('pay:4'), tests.id('inv:E'))), 'ERR:23514');
+select tests.check('a second refund cannot exceed what is left (nothing)', tests.scalar('fin', format('select payment_request_reversal(%L, ''refund'', 1, ''again'')::text', tests.id('pay:4'))), 'ERR:23514');
+
 -- Unallocate ---------------------------------------------------------------------------------------------------------------------------------
 select tests.check('an invoice with valid payments cannot be cancelled', tests.scalar('ceo', format('select invoice_void(%L, ''mistake'')::text', tests.id('inv:C'))), 'ERR:23514');
 select tests.check('finance releases an allocation (reason required)', tests.scalar('fin', format('select payment_unallocate((select id from payment_allocations where payment_id = %L and invoice_id = %L and status = ''active''), null)::text', tests.id('pay:4'), tests.id('inv:C'))), 'ERR:23514');
@@ -134,6 +139,12 @@ select tests.check('a hidden payment is indistinguishable from a missing one (al
 select tests.check('...(reverse)', tests.same_for('web_lead', $q$ select payment_request_reversal(%L, 'reversal', null, 'probe')::text $q$, tests.id('pay:4'), gen_random_uuid()), 'same');
 select tests.check('...(reconcile)', tests.same_for('web_lead', $q$ select payment_reconcile(%L)::text $q$, tests.id('pay:4'), gen_random_uuid()), 'same');
 select tests.check('...(helper)', tests.same_for('web_lead', $q$ select can_view_payment(%L)::text $q$, tests.id('pay:4'), gen_random_uuid()), 'same');
+
+-- Defence in depth: a reversed payment never counts, even if (through a fault) its allocations were not released
+select tests.check('a reversed payment''s allocations do not count towards an invoice even if they were left active',
+  (select invoice_valid_allocated(tests.id('inv:A'))::text),  '0');
+update payments set status = 'reversed' where id = tests.id('pay:4');
+select tests.check('...(payment 4 forced to reversed by the owner: invoice B, which it had paid, no longer counts it)', (select invoice_valid_allocated(tests.id('inv:B'))::text), '0');
 
 -- Audit and structure -----------------------------------------------------------------------------------------------------------------------
 select tests.check('payments, allocations and reversals are audited', (select string_agg(distinct table_name, ',' order by table_name) from audit_log where table_name in ('payments', 'payment_allocations', 'payment_reversals')), 'payment_allocations,payment_reversals,payments');

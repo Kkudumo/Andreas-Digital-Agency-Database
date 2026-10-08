@@ -29,14 +29,17 @@ functions), so no client — IRM, a website, or a person with API access — can
 | Projects | `projects`, `project_services`, `project_contacts`, `project_divisions`, `project_members`, `milestones`, `tasks`, `portfolio_entries` | built, tested |
 | 360° views | `client_360`, `project_360`, `staff_360` | built, tested (sections for unbuilt modules are declared `pending`) |
 | Enquiries & leads | `enquiries`, `leads`, `enquiry_candidates`, `matching_reviews`, `client_create`/`client_lookup`/`claim_client_for_division`, `public_api.submit_enquiry` | built, tested |
-| Approvals | `approval_requests`, `approval_policies`, `approval_decisions`, `approval_gate` | built, tested (adopted for prices and quotes) |
-| Contracts, invoices, payments, expenses | — | next |
+| Approvals | `approval_requests`, `approval_policies`, `approval_decisions`, `approval_gate` (with discount policies) | built, tested (prices, quotes, contracts, invoices, reversals/refunds) |
+| Contracts | `contracts`, `contract_versions`, `contract_lines`, `contract_projects`, `contract_status_history` | built, tested |
+| Invoices | `billable_items`, `invoices`, `invoice_lines`, `finance_settings` | built, tested |
+| Payments | `payments`, `payment_allocations`, `payment_reversals`, `bank_accounts`, `invoice_balances`, `payment_balances` | built, tested |
+| Expenses, credit notes | — | next |
 | Assets, tickets, documents, domains, communications | — | not started |
 | Search, reports, dashboards | — | not started |
 
 Documents: [Module checklist](MODULE_CHECKLIST.md) · [Entity graph](architecture/ENTITY_GRAPH.md) · [Data dictionary](architecture/DATA_DICTIONARY.md) · [ERD](architecture/ERD.md) ·
 [Permission matrix](architecture/PERMISSION_MATRIX.md) · [Security](SECURITY.md) · [Public API](api/PUBLIC_API.md) ·
-[Recruitment workflow](workflows/RECRUITMENT.md) · [Services, pricing & quotes](workflows/QUOTES_PRICING.md) · [Leads & enquiries](workflows/LEADS_ENQUIRIES.md) · [Approvals](workflows/APPROVALS.md) · [Development](operations/DEVELOPMENT.md) ·
+[Recruitment workflow](workflows/RECRUITMENT.md) · [Services, pricing & quotes](workflows/QUOTES_PRICING.md) · [Leads & enquiries](workflows/LEADS_ENQUIRIES.md) · [Contracts](workflows/CONTRACTS.md) · [Invoices & payments](workflows/INVOICES_PAYMENTS.md) · [Approvals](workflows/APPROVALS.md) · [Development](operations/DEVELOPMENT.md) ·
 [Backup, restore & migration](operations/BACKUP_RESTORE_MIGRATION.md) · [Deployment](operations/DEPLOYMENT.md) ·
 [Original audit/gap report](architecture/ARCHITECTURE_REPORT.md)
 
@@ -76,16 +79,14 @@ allocations. Rules were validated with mutation tests (deliberately breaking a r
 
 - Client **merge** is not built: a review marked "same entity" is recorded, but combining two client records (re-pointing all references) is a future, carefully-tested operation.
 - Timing side channels are not equalised; the similarity threshold for "possible duplicate" (0.55) is a constant in `client_candidates`.
-- The approval gate covers prices and quotes; other kinds adopt it as their modules need thresholds.
+- The approval gate covers prices, quotes, contracts, invoices, reversals/refunds and discounts; other kinds (vacancies, profiles, expenses, hiring) adopt it as their modules need thresholds.
 - Enquiries carry no registration number, so an exact normalised-name match to an existing client is treated as the same organization (a person who is a contact elsewhere is only ever a candidate).
-- Contracts, invoices, payments, expenses, assets, tickets, documents, domains and communications are not built. The 360° views list them under `pending`.
-- `project_financials.revenue_to_date`/`cost_to_date` are interim planning fields and will be removed when finance exists (derived, not stored).
+- Expenses, credit notes, recurring invoicing, assets, tickets, documents, domains and communications are not built. The 360° views list them under `pending`. `project_financials.revenue_to_date` was removed (revenue is derived from invoices/payments); `cost_to_date` stays an interim planning field until expenses exist.
+- Historical `audit_log` rows keep the old `ADA-CON-…` text for contacts renamed to `ADA-CTC-…` in migration 0026 (the audit log is immutable); the registry and tables were rewritten.
+- Contracts keep a `document_ref` text until the documents module links real files; contract renewals are created explicitly, never automatically.
 
 - Editing a *published* staff profile, service or portfolio entry returns it to draft (it leaves the website until re-approved). A
   "pending changes" model that keeps the old version live needs a versions table — not built.
-- Approval is a single approver with the right permission (no four-eyes rule yet); the approver is recorded.
-- The generic approval/workflow engine is per-entity today. A shared engine is planned when price changes,
-  quotes and invoices arrive (Phase 4/5).
 - Divisions' public state is changed by `settings.update` holders directly (no approval step yet).
 - Applicant CVs are referenced (`cv_ref`) but file storage/documents are not built.
 - Auth users are not created from SQL; a login is invited at the identity provider, then linked with `link_staff_account()`.

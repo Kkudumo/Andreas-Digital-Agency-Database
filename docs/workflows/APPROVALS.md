@@ -2,14 +2,14 @@
 
 Two layers, kept deliberately small.
 
-**The queue.** `approval_requests` records everything awaiting or having received approval (vacancies, staff profiles, services, price changes, quotes, portfolio entries), is visible to those who hold the approving permission, and keeps the decision history. It is written by triggers when an entity enters `pending_approval` and when it leaves it.
+**The queue.** `approval_requests` records everything awaiting or having received approval (vacancies, staff profiles, services, price changes, quotes, contracts, invoices, payment reversals/refunds, portfolio entries), is visible to those who hold the approving permission, and keeps the decision history. It is written by triggers when an entity enters `pending_approval` and when it leaves it.
 
 **The policy.** `approval_policies` decide *how* a kind of request may be approved. `approval_gate()` is the single call a workflow makes to authorise a decision.
 
 ## Policy fields
 | Field | Meaning |
 |---|---|
-| `kind` | what is being approved: `price_change`, `quote`, and later `invoice`, `expense`, `hire`, `publication` ... |
+| `kind` | what is being approved: `price_change`, `quote`, `contract`, `invoice`, `payment_reversal`, `refund`, `discount`, and later `expense`, `hire`, `publication` ... |
 | `division_id` (optional) | the policy applies to that division only; a division row outranks a generic one |
 | `min_amount` (optional) | applies from this amount upward (e.g. quotes from N$10,000 need two approvers); the highest threshold not above the amount wins |
 | `required_permission` | who may approve (a permission, never a role name) |
@@ -33,6 +33,14 @@ Only holders of `approvals.configure` (management) can read or change policies. 
 | price changes (`price_decide`) | `approval_gate` |
 | quotes (`quote_transition` to approved; amount = quote total) | `approval_gate` |
 | vacancies, staff profiles, services, portfolio entries | publish permission only (queue + history, no policy yet) |
-| invoices, expenses, hiring, contracts | to adopt `approval_gate` when built |
+| contracts (`contract_transition` to approved; per version; amount = contract total) | `approval_gate` |
+| invoices (`invoice_transition` to approved; amount = total) | `approval_gate` |
+| payment reversals and refunds (`payment_reversal_decide`) | `approval_gate` (default: `finance.approve`, no self-approval) |
+| discounts (kind `discount`, resolved by the discount amount on quotes, contracts and invoices) | `approval_gate` (`p_discount`) |
+| expenses, hiring | to adopt `approval_gate` when built |
 
-Adopting the gate in another workflow is one call in its approve step: `approval_gate(kind, table, id, division, amount, requested_by, fallback_permission, approve?, note)` returns `approved`, `pending` (more approvers needed) or `rejected`.
+**Discounts.** Passing `p_discount` makes the gate also resolve the `discount` policy: the decider needs both permissions, the quorum is the larger of the two, and self-approval needs both policies to allow it. No `discount` row = no extra requirement.
+
+**Classification-aware queue.** `approval_requests.classification` is the stricter of the record's and its client's, and follows client reclassification (decided requests too). A request is shown only to approvers/requesters who may also see the record, so the queue cannot reveal a restricted client.
+
+Adopting the gate in another workflow is one call in its approve step: `approval_gate(kind, table, id, division, amount, requested_by, fallback_permission, approve?, note[, discount])` returns `approved`, `pending` (more approvers needed) or `rejected`.

@@ -121,6 +121,13 @@ select tests.check('a client with open commercial records cannot be removed',
   tests.try_owner(format('update clients set deleted_at = now(), deleted_by = null, deletion_reason = ''test'' where id = %L', tests.id('client:abc'))), 'ERR:23514');
 select tests.check('a client without any commercial records can be removed, and its (non-existent) finance is moot',
   tests.try_owner(format('update clients set deleted_at = now(), deletion_reason = ''test'' where id = %L', tests.id('client:C_conf'))), 'ok');
+-- Each kind of open record blocks removal on its own ---------------------------------------------------------------------------------------------
+select tests.remember('client:abc3', tests.mkclient_id('web_lead', 'Third Visible Co', 'web'));
+select tests.issued_invoice('Y', 'client:abc3', 100);
+select tests.check('an issued, unpaid invoice alone blocks removing the client', tests.try_owner(format('update clients set deleted_at = now(), deletion_reason = ''gone'' where id = %L', tests.id('client:abc3'))), 'ERR:23514');
+select tests.remember('pay:Y', tests.scalar('fin', format('select payment_record(%L, %L, 100, ''cash'', current_date, null, %L)::text', tests.id('client:abc3'), tests.id('acct:nad'), tests.id('inv:Y'))));
+select tests.check('once the invoice is paid in full (no credit left) the client can be removed', tests.try_owner(format('update clients set deleted_at = now(), deletion_reason = ''gone'' where id = %L', tests.id('client:abc3'))), 'ok');
+
 -- Closed records follow a removed client: hidden from ordinary users, kept for those allowed to see deleted records ----------------------------------------
 select tests.remember('contract:X', tests.scalar('web_lead', format('select contract_create(%L, %L, ''Never signed'')::text', tests.id('client:abc2'), tests.id('div:web'))));
 select tests.scalar('web_lead', format('select contract_transition(%L, ''cancelled'', ''Client changed mind'')::text', tests.id('contract:X')));
