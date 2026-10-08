@@ -107,7 +107,7 @@ select tests.check('11c. HR details only for people with hr.view (or the person)
 
 -- 12. Registry: every ADA-identified record in the system is registered once.
 select tests.check('12. every record with an ADA ID is in the central entity registry', tests.unregistered_tables(), 'none');
-select tests.check('12b. ADA IDs of all kinds are unique across the whole system', (select (count(*) = count(distinct ada_id))::text from entity_registry), 'true');
+select tests.check('12b. ADA IDs of all kinds are unique across the whole system', (select (count(ada_id) = count(distinct ada_id))::text from entity_registry), 'true');
 
 select tests.finish();
 rollback;

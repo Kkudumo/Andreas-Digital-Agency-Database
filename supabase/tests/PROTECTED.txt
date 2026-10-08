@@ -293,3 +293,33 @@ there is no separate documents security mechanism
 document_can never returns NULL
 a document with no owner gives ownership rights to nobody
 the backup manifest accounts for documents, versions, links, history, holds, publications and registry entries
+the client's organization is a registered entity with its OWN permanent institutional ID
+finance registers a SUPPLIER with a differently written name: it joins the SAME organization
+one organization is simultaneously client + supplier + partner
+an organization exists independently of any role
+a DIRECT write to a client mirror (even by the database owner) is accepted as an edit of the organization
+a role cannot be moved to another organization by a plain update
+the role tables are still the real tables (no compatibility view, no hard cut)
+downstream modules still reference the role/context IDs
+registration number MATCHING
+NORMALISED NAME matching
+the same name with a DIFFERENT registration number is a different legal entity
+a look-alike with no deciding evidence (similar name, no registration number) is NOT reused
+the review queue is for matching.review holders only
+a human decides they ARE the same company
+the absorbed organization is a tombstone that still resolves to the survivor
+two organizations that each hold a LIVE client cannot be merged
+reconciliation links 3 roles to organizations that already existed
+same name but CONFLICTING registration numbers
+same registration number but unrelated names
+nothing ambiguous was merged
+role IDs and ADA aliases are exactly what they were
+audit history is intact
+reconciliation is idempotent
+the hidden one is never reused and never named
+a restricted client makes its organization restricted
+an organization's own classification is a floor for its client roles
+Client 360 carries the organization
+even if a mirror were tampered with
+organizations are never deleted
+organization access predicates never return NULL

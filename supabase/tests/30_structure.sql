@@ -89,14 +89,17 @@ select tests.check('authenticated can execute only the reviewed functions',
        'document_open', 'document_update', 'document_set_classification', 'document_set_retention', 'document_transfer', 'document_archive', 'document_restore', 'document_link_add',
        'document_link_remove', 'document_share', 'document_unshare', 'document_comment_add', 'document_hold_place', 'document_hold_release', 'document_record_integrity_check',
        'document_relocate_content', 'document_request_disposal', 'document_disposal_decide', 'document_publication_request', 'document_publication_decide', 'document_publish',
-       'document_unpublish', 'document_version_as_of', 'documents_of', 'document_family_ids', 'documents_for_entity', 'period_resolve', 'document_360')), 'none');
+       'document_unpublish', 'document_version_as_of', 'documents_of', 'document_family_ids', 'documents_for_entity', 'period_resolve', 'document_360',
+       -- organizations (one identity, many roles)
+       'can_view_organization_row', 'can_view_organization', 'partner_visible', 'organization_note_denied', 'organization_create', 'organization_update', 'organization_add_role',
+       'organization_set_classification', 'organization_merge', 'organization_review_resolve', 'organization_360')), 'none');
 -- "Does this information already exist in ADA Core? Then REFERENCE it." Identity/contact columns may live only in
 -- these reviewed places; a new module that adds its own name/email/phone column fails here and must reference
 -- people / clients / staff instead.
 select tests.check('contact and identity columns exist only where reviewed',
   (select string_agg(table_name || '.' || column_name, ', ' order by table_name, column_name) from information_schema.columns
    where table_schema = 'public' and (column_name ~ '(email|phone)' or column_name in ('full_name', 'first_name', 'last_name'))),
-  'clients.email, clients.phone, enquiries.submitted_email, enquiries.submitted_phone, invoices.billing_contact_email_snapshot, organization.email, organization.phone, people.email, people.full_name, people.phone, staff.email, staff.full_name, staff.work_phone, staff_private.emergency_contact_phone, staff_private.personal_email, staff_private.personal_phone, staff_profiles.public_email');
+  'clients.email, clients.phone, enquiries.submitted_email, enquiries.submitted_phone, invoices.billing_contact_email_snapshot, organization.email, organization.phone, organizations.email, organizations.phone, people.email, people.full_name, people.phone, staff.email, staff.full_name, staff.work_phone, staff_private.emergency_contact_phone, staff_private.personal_email, staff_private.personal_phone, staff_profiles.public_email');
 select tests.check('any identity-like column outside the core tables is explicitly documented as a SNAPSHOT of what was submitted',
   (select coalesce(string_agg(c.table_name || '.' || c.column_name, ', ' order by 1), 'none') from information_schema.columns c
    where c.table_schema = 'public' and (c.column_name ~ '(email|phone|name)' and c.column_name ~ '^(submitted|customer|client|contact|staff|person|applicant)_')
@@ -117,7 +120,7 @@ select tests.check('every table that is not a link table has an updated_at trigg
 select tests.check('every business table is audited',
   (select coalesce(string_agg(c.relname, ','), 'none') from pg_class c
    where c.relnamespace = 'public'::regnamespace and c.relkind = 'r'
-     and c.relname not in ('audit_log', 'id_sequences', 'entity_registry', 'entity_types', 'permissions', 'events', 'event_deliveries', 'notifications', 'application_status_history', 'approval_requests', 'approval_decisions', 'contract_status_history', 'asset_history', 'id_settings', 'id_codebook', 'id_counters', 'entity_location_history', 'security_events', 'security_case_events', 'search_index', 'ticket_events', 'document_events')
+     and c.relname not in ('audit_log', 'id_sequences', 'entity_registry', 'entity_types', 'permissions', 'events', 'event_deliveries', 'notifications', 'application_status_history', 'approval_requests', 'approval_decisions', 'contract_status_history', 'asset_history', 'id_settings', 'id_codebook', 'id_counters', 'entity_location_history', 'security_events', 'security_case_events', 'search_index', 'ticket_events', 'document_events', 'organization_mirror_columns')
      and not exists (select 1 from pg_trigger t where t.tgrelid = c.oid and t.tgname = 'zz_audit')), 'none');
 
 -- Permission matrix: CSV (reviewed design document) must equal the database.

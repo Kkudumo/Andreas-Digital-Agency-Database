@@ -102,5 +102,38 @@ wait
 res=$(psql_ "$URL" -At -c "select count(*) || ',' || count(distinct version_no) || ',' || max(version_no) || ',' || min(version_no) from document_versions where document_id = '$DOC'")
 if [ "$res" = "40,40,40,1" ]; then echo "  40 versions added by 8 racing sessions: numbered 1..40, no duplicates, no gaps"; else echo "  FAIL concurrent document versions: got $res expected 40,40,40,1"; status=1; fi
 
+# Concurrency: organizations. Eight sessions create the SAME client at once (exactly one wins, one organization), and eight client+supplier PAIRS race
+# for the same name (each pair ends as ONE organization with BOTH roles - the relationship never creates a second organization).
+echo "== concurrent_organizations"
+for i in $(seq 1 $N_PROC); do
+  ( psql -X -q -v ON_ERROR_STOP=1 "$URL" -c "insert into clients (name) values ('Race Corporation')" >/dev/null 2>&1 ) &
+done
+wait
+for i in $(seq 1 $N_PROC); do
+  ( psql -X -q -v ON_ERROR_STOP=1 "$URL" -c "insert into clients (name) values ('Pairing $i Holdings')" >/dev/null 2>&1 ) &
+  ( psql -X -q -v ON_ERROR_STOP=1 "$URL" -c "insert into suppliers (name) values ('Pairing $i Holdings')" >/dev/null 2>&1 ) &
+done
+wait
+res=$(psql_ "$URL" -At -c "select (select count(*) from clients where name = 'Race Corporation') || ',' || (select count(*) from organizations where name = 'Race Corporation') || ',' || (select count(*) from organizations o where o.name like 'Pairing % Holdings' and exists (select 1 from clients c where c.organization_id = o.id) and exists (select 1 from suppliers s where s.organization_id = o.id)) || ',' || (select count(*) from organizations where name like 'Pairing % Holdings') || ',' || (select count(*) from organization_mirror_drift())")
+if [ "$res" = "1,1,8,8,0" ]; then echo "  8 racing creations of one client: exactly one organization and one client; 8 racing client+supplier pairs: 8 organizations, each with both roles; no mirror drift"; else echo "  FAIL concurrent organizations: got $res expected 1,1,8,8,0"; status=1; fi
+
+# Upgrade path: a database that already holds clients and suppliers (migrations up to 0037) is upgraded by 0038 itself. Strong evidence links roles to
+# one organization; ambiguity stays separate with a review item; IDs, aliases and audit history survive; nothing is left unlinked.
+echo "== upgrade_0038"
+UDB="${DB}_up"; UURL="$BASE/$UDB"
+psql_ "$ADMIN_URL" -c "create database $UDB"
+psql_ "$UURL" -f supabase/tests/00_supabase_shim.sql >/dev/null
+for f in supabase/migrations/*.sql; do case "$f" in *0038_*) continue;; esac; psql_ "$UURL" -f "$f" >/dev/null; done
+psql_ "$UURL" -f supabase/tests/concurrency/org_legacy_seed.sql >/dev/null
+before=$(psql_ "$UURL" -At -c "select string_agg(id::text || ada_id, ',' order by id) from (select id, ada_id from clients union all select id, ada_id from suppliers) x")
+audit_before=$(psql_ "$UURL" -At -c "select count(*) from audit_log")
+psql_ "$UURL" -f supabase/migrations/0038_organization_unification.sql >/dev/null
+after=$(psql_ "$UURL" -At -c "select string_agg(id::text || ada_id, ',' order by id) from (select id, ada_id from clients union all select id, ada_id from suppliers) x")
+res=$(psql_ "$UURL" -At -c "select (select count(*) from organizations) || ',' || (select count(*) from clients where organization_id is null) || ',' || (select count(*) from suppliers where organization_id is null) || ',' || (select count(*) from organization_reviews where status = 'open' and origin = 'migration') || ',' || (select count(*) from organization_mirror_drift()) || ',' || (select count(distinct c.organization_id) from clients c join suppliers s on s.organization_id = c.organization_id where c.name like 'Legacy Alpha%' or c.name = 'Legacy Gamma' or c.name = 'Hidden Hotel') || ',' || (select count(*) from entity_registry where table_name = 'organizations' and origin_kind = 'migrated') || ',' || (select count(*) from audit_log where table_name in ('clients', 'suppliers') and action = 'INSERT') || ',' || (select count(*) from clients where deleted_at is not null and updated_at < now() - interval '1 day')")
+if [ "$before" = "$after" ] && [ "$res" = "9,0,0,3,0,3,9,13,1" ] && [ "$(psql_ "$UURL" -At -c "select count(*) from audit_log")" -ge "$audit_before" ]; then
+  echo "  existing clients and suppliers upgraded: 9 organizations (3 shared by client + supplier), 3 ambiguous pairs queued for review, all role IDs and ADA aliases unchanged, audit history kept, no drift"
+else echo "  FAIL upgrade_0038: ids-same=$([ "$before" = "$after" ] && echo yes || echo no) got $res expected 9,0,0,3,0,3,9,13,1"; status=1; fi
+psql_ "$ADMIN_URL" -c "drop database if exists $UDB" >/dev/null 2>&1 || true
+
 [ "$status" -eq 0 ] && echo "ALL TESTS PASSED" || echo "TESTS FAILED"
 exit $status

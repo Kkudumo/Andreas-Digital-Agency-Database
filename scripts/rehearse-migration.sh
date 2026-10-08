@@ -33,6 +33,15 @@ select tests.mk_doc('ceo', 'rd3', 'Rehearsal critical file', 'report', 'web', nu
 select tests.add_ver('ceo', 'rd3', 'rd3v1', 'rehearsal critical content');
 SQL
 [ "$(psql_ "$SRC_URL" -Atc "select count(*) from documents")" = "3" ] || fail "demo documents were not created in the source"
+# committed demo organizations: one company that is client + supplier + partner, plus an ambiguous look-alike pair awaiting human review
+psql_ "$SRC_URL" >/dev/null <<'SQL'
+insert into clients (name, registration_number) values ('Rehearsal Org Ltd', 'RO-1');
+insert into suppliers (name) values ('REHEARSAL ORG');
+insert into partners (name, kind, status) values ('Rehearsal Org (Pty)', 'technology', 'active');
+insert into suppliers (name) values ('Rehearse Lookalike');
+insert into clients (name) values ('Rehearse Lookalikes');
+SQL
+[ "$(psql_ "$SRC_URL" -Atc "select (select count(*) from organizations where name_key = 'rehearsalorg')::text || ',' || (select count(*) from organization_reviews where status = 'open')")" = "1,1" ] || fail "demo organizations were not created as expected in the source"
 PGPASSWORD="${PGPASSWORD:-}" ADA_BACKUP_DIR="$WORK" DATABASE_URL="$SRC_URL" scripts/backup.sh >/dev/null
 DUMP=$(ls "$WORK"/*.dump); ok "backup created and checksummed ($(du -h "$DUMP" | cut -f1))"
 
@@ -69,6 +78,17 @@ if psql_ "$DST_URL" -c "update document_versions set content_hash = repeat('0', 
 if psql_ "$DST_URL" -c "delete from document_events" >/dev/null 2>&1; then fail "document history could be deleted after restore"; fi
 ok "signed-version immutability, content permanence and append-only history still enforced after restore"
 echo "  (the same document checks run against the restored database's behaviour below)"
+
+echo "== organizations survive the restore: one identity, many roles, stable role IDs, mirrors, review queue"
+[ "$(psql_ "$SRC_URL" -Atc "select organization_backup_manifest()::text")" = "$(psql_ "$DST_URL" -Atc "select organization_backup_manifest()::text")" ] || fail "organization backup manifest differs (organizations / role links / reviews / registry)"
+ok "organization manifest identical (organizations, role links, review queue, zero mirror drift)"
+[ "$(psql_ "$DST_URL" -Atc "select count(*) from organization_mirror_drift()")" = "0" ] || fail "mirror drift after restore"
+[ "$(psql_ "$DST_URL" -Atc "select count(*) from clients where organization_id is null") $(psql_ "$DST_URL" -Atc "select count(*) from suppliers where organization_id is null")" = "0 0" ] || fail "roles without an organization after restore"
+[ "$(psql_ "$DST_URL" -Atc "select count(*) from organizations o join entity_registry r on r.table_name = 'organizations' and r.entity_id = o.id")" = "$(psql_ "$SRC_URL" -Atc "select count(*) from organizations")" ] || fail "restored organizations lost their registry entries"
+ok "every restored role has its organization, every organization its permanent ID, no mirror differs"
+psql_ "$DST_URL" -c "update clients set name = 'Rehearsal Org Renamed' where name = 'Rehearsal Org Ltd'" >/dev/null
+[ "$(psql_ "$DST_URL" -Atc "select (select o.name from organizations o join clients c on c.organization_id = o.id where c.registration_number = 'RO-1') || '|' || (select s.name from suppliers s join clients c on c.organization_id = s.organization_id where c.registration_number = 'RO-1') || '|' || (select count(*) from organization_mirror_drift())")" = "Rehearsal Org Renamed|Rehearsal Org Renamed|0" ] || fail "mirror redirect / sync does not work after restore"
+ok "after restore a direct write to a mirror is still redirected to the organization and every role follows"
 
 echo "== verify the restored system behaves"
 before=$(psql_ "$SRC_URL" -Atc "select max(substring(ada_id from '[0-9]+\$')::int) from clients")
