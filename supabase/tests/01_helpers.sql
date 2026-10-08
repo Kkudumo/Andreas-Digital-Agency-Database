@@ -381,3 +381,17 @@ begin
   perform tests.remember('inv:' || p_key, v_inv);
   return v_inv;
 end $$;
+
+-- Register an asset as a user. Returns the new id (and remembers it as 'asset:<key>') or the error. Optional references use test keys.
+create function tests.mk_asset(p_user text, p_key text, p_name text, p_div text default 'web', p_manufacturer text default null, p_serial text default null,
+                               p_tag text default null, p_status text default 'in_stock', p_client text default null, p_project text default null, p_parent text default null,
+                               p_classification text default 'internal') returns text
+language plpgsql as $$
+declare r text;
+begin
+  r := tests.scalar(p_user, format('select asset_create(p_name => %L, p_category => ''laptop'', p_division => %L, p_manufacturer => %L, p_serial => %L, p_tag => %L, p_status => %L::asset_status, p_client => %L, p_project => %L, p_parent => %L, p_classification => %L::data_classification)::text',
+         p_name, tests.id('div:' || p_div), p_manufacturer, p_serial, p_tag, p_status, tests.id(p_client), tests.id(p_project), tests.id(p_parent), p_classification));
+  if r like 'ERR:%' or r is null then return coalesce(r, 'null'); end if;
+  perform tests.remember('asset:' || p_key, r);
+  return r;
+end $$;
