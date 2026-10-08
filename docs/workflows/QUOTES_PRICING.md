@@ -7,7 +7,7 @@ Editing a published service's public wording returns it to draft (re-approval); 
 
 ## Price versions (`price_propose`, `price_decide`, `price_withdraw`)
 ```
-propose (pricing.propose, effective today or later) ─► pending_approval ─► approved (pricing.approve; not your own unless pricing.approve_own)
+propose (pricing.propose, effective today or later) ─► pending_approval ─► approved (pricing.approve; self-approval only where the approval policy allows it)
                                                          │                        └─ previous version's effective_to := new effective_from − 1
                                                          └─► rejected (note required) / withdrawn
 ```
@@ -25,7 +25,7 @@ draft ─► pending_approval ─► approved ─► sent ─► accepted ─►
 - A quote belongs to an **existing, visible client**, a division, optionally a contact and a project of that client.
 - Lines: a catalogue service snapshots the price in force (`unit_price`) and records the version (`price_id`); a different price needs a reason; custom lines need a description and price.
 - Lines are editable only in draft (also enforced by a database trigger for any write path). The total is maintained from the lines.
-- Approval needs `quotes.approve` and someone other than the preparer (unless `quotes.approve_own`). Accepting after `valid_until` is refused; `expire_quotes()` (service role) marks overdue quotes.
+- Approval needs `quotes.approve` and goes through `approval_gate` (policy: quorum, thresholds, discount rule; self-approval only while the preparer is the sole qualified approver, and recorded). Accepting after `valid_until` is refused; `expire_quotes()` (service role) marks overdue quotes.
 - **Conversion** (once, idempotent): creates the project for the same client and division (status `approved`), copies the service lines with their price snapshots and discounts into `project_services`,
   attaches the quote's contact (the shared contact record) and makes the preparer a project member. Later catalogue price changes never alter any of this.
 

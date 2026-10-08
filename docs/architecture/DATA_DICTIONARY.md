@@ -132,6 +132,7 @@ Row-level security is enabled on every table; the policies are in the migrations
 | `decision_note` | text | no |  |  |
 | `self_approved` | boolean | yes | false |  |
 | `required_approvals` | integer | no |  |  |
+| `classification` | data_classification | yes | 'internal'::data_classification |  |
 
 ## `audit_log`
 
@@ -153,6 +154,51 @@ Row-level security is enabled on every table; the policies are in the migrations
 | `changed_fields` | text[] | no |  |  |
 | `reason` | text | no |  |  |
 | `result` | text | yes | 'success'::text |  |
+
+## `bank_accounts`
+
+**Purpose:** ADA's own accounts that payments are received into. Only a short hint (last digits) is stored, never a full account number. [class: confidential]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | uuid | yes | gen_random_uuid() |  |
+| `name` | text | yes |  |  |
+| `bank_name` | text | no |  |  |
+| `account_hint` | text | no |  |  |
+| `currency` | character(3) | yes | 'NAD'::bpchar |  |
+| `is_active` | boolean | yes | true |  |
+| `created_at` | timestamp with time zone | yes | now() |  |
+| `updated_at` | timestamp with time zone | yes | now() |  |
+
+## `billable_items`
+
+**Purpose:** work/charges ready to invoice. unit_price/discount are SNAPSHOTS of the agreed contract line, project service line or a stated manual charge; they never follow the catalogue. Immutable apart from open -> invoiced/void. [class: confidential]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | uuid | yes | gen_random_uuid() |  |
+| `client_id` | uuid | yes |  | `clients` |
+| `division_id` | uuid | yes |  | `divisions` |
+| `source` | text | yes |  |  |
+| `contract_id` | uuid | no |  | `contracts` |
+| `contract_line_origin_id` | uuid | no |  | `contract_lines` |
+| `project_id` | uuid | no |  | `projects` |
+| `project_service_id` | uuid | no |  | `project_services` |
+| `service_id` | uuid | no |  | `services` |
+| `price_id` | uuid | no |  | `service_prices` |
+| `description` | text | yes |  |  |
+| `quantity` | numeric(12,2) | yes |  |  |
+| `unit_price` | numeric(14,2) | yes |  |  |
+| `discount_amount` | numeric(14,2) | yes | 0 |  |
+| `currency` | character(3) | yes |  |  |
+| `status` | billable_status | yes | 'open'::billable_status |  |
+| `manual_reason` | text | no |  |  |
+| `void_reason` | text | no |  |  |
+| `effective_classification` | data_classification | yes | 'internal'::data_classification |  |
+| `client_deleted` | boolean | yes | false |  |
+| `created_by` | uuid | no |  | `staff` |
+| `created_at` | timestamp with time zone | yes | now() |  |
+| `updated_at` | timestamp with time zone | yes | now() |  |
 
 ## `client_contacts`
 
@@ -238,6 +284,118 @@ Row-level security is enabled on every table; the policies are in the migrations
 | `billing_address` | text | no |  |  |
 | `social_links` | jsonb | yes | '{}'::jsonb |  |
 | `name_key` | text | no | client_name_key(name) |  |
+
+## `contract_lines`
+
+**Purpose:** the agreed services and prices. unit_price/discount_amount are SNAPSHOTS of what was agreed (copied from the quote or stated with a reason); price_id records the catalogue version they came from. origin_line_id links a line to the same line in earlier versions so billing continues across amendments. [class: confidential]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | uuid | yes | gen_random_uuid() |  |
+| `version_id` | uuid | yes |  | `contract_versions` |
+| `origin_line_id` | uuid | no |  | `contract_lines` |
+| `position` | integer | yes | 100 |  |
+| `service_id` | uuid | no |  | `services` |
+| `price_id` | uuid | no |  | `service_prices` |
+| `quote_line_id` | uuid | no |  | `quote_lines` |
+| `description` | text | yes |  |  |
+| `quantity` | numeric(12,2) | yes | 1 |  |
+| `unit_price` | numeric(14,2) | yes |  |  |
+| `discount_amount` | numeric(14,2) | yes | 0 |  |
+| `price_override_reason` | text | no |  |  |
+| `line_total` | numeric(14,2) | no | round(((quantity * unit_price) - discount_amount), 2) |  |
+| `created_at` | timestamp with time zone | yes | now() |  |
+
+## `contract_projects`
+
+**Purpose:** which projects a contract covers (a contract can cover several projects, a project can sit under several contracts over time). [class: confidential]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `contract_id` | uuid | yes |  | `contracts` |
+| `project_id` | uuid | yes |  | `projects` |
+| `linked_by` | uuid | no |  | `staff` |
+| `linked_at` | timestamp with time zone | yes | now() |  |
+
+## `contract_status_history`
+
+**Purpose:** append-only trail of every contract and version status change. Survives amendments; never edited. [class: confidential]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | bigint | yes |  |  |
+| `contract_id` | uuid | yes |  | `contracts` |
+| `version_no` | integer | no |  |  |
+| `scope` | text | yes |  |  |
+| `from_status` | text | no |  |  |
+| `to_status` | text | yes |  |  |
+| `actor_staff_id` | uuid | no |  | `staff` |
+| `note` | text | no |  |  |
+| `created_at` | timestamp with time zone | yes | now() |  |
+
+## `contract_versions`
+
+**Purpose:** the commercial terms of a contract, version by version. Editable only while draft; a signed version is immutable and later marked superseded (never rewritten). contact_id is the authorised contact (a client_contacts row). [class: confidential]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | uuid | yes | gen_random_uuid() |  |
+| `contract_id` | uuid | yes |  | `contracts` |
+| `version_no` | integer | yes |  |  |
+| `status` | contract_version_status | yes | 'draft'::contract_version_status |  |
+| `change_summary` | text | no |  |  |
+| `contact_id` | uuid | no |  | `client_contacts` |
+| `start_date` | date | no |  |  |
+| `end_date` | date | no |  |  |
+| `payment_terms_days` | integer | no |  |  |
+| `payment_terms_text` | text | no |  |  |
+| `terms_text` | text | no |  |  |
+| `auto_renew` | boolean | yes | false |  |
+| `renewal_notice_days` | integer | no |  |  |
+| `renewal_term_months` | integer | no |  |  |
+| `renewal_notes` | text | no |  |  |
+| `document_ref` | text | no |  |  |
+| `subtotal` | numeric(14,2) | yes | 0 |  |
+| `discount_total` | numeric(14,2) | yes | 0 |  |
+| `total` | numeric(14,2) | yes | 0 |  |
+| `requested_by` | uuid | no |  | `staff` |
+| `approved_by` | uuid | no |  | `staff` |
+| `approved_at` | timestamp with time zone | no |  |  |
+| `sent_at` | timestamp with time zone | no |  |  |
+| `signed_on` | date | no |  |  |
+| `signed_at` | timestamp with time zone | no |  |  |
+| `effective_from` | date | no |  |  |
+| `effective_to` | date | no |  |  |
+| `decision_note` | text | no |  |  |
+| `created_by` | uuid | no |  | `staff` |
+| `created_at` | timestamp with time zone | yes | now() |  |
+
+## `contracts`
+
+**Purpose:** the contract header - ONE authoritative record per agreement. References client, quote, division, owner; commercial terms live in contract_versions. No identity fields are stored here. [class: confidential]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | uuid | yes | gen_random_uuid() |  |
+| `ada_id` | text | yes |  |  |
+| `client_id` | uuid | yes |  | `clients` |
+| `quote_id` | uuid | no |  | `quotes` |
+| `division_id` | uuid | yes |  | `divisions` |
+| `owner_staff_id` | uuid | no |  | `staff` |
+| `renewed_from_id` | uuid | no |  | `contracts` |
+| `title` | text | yes |  |  |
+| `currency` | character(3) | yes | 'NAD'::bpchar |  |
+| `status` | contract_status | yes | 'draft'::contract_status |  |
+| `current_version_no` | integer | yes | 1 |  |
+| `signed_at` | timestamp with time zone | no |  |  |
+| `activated_at` | timestamp with time zone | no |  |  |
+| `terminated_at` | timestamp with time zone | no |  |  |
+| `status_reason` | text | no |  |  |
+| `effective_classification` | data_classification | yes | 'internal'::data_classification |  |
+| `client_deleted` | boolean | yes | false |  |
+| `created_by` | uuid | no |  | `staff` |
+| `created_at` | timestamp with time zone | yes | now() |  |
+| `updated_at` | timestamp with time zone | yes | now() |  |
 
 ## `divisions`
 
@@ -382,6 +540,22 @@ _(no description)_
 | `payload` | jsonb | yes | '{}'::jsonb |  |
 | `actor_staff_id` | uuid | no |  |  |
 
+## `finance_settings`
+
+**Purpose:** the single row of organisation-wide finance settings. Invoices COPY the VAT rate and terms they were issued under (snapshot), so changing this never alters an issued invoice. [class: confidential]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | uuid | yes | gen_random_uuid() |  |
+| `singleton` | boolean | yes | true |  |
+| `base_currency` | character(3) | yes | 'NAD'::bpchar |  |
+| `vat_registered` | boolean | yes | false |  |
+| `vat_rate` | numeric(5,2) | yes | 15 |  |
+| `vat_number` | text | no |  |  |
+| `default_payment_terms_days` | integer | yes | 30 |  |
+| `updated_by` | uuid | no |  | `staff` |
+| `updated_at` | timestamp with time zone | yes | now() |  |
+
 ## `id_sequences`
 
 **Purpose:** per-prefix, per-year counters behind ADA IDs. Never directly accessible to API roles. [class: internal]
@@ -391,6 +565,74 @@ _(no description)_
 | `prefix` | text | yes |  | `entity_types` |
 | `year` | integer | yes |  |  |
 | `last_value` | integer | yes | 0 |  |
+
+## `invoice_lines`
+
+**Purpose:** the invoice's immutable line snapshots (quantity, price, discount, tax rate at the time). Locked once the invoice leaves draft. active=false marks lines of a cancelled invoice (their billable items are free to be invoiced again). [class: confidential]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | uuid | yes | gen_random_uuid() |  |
+| `invoice_id` | uuid | yes |  | `invoices` |
+| `billable_item_id` | uuid | yes |  | `billable_items` |
+| `position` | integer | yes | 100 |  |
+| `service_id` | uuid | no |  | `services` |
+| `price_id` | uuid | no |  | `service_prices` |
+| `description` | text | yes |  |  |
+| `quantity` | numeric(12,2) | yes |  |  |
+| `unit_price` | numeric(14,2) | yes |  |  |
+| `discount_amount` | numeric(14,2) | yes | 0 |  |
+| `tax_rate` | numeric(5,2) | yes | 0 |  |
+| `net_amount` | numeric(14,2) | no | round(((quantity * unit_price) - discount_amount), 2) |  |
+| `tax_amount` | numeric(14,2) | no | round(((round(((quantity * unit_price) - discount_amount), 2) * tax_rate) / (100)::numeric), 2) |  |
+| `line_total` | numeric(14,2) | no | (round(((quantity * unit_price) - discount_amount), 2) + round(((round(((quantity * unit_price) - discount_amount), 2) * tax_rate) / (100)::numeric), 2)) |  |
+| `active` | boolean | yes | true |  |
+| `created_at` | timestamp with time zone | yes | now() |  |
+
+## `invoices`
+
+**Purpose:** one invoice. References client, billing contact, contract, project and division by id. Totals are derived from the lines; the *_snapshot columns are taken ONCE at issue and never change. There is no balance column - the balance is derived from payment allocations. [class: confidential]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | uuid | yes | gen_random_uuid() |  |
+| `ada_id` | text | yes |  |  |
+| `client_id` | uuid | yes |  | `clients` |
+| `division_id` | uuid | yes |  | `divisions` |
+| `contract_id` | uuid | no |  | `contracts` |
+| `project_id` | uuid | no |  | `projects` |
+| `billing_contact_id` | uuid | no |  | `client_contacts` |
+| `status` | invoice_status | yes | 'draft'::invoice_status |  |
+| `currency` | character(3) | yes |  |  |
+| `vat_rate` | numeric(5,2) | yes | 0 |  |
+| `payment_terms_days` | integer | yes | 30 |  |
+| `po_reference` | text | no |  |  |
+| `notes` | text | no |  |  |
+| `subtotal` | numeric(14,2) | yes | 0 |  |
+| `discount_total` | numeric(14,2) | yes | 0 |  |
+| `tax_total` | numeric(14,2) | yes | 0 |  |
+| `total` | numeric(14,2) | yes | 0 |  |
+| `issue_date` | date | no |  |  |
+| `due_date` | date | no |  |  |
+| `requested_by` | uuid | no |  | `staff` |
+| `approved_by` | uuid | no |  | `staff` |
+| `approved_at` | timestamp with time zone | no |  |  |
+| `issued_by` | uuid | no |  | `staff` |
+| `issued_at` | timestamp with time zone | no |  |  |
+| `cancelled_at` | timestamp with time zone | no |  |  |
+| `status_reason` | text | no |  |  |
+| `client_name_snapshot` | text | no |  |  |
+| `client_address_snapshot` | text | no |  |  |
+| `client_registration_snapshot` | text | no |  |  |
+| `billing_contact_name_snapshot` | text | no |  |  |
+| `billing_contact_email_snapshot` | text | no |  |  |
+| `seller_legal_name_snapshot` | text | no |  |  |
+| `seller_vat_number_snapshot` | text | no |  |  |
+| `effective_classification` | data_classification | yes | 'internal'::data_classification |  |
+| `client_deleted` | boolean | yes | false |  |
+| `created_by` | uuid | no |  | `staff` |
+| `created_at` | timestamp with time zone | yes | now() |  |
+| `updated_at` | timestamp with time zone | yes | now() |  |
 
 ## `leads`
 
@@ -509,6 +751,68 @@ _(no description)_
 | `created_at` | timestamp with time zone | yes | now() |  |
 | `updated_at` | timestamp with time zone | yes | now() |  |
 
+## `payment_allocations`
+
+**Purpose:** how much of which payment settles which invoice. A payment can only be allocated once to an invoice, never beyond its remaining credit or the invoice balance (enforced under row locks). Released, not deleted. [class: confidential]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | uuid | yes | gen_random_uuid() |  |
+| `payment_id` | uuid | yes |  | `payments` |
+| `invoice_id` | uuid | yes |  | `invoices` |
+| `amount` | numeric(14,2) | yes |  |  |
+| `status` | text | yes | 'active'::text |  |
+| `allocated_by` | uuid | no |  | `staff` |
+| `allocated_at` | timestamp with time zone | yes | now() |  |
+| `released_by` | uuid | no |  | `staff` |
+| `released_at` | timestamp with time zone | no |  |  |
+| `release_reason` | text | no |  |  |
+
+## `payment_reversals`
+
+**Purpose:** requests to reverse a payment (whole) or refund part of its unallocated credit. Approved through the shared approval engine; the effect is applied by the system on approval. [class: confidential]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | uuid | yes | gen_random_uuid() |  |
+| `payment_id` | uuid | yes |  | `payments` |
+| `kind` | text | yes |  |  |
+| `amount` | numeric(14,2) | yes |  |  |
+| `reason` | text | yes |  |  |
+| `status` | text | yes | 'pending_approval'::text |  |
+| `requested_by` | uuid | no |  | `staff` |
+| `requested_at` | timestamp with time zone | yes | now() |  |
+| `decided_by` | uuid | no |  | `staff` |
+| `decided_at` | timestamp with time zone | no |  |  |
+| `decision_note` | text | no |  |  |
+
+## `payments`
+
+**Purpose:** money received. References the client and the receiving bank account. Immutable; corrected by reversal. No balance column: allocation and credit are derived. [class: confidential]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | uuid | yes | gen_random_uuid() |  |
+| `ada_id` | text | yes |  |  |
+| `client_id` | uuid | yes |  | `clients` |
+| `received_account_id` | uuid | yes |  | `bank_accounts` |
+| `method` | payment_method | yes |  |  |
+| `reference` | text | no |  |  |
+| `amount` | numeric(14,2) | yes |  |  |
+| `currency` | character(3) | yes |  |  |
+| `received_on` | date | yes | CURRENT_DATE |  |
+| `status` | payment_status | yes | 'received'::payment_status |  |
+| `reconciliation` | reconciliation_status | yes | 'unreconciled'::reconciliation_status |  |
+| `statement_ref` | text | no |  |  |
+| `reconciled_by` | uuid | no |  | `staff` |
+| `reconciled_at` | timestamp with time zone | no |  |  |
+| `notes` | text | no |  |  |
+| `effective_classification` | data_classification | yes | 'internal'::data_classification |  |
+| `client_deleted` | boolean | yes | false |  |
+| `recorded_by` | uuid | no |  | `staff` |
+| `created_at` | timestamp with time zone | yes | now() |  |
+| `updated_at` | timestamp with time zone | yes | now() |  |
+
 ## `people`
 
 **Purpose:** ONE record per human known to ADA, whatever their relationships (applicant, staff, client contact). Relationship tables decide who may see it; this table holds identity only. [class: confidential]
@@ -607,7 +911,6 @@ _(no description)_
 | `project_id` | uuid | yes |  | `projects` |
 | `currency` | character(3) | yes | 'NAD'::bpchar |  |
 | `budget` | numeric(14,2) | no |  |  |
-| `revenue_to_date` | numeric(14,2) | yes | 0 |  |
 | `cost_to_date` | numeric(14,2) | yes | 0 |  |
 | `notes` | text | no |  |  |
 | `updated_at` | timestamp with time zone | yes | now() |  |

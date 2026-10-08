@@ -38,11 +38,23 @@ A restricted or confidential client may exist without its existence being knowab
 
 **Accepted limits (documented, not hidden):** response *timing* is not equalised; adding a contact by an email that already belongs to a person reuses that person, so the relationship holder then sees the stored name for that email; `client_lookup` intentionally lets people with `clients.create` discover non-restricted clients in other divisions (that is how duplicates are avoided).
 
+## Finance (contracts, invoices, payments)
+* **Same rules, no special cases.** Finance tables inherit the client's classification (`effective_classification`, `client_deleted`) by trigger, in both directions; visibility policies read only the row's own columns. `92_finance_restricted_clients.sql` (permanent) probes contracts, versions, lines, billable items, invoices, balances, payments, allocations, reversals and the approvals queue with a restricted id vs a random id, and checks propagation on restrict, un-restrict, delete and restore.
+* **Uniqueness cannot leak.** Payment references are unique per client only; the cross-client duplicate check is made by `payment_record` against payments the caller can see. Not-found errors for child ids (lines, allocations, reversal requests) are identical to the parent's, so a hidden record cannot be told from a missing one by which message appears.
+* **The queue is classification-aware.** `approval_requests.classification` (decided requests included) gates who sees a request; notifications for restricted records are not broadcast.
+* **Immutability is enforced for every caller**, including the database owner: signed contract versions, issued invoices (content and snapshots), recorded payments, billable items, status trails.
+* **Money is derived.** Invoice balances and payment credit are computed from allocations; locks serialise allocation so racing sessions cannot overspend a payment (parallel test).
+* **Approvals** use the one engine (`approval_gate`); reversal and refund default to no self-approval.
+
 ## Lessons encoded as tests
 - Postgres `AFTER UPDATE OF col` triggers do not fire when a BEFORE trigger (not the statement) changes `col`: event/queue triggers fire on any update.
 - `pg_dump` records grants relative to the target's default privileges: restores neutralise permissive defaults and verify a security fingerprint.
 - Row-security helpers called by policies are executable by every signed-in user, so each must only describe the caller's own access (an allow-list test reviews every executable function).
 - `INSERT … RETURNING` re-checks the SELECT policy against the new row, so visibility predicates evaluate the row's own columns.
+- A global unique index over records of differing visibility is an existence oracle (and can make un-restricting fail): uniqueness is per visible scope, with the cross-scope check made in the command against what the caller can see.
+- A parent-lookup error that differs from the child-lookup error is an oracle too: lookups of line/allocation/request ids report the same 'not found' as the parent.
+- A history table that is not reclassified with its subject leaks: decided approval requests follow the client's classification.
+- A test file that never calls `tests.finish()` silently reports nothing: the runner fails such files.
 
 ## Data classification
 | Class | Examples | Who |

@@ -71,3 +71,21 @@ A role assignment is organization-wide or scoped to one division. **Division Lea
 | `leads.update` — Triage, assign, qualify and update leads | internal | x | x |  | x | x |  |  |
 | `matching.review` — Review possible duplicate clients, including restricted ones | restricted | x | x |  |  |  |  |  |
 | `approvals.configure` — Configure approval policies (who approves, thresholds, self-approval) | restricted | x |  |  |  |  |  |  |
+| `contracts.view` — View contracts and their versions | confidential | x | x | x | x |  |  |  |
+| `contracts.create` — Draft contracts and amendments | confidential | x |  |  | x |  |  |  |
+| `contracts.update` — Edit draft contracts and link projects | confidential | x |  |  | x |  |  |  |
+| `contracts.approve` — Approve contracts before they are sent | confidential | x |  |  |  |  |  |  |
+| `contracts.terminate` — Terminate or cancel contracts | confidential | x |  |  |  |  |  |  |
+| `invoices.view` — View invoices and billable items | confidential | x |  | x | x |  |  |  |
+| `invoices.create` — Raise invoices and billable items | confidential | x |  | x |  |  |  |  |
+| `invoices.update` — Edit draft invoices | confidential | x |  | x |  |  |  |  |
+| `invoices.approve` — Approve invoices before they are issued | confidential | x |  | x |  |  |  |  |
+| `invoices.issue` — Issue approved invoices to the client | confidential | x |  | x |  |  |  |  |
+| `invoices.void` — Void or cancel invoices | confidential | x |  |  |  |  |  |  |
+| `payments.view` — View payments and allocations | confidential | x |  | x |  |  |  |  |
+| `payments.record` — Record received payments | confidential | x |  | x |  |  |  |  |
+| `payments.allocate` — Allocate payments to invoices | confidential | x |  | x |  |  |  |  |
+| `payments.reconcile` — Reconcile payments against bank statements | confidential | x |  | x |  |  |  |  |
+| `payments.reverse` — Request reversal or refund of a payment | confidential | x |  | x |  |  |  |  |
+| `finance.configure` — Configure finance settings (VAT, payment terms, bank accounts) | confidential | x |  |  |  |  |  |  |
+| `discounts.approve` — Approve discounts above the policy threshold | confidential | x |  |  |  |  |  |  |

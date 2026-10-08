@@ -17,7 +17,11 @@
 | An inbound enquiry | `enquiries` (`ADA-ENQ-…`) | resolves to person / client / lead; holds explicit SNAPSHOTS of what the sender typed |
 | Sales work | `leads` (`ADA-LED-…`) | references person, client, contact, service; quotes reference the lead |
 | A quote | `quotes` (`ADA-QUO-…`) + `quote_lines` | references client, contact, division, project, services, price versions |
-| A project | `projects` (`ADA-PRJ-…`) | the container: client, contacts, services, quote(s), staff, tasks, milestones, portfolio |
+| A project | `projects` (`ADA-PRJ-…`) | the container: client, contacts, services, quote(s), staff, tasks, milestones, portfolio, contracts, invoices |
+| A contract | `contracts` (`ADA-CON-…`) + immutable `contract_versions` / `contract_lines` | references client, authorised contact, quote, division, owner, projects, services, price versions; amendments are new versions |
+| Billable work | `billable_items` | references contract line / project service / (manual, with reason); snapshot of the agreed price |
+| An invoice | `invoices` (`ADA-INV-…`) + `invoice_lines` | references client, billing contact, contract, project, division; line snapshots; the only identity copies are the documented issue-time `*_snapshot` columns |
+| A payment | `payments` (`ADA-PAY-…`), `payment_allocations`, `payment_reversals` | references client and bank account; balances and credit are derived, never stored |
 | Public view of a finished project | `portfolio_entries` (`ADA-PFO-…`) | a consent-gated projection, not a copy of the project |
 | Public view of a person on staff | `staff_profiles` (`ADA-PRF-…`) | an approved projection, not the staff record |
 | An opening / an applicant's application | `vacancies` / `applications` | position ≠ vacancy; person reused |
@@ -45,8 +49,11 @@
       │
       └──────────────────────────► PUBLIC API (approved services + current price) ──► websites
 
-  Still to be attached to the SAME records: contracts, invoices, payments, expenses, assets, tickets,
-  documents, domains, communications. Each will reference client / project / staff / person, never copy them.
+  Finance rides the same spine:  CLIENT → CONTACT → QUOTE → CONTRACT (versions) → PROJECT
+                                                 CONTRACT/PROJECT → BILLABLE ITEMS → INVOICE → PAYMENTS (allocations)
+
+  Still to be attached to the SAME records: expenses, assets, tickets, documents, domains, communications.
+  Each will reference client / project / staff / person, never copy them.
 ```
 
 ## Relationships carry privacy, not the record
@@ -65,9 +72,8 @@ creating a second record with a matching name or registration number is refused 
 restricted/confidential matches are refused with a generic message and are never claimable.
 
 ## Prices and history
-`services` → `service_prices` (version 1, 2, 3 … with `effective_from/to`). A change is *proposed*, approved by someone other than the proposer
-(unless they hold `pricing.approve_own`), and never edits an approved version. Quote lines and project services copy the amount used and keep `price_id`.
-A July 2026 invoice therefore still shows N$5,000 when the catalogue price later becomes N$6,000.
+`services` → `service_prices` (version 1, 2, 3 … with `effective_from/to`). A change is *proposed*, approved through the shared approval engine (policy decides quorum and self-approval), and never edits an approved version. Quote lines and project services copy the amount used and keep `price_id`.
+A July 2026 invoice therefore still shows N$5,000 when the catalogue price later becomes N$6,000 — the contract carries the agreed price, billable items copy it from the contract, the invoice copies it from the billable item.
 
 ## The 360° views
 `client_360`, `project_360`, `staff_360` are **SECURITY INVOKER** functions made of ordinary queries: they inherit row-level security, so a section a viewer
@@ -78,22 +84,22 @@ The structure suite fails the build if a new module adds its own name/email/phon
 if a record with an ADA ID is not in `entity_registry`, or if a new executable function is not reviewed.
 
 ## Snapshots (the only permitted copies)
-A copy of a value is allowed only for history or law, and must be labelled. Today: `quote_lines`/`project_services` price amounts (with the `price_id` they came from) and `enquiries.submitted_*` (what a stranger typed). Both are documented `SNAPSHOT:` columns; the structure suite fails on any other identity-like column.
+A copy of a value is allowed only for history or law, and must be labelled. Today: `quote_lines`/`contract_lines`/`billable_items`/`invoice_lines`/`project_services` price amounts (with the `price_id` they came from), `enquiries.submitted_*` (what a stranger typed) and the issue-time `invoices.*_snapshot` columns (client name/address/registration, billing contact name/email, ADA's legal name and VAT number as they were when the invoice was issued). All are documented `SNAPSHOT:` columns; the structure suite fails on any other identity-like column.
 
 ## Restricted records
-A restricted client's projects, leads and enquiries inherit its classification and are invisible to people who cannot see the client; lookups, errors and API answers are identical to "does not exist". See [SECURITY.md](../SECURITY.md).
+A restricted client's projects, leads, enquiries, contracts, billable items, invoices, payments and approval history inherit its classification and are invisible to people who cannot see the client; lookups, errors and API answers are identical to "does not exist". See [SECURITY.md](../SECURITY.md).
 
 ## Decisions made
 | Question | Decision |
 |---|---|
 | Asset ID prefix | `ADA-AST-YYYY-####` (reserved in `entity_types`) |
+| Contract vs contact prefix | contracts take `ADA-CON-…`; client contacts moved to `ADA-CTC-…` (migration 0026) |
 | Self-approval | a configurable policy, recorded when used, and automatically withdrawn once a second qualified approver exists |
 | Similar client names | flagged for human review; provably different entities (different registration numbers) are never merged |
 
 ## Open decisions for the next modules
 | Question | Recommendation |
 |---|---|
-| ID prefix for assets: your master prompt says `ADA-AST-…`, your latest note says `ADA-ASM-…` | pick one before the assets module; the prefix is a one-row change in `entity_types` |
 | Documents link to many entity types (client, project, staff, vacancy, application, quote, invoice, asset, ticket, domain, website) | one `documents` table + `document_links(document_id, ada_id → entity_registry)`; access resolved per linked entity |
-| Invoices | reference client, project, quote, division and *copy* the quote/project line snapshots; payments reference invoices; a client's lifetime value becomes a query |
-| `project_financials.revenue_to_date / cost_to_date` | remove when invoices, payments and expenses exist (derived, not stored) |
+| `project_financials.cost_to_date` | remove when expenses exist (derived, not stored); `revenue_to_date` is already gone |
+| Credit notes, expenses | reference the invoice / project / supplier; go through the same approval gate |
