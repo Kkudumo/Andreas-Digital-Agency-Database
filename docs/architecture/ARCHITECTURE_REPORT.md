@@ -1,6 +1,8 @@
-# ADA Core / ADA IRM — Architecture Report (pre-approval)
+# ADA Core / ADA IRM — Architecture Report (historical)
 
-Date: 2026-10-08 · Branch: `claude/pensive-planck-k9zod1` · Status: **awaiting approval**
+> **Superseded.** This is the pre-approval audit and gap report. The decisions it asked for were made and Phase 1 completion + Phase 2 (recruitment) + the public API layer were built afterwards — see [docs/README.md](../README.md) for current status. Kept for the record of what was found in `ada-core-foundation`.
+
+Date: 2026-10-08 · Branch: `claude/pensive-planck-k9zod1`
 
 Everything below is verified against the repositories as they exist. Where something has not been
 executed, it says so.
