@@ -69,7 +69,10 @@ select tests.check('authenticated can execute only the reviewed functions',
        'contract_renew', 'contracts_due_for_renewal', 'contract_terms',
        -- invoices
        'can_view_invoice_row', 'can_view_invoice', 'billable_from_contract', 'billable_from_project', 'billable_manual', 'billable_void', 'invoice_add_lines',
-       'invoice_create', 'invoice_remove_line', 'invoice_set_terms', 'invoice_transition', 'invoice_void')), 'none');
+       'invoice_create', 'invoice_remove_line', 'invoice_set_terms', 'invoice_transition', 'invoice_void',
+       -- payments
+       'can_view_payment_row', 'can_view_payment', 'invoice_balance', 'invoice_paid', 'payment_allocate', 'payment_record', 'payment_unallocate',
+       'payment_request_reversal', 'payment_reversal_decide', 'payment_reconcile')), 'none');
 -- "Does this information already exist in ADA Core? Then REFERENCE it." Identity/contact columns may live only in
 -- these reviewed places; a new module that adds its own name/email/phone column fails here and must reference
 -- people / clients / staff instead.

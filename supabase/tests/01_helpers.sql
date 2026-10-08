@@ -330,3 +330,29 @@ begin
   perform tests.remember(p_key, p_value);
   return 'ok';
 end $$;
+
+-- A bank account for received payments (owner-level setup). Remembers 'acct:<key>'.
+create function tests.bank_account(p_key text, p_currency text default 'NAD') returns void language plpgsql as $$
+declare v_id uuid;
+begin
+  insert into bank_accounts (name, bank_name, account_hint, currency) values ('Account ' || p_key, 'FNB', '1234', p_currency) returning id into v_id;
+  insert into tests.ids values ('acct:' || p_key, v_id);
+end $$;
+
+-- An ISSUED invoice of one manual charge (finance prepares, management approves, finance issues).
+-- Adds a billing contact to the client if it has none. Remembers 'inv:<key>' and returns the invoice id as text.
+create function tests.issued_invoice(p_key text, p_client_key text, p_amount numeric, p_division_key text default 'web') returns text language plpgsql as $$
+declare v_client uuid := tests.id(p_client_key); v_div uuid := tests.id('div:' || p_division_key); v_person uuid; v_bi text; v_inv text;
+begin
+  if not exists (select 1 from client_contacts where client_id = v_client and is_active) then
+    insert into people (full_name, email) values ('Billing ' || p_key, lower(p_key) || '.billing@example.test') returning id into v_person;
+    insert into client_contacts (client_id, person_id, is_billing, is_primary) values (v_client, v_person, true, true);
+  end if;
+  v_bi := tests.scalar('fin', format('select billable_manual(%L, %L, %L, 1, %s, ''test charge'')::text', v_client, v_div, 'Services ' || p_key, p_amount));
+  v_inv := tests.scalar('fin', format('select invoice_create(array[%L]::uuid[])::text', v_bi));
+  perform tests.remember('inv:' || p_key, v_inv);
+  perform tests.scalar('fin', format('select invoice_transition(%L, ''pending_approval'')::text', v_inv));
+  perform tests.scalar('ceo', format('select invoice_transition(%L, ''approved'')::text', v_inv));
+  perform tests.scalar('fin', format('select invoice_transition(%L, ''issued'')::text', v_inv));
+  return v_inv;
+end $$;
