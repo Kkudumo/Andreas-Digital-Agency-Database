@@ -37,6 +37,7 @@ Two modules referencing the same person or client do **not** share each other's 
 - [ ] **No duplicate people:** person + contact + applicant/lead resolve to one `people` row, and each relationship stays blind to the others' private data.
 - [ ] Authorization (who can, who must not), RLS, direct-table access, anon/authenticated/website roles.
 - [ ] Workflow transitions (valid and invalid), locking after submission, history, audit, events (without personal data).
+- [ ] **Every access predicate returns a definite boolean** (wrap with `coalesce(..., false)`; add the helper to the NULL-safety list in `100_tickets.sql`): in plpgsql, NULL fails an `IF` and silently grants access.
 - [ ] Soft-delete/archive visibility, institutional ID format and registry membership (`tests.unregistered_tables()` covers every built entity type), restricted-vs-nonexistent through `entity_resolve`.
 - [ ] Immutability of anything historical (prices, financial amounts, decisions).
 - [ ] Mutation check: break your main rule on purpose and confirm a test fails.
@@ -46,6 +47,10 @@ Two modules referencing the same person or client do **not** share each other's 
 - [ ] `supabase/tests/PROTECTED.txt` lists the checks that must never disappear; `scripts/check-protected-tests.mjs` fails the build if one does. Replacing a protected check with a stronger one requires updating that file in the same commit and explaining why.
 - [ ] `./scripts/rehearse-migration.sh` passes (new extensions are added to `scripts/restore.sh` and the deployment docs).
 - [ ] `./scripts/gen-docs.sh` was run and the regenerated docs committed.
+
+## 6b. Publication readiness
+- [ ] Decide `entity_types.publishable` for the new type. If true, public exposure will be a separate, approved **projection** with a field allow-list ([PUBLICATION_LAYER.md](architecture/PUBLICATION_LAYER.md)); do NOT add public/visible flags or public copies of fields to the authoritative table.
+- [ ] Nothing in the module is reachable by the website role except through an explicit `public_api` function.
 
 ## 7. Documentation
 - [ ] ENTITY_GRAPH.md row(s), the module's workflow doc, PUBLIC_API.md (if public), SECURITY.md (if it adds a rule), `client_360` / `project_360` / `staff_360` sections.

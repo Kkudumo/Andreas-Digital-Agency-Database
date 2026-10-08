@@ -10,6 +10,9 @@ const scripts = [['test-db.sh', 'concurrent_ids'], ['test-db.sh', 'concurrent_al
 for (const [file, needle] of scripts) {
   if (!readFileSync(new URL(`../scripts/${file}`, import.meta.url), 'utf8').includes(needle)) missing.push(`scripts/${file} must still contain "${needle}"`);
 }
+// every numbered suite file must be picked up by the runner's glob ([1-9][0-9]*_*.sql); an unrun suite protects nothing
+const runnerGlob = /^[1-9][0-9]+_.*\.sql$/;
+for (const f of readdirSync(dir)) if (/^[0-9]+_.*\.sql$/.test(f) && !/^0[01]_/.test(f) && !runnerGlob.test(f)) missing.push(`supabase/tests/${f} would not be executed by scripts/test-db.sh`);
 if (missing.length) {
   console.error('Protected regression checks are missing:\n  - ' + missing.join('\n  - '));
   console.error('\nDo not delete these to make work easier. Replace with an equal-or-stronger check and update PROTECTED.txt in the same commit.');

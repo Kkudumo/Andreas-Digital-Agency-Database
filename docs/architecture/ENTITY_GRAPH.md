@@ -32,7 +32,7 @@
 | A physical or technical asset | `assets` (`ADA-AST-…`) | identity + lifecycle only; holder = `asset_assignments` history; references supplier, client, project, parent; tickets, maintenance, warranty, documents and finance links reference the asset |
 | A supplier / vendor | `suppliers` (`ADA-SUP-…`) | referenced by assets, warranties, maintenance (later expenses) |
 | A student | `students` (role of a `people` row; Student ID in the registry) | programme/cohort/period are `student_enrolments` history, never part of the ID |
-| A ticket | `tickets` (`ADA-TKT-…`) | references asset, client, project, contact, reporter, assignee; inherits their classification |
+| A ticket | `tickets` (`ADA-TKT-…`) | references asset, client, project, contact, requester person, service, website, category, reporter, assignee; inherits classification; never public |
 | Everything that happened | `audit_log`, `events` | append-only memory; outbox for websites |
 
 ```text

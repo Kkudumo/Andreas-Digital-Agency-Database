@@ -56,5 +56,8 @@ A denied or unresolved lookup is recorded in `security_events` (actor staff/user
 ## Academy and people
 `students` is a **role of a person** (`person_id` unique → `people`; no name/email/phone). `student_admit` creates the Student entity and its permanent ID; programme and cohort changes are rows in `student_enrolments` (history), never identity changes. Staff follow the same rule: the Staff ID is minted when the staff record is created and survives position, role, division and even departure. `person_relationships(person)` shows one person through every role the viewer may see (staff, student, contact, applicant), each with its own institutional ID.
 
+## Publication readiness
+`entity_types.publishable` marks the types that may ever have a public projection; everything else never crosses the public boundary. The registry is the router the future publication layer will use (entity → authoritative record → publication state → approved projection). See [PUBLICATION_LAYER.md](PUBLICATION_LAYER.md).
+
 ## Open decision: external organizations
 Today the external organization is the `clients` record, and `suppliers` is a separate table. The directive's ideal — one `organizations` record that clients, suppliers and partners reference, so a company that is both client and supplier is one record — requires moving name, registration number and address out of `clients` into that record, which touches `client_create`, matching, the 360 views and a large part of the test suite. It is deliberately **not** done inside this foundation. Recommendation: do it as its own migration right after Tickets/Documents are attached, using this registry (`organization` type is already reserved with a code).
