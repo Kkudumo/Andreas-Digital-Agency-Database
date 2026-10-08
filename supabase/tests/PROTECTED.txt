@@ -165,3 +165,57 @@ the holder sees the asset they hold without any register permission
 the ticket took client, project and division from the asset
 asset documents are visible with the asset
 a ticket cannot claim a different client than its asset
+# institutional skeleton: identity, registry, routing, security
+every registered entity has a 9-character institutional ID from the allowed alphabet
+no ID is longer than 9 characters or contains a hyphen
+every ID carries a valid check character
+institutional IDs are unique
+users cannot mint or choose IDs
+the mint refuses an entity type that is not in the active codebook
+registering an asset returns its generated institutional ID
+the registry holds NO business data
+legacy ID mapping
+IDs are opaque
+codebook entries and the scramble key are permanent
+a failed registration leaves no registry row, no orphan and no counter gap
+retrying the same registration succeeds
+and takes exactly the next serial
+registry entries are never deleted and their identity never changes
+a deleted record keeps its ID in the registry
+the registry mirrors status, division and classification
+the permanent ID and the origin are unchanged, the current division follows
+the movement history is retained
+audit identity: new audit rows carry the institutional ID
+a staff member who changes division keeps the same Staff ID
+a project that changes lead division keeps its ID
+registry-first: an ID resolves straight to its entity type
+restricted entity: resolve is identical to a nonexistent ID
+search_route by ID
+text search never reveals a restricted entity
+the index is rebuildable
+registry-first retrieval: looking an ID up uses the registry primary key
+every built entity type has a codebook entry
+no table has its own ID generator
+a single denied lookup is only an audit event
+the event records the authenticated staff identity
+repeated denials raise a security flag
+a sustained pattern opens an investigation case
+a login without a staff record is still recorded
+a bypass attempt opens a critical, open case immediately
+the actor cannot see the security log or cases
+a person who is not yet a student cannot be enrolled twice
+the Student ID is in the registry as a student
+the student record holds no name, email or phone
+an existing student cannot be admitted again
+the person is still ONE record
+a change of COHORT (same programme) keeps the Student ID
+a change of PROGRAMME keeps the Student ID
+academic records remain linked
+academic history cannot be rewritten or deleted
+every staff record receives its own automatic Staff ID
+a change of position keeps the Staff ID
+a change of role keeps the Staff ID
+a change of division keeps the Staff ID and the origin
+even leaving the organization keeps the Staff ID reserved
+relationships carry privacy
+students are invisible outside Academy

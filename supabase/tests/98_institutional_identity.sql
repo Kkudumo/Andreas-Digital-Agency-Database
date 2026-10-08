@@ -126,6 +126,24 @@ select tests.check('control: the same lookups DO work for someone authorised', t
 select tests.check('a classification of Internal alone does not grant access: Tech, which cannot see Web''s unassigned assets, resolves nothing',
   tests.scalar('tech_lead', format($q$ select coalesce(entity_resolve(%L)::text, 'null') $q$, (select institutional_id from entity_registry where entity_id = (select id from assets where name = 'Card test')))), 'null');
 
+create function pg_temp.plan(p_sql text) returns text language plpgsql as $$
+declare l text; r text := '';
+begin for l in execute 'explain ' || p_sql loop r := r || l || E'\n'; end loop; return r; end $$;
+select tests.check('registry-first retrieval: looking an ID up uses the registry primary key (an index probe), never a table scan',
+  (select (p like '%entity_registry_pkey%' and p not like '%Seq Scan%')::text from (select pg_temp.plan($q$ select * from entity_registry where institutional_id = 'AAAAAAAAA' $q$) p) q), 'true');
+select tests.check('...and so does a lookup by legacy ID and by authoritative record key',
+  (select (p1 like '%entity_registry_ada_id_key%' and p2 like '%entity_registry_domain_idx%')::text from (select pg_temp.plan($q$ select * from entity_registry where ada_id = 'ADA-AST-2026-0001' $q$) p1, pg_temp.plan($q$ select * from entity_registry where table_name = 'assets' and entity_id = gen_random_uuid() $q$) p2) q), 'true');
+
+-- Every authoritative table is wired to the registry (the rule that tickets, documents and every future module must follow)
+select tests.check('every built entity type has a codebook entry and a real authoritative table wired to registration and sync',
+  (select coalesce(string_agg(t.key, ','), 'none') from entity_types t where t.is_built and (
+      not exists (select 1 from id_codebook c where c.kind = 'type' and c.meaning = t.key and c.code = t.id_code)
+      or to_regclass('public.' || t.domain_table) is null
+      or not exists (select 1 from pg_trigger g where g.tgrelid = to_regclass('public.' || t.domain_table) and g.tgname = 'ada_id_register')
+      or not exists (select 1 from pg_trigger g where g.tgrelid = to_regclass('public.' || t.domain_table) and g.tgname = 'registry_sync_trg'))), 'none');
+select tests.check('no table has its own ID generator: the only function that mints identifiers is the central service',
+  (select coalesce(string_agg(proname, ','), 'none') from pg_proc where pronamespace = 'public'::regnamespace and prosrc ~* 'id_counters|id_sequences' and proname not in ('ada_mint_id', 'next_ada_id')), 'none');
+
 -- Search index: derived, rebuildable, visibility-bound ---------------------------------------------------------------------------------------------
 select tests.check('the search index starts empty and is built by the rebuild service from the authoritative records', (select count(*)::text from search_index), '0');
 select tests.check('users cannot rebuild it', tests.scalar('ceo', 'select search_rebuild()::text'), 'ERR:42501');

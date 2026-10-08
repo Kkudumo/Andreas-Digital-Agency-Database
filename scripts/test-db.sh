@@ -51,6 +51,19 @@ wait
 res=$(psql_ "$URL" -Atc "select count(*) || ',' || count(distinct ada_id) || ',' || max(substring(ada_id from '[0-9]+\$')::int) from assets")
 if [ "$res" = "$expected" ]; then echo "  $((N_PROC * N_ROWS)) parallel asset registrations: all ADA-AST IDs unique and gap-free"; else echo "  FAIL concurrent asset ids: got $res expected $expected"; status=1; fi
 
+# Concurrency across ENTITY FAMILIES: one central generator, many entity types at once. Every institutional ID must be unique,
+# well-formed (9 chars, check character valid) and every (type, cycle) counter must equal the number of IDs issued from it (no gaps, no reuse).
+echo "== concurrent_institutional_ids"
+for i in $(seq 1 $N_PROC); do
+  psql_ "$URL" -c "insert into clients (name) select 'm$i-' || g from generate_series(1, $N_ROWS) g;
+                   insert into assets (name, category_id, division_id) select 'm$i-' || g, (select id from asset_categories where key = 'other'), (select id from divisions where key = 'tech') from generate_series(1, $N_ROWS) g;
+                   insert into people (full_name, email) select 'Person $i ' || g, 'p${i}_' || g || '@conc.test' from generate_series(1, $N_ROWS) g;" >/dev/null &
+done
+wait
+res=$(psql_ "$URL" -Atc "select count(*) || ',' || count(distinct institutional_id) || ',' || count(*) filter (where institutional_id !~ '^[0-9A-HJKMNP-TV-Z]{9}\$' or not ada_id_valid(institutional_id)) || ',' || (select count(*) from id_counters c where c.last_value <> (select count(*) from entity_registry r where substr(r.institutional_id, 1, 3) = c.type_code || c.cycle_code)) || ',' || (select count(*) from entity_registry where ada_id is not null and table_name in ('clients','assets','people') and (select count(*) from entity_registry x where x.ada_id = entity_registry.ada_id) > 1) from entity_registry")
+total=$(psql_ "$URL" -Atc "select count(*) from entity_registry")
+if [ "$res" = "$total,$total,0,0,0" ]; then echo "  $total registered entities across all families: every institutional ID unique, well-formed and gap-free; no legacy alias collisions"; else echo "  FAIL institutional ids: got $res expected $total,$total,0,0,0"; status=1; fi
+
 # Concurrency: a payment can never be allocated beyond its amount, nor an invoice beyond its total, however many sessions race.
 echo "== concurrent_allocations"
 psql_ "$URL" -f supabase/tests/concurrency/finance_setup.sql >/dev/null
