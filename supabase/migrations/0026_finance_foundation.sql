@@ -97,7 +97,8 @@ join permissions p on p.key = v.permission_key;
 -- 3. Finance settings and bank accounts
 -- ---------------------------------------------------------------------------
 create table finance_settings (
-  id                         boolean primary key default true check (id),
+  id                         uuid primary key default gen_random_uuid(),
+  singleton                  boolean not null default true unique check (singleton),
   base_currency              char(3) not null default 'NAD',
   vat_registered             boolean not null default false,
   vat_rate                   numeric(5,2) not null default 15 check (vat_rate between 0 and 100),

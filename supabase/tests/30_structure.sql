@@ -66,14 +66,17 @@ select tests.check('authenticated can execute only the reviewed functions',
        -- contracts (each checks its own permission inside; visibility helpers read only the row's own columns)
        'can_view_contract', 'can_view_contract_row', 'can_view_contract_version', 'contract_create', 'contract_create_from_quote', 'contract_add_line',
        'contract_remove_line', 'contract_set_terms', 'contract_set_owner', 'contract_link_project', 'contract_transition', 'contract_amend',
-       'contract_renew', 'contracts_due_for_renewal', 'contract_terms')), 'none');
+       'contract_renew', 'contracts_due_for_renewal', 'contract_terms',
+       -- invoices
+       'can_view_invoice_row', 'can_view_invoice', 'billable_from_contract', 'billable_from_project', 'billable_manual', 'billable_void', 'invoice_add_lines',
+       'invoice_create', 'invoice_remove_line', 'invoice_set_terms', 'invoice_transition', 'invoice_void')), 'none');
 -- "Does this information already exist in ADA Core? Then REFERENCE it." Identity/contact columns may live only in
 -- these reviewed places; a new module that adds its own name/email/phone column fails here and must reference
 -- people / clients / staff instead.
 select tests.check('contact and identity columns exist only where reviewed',
   (select string_agg(table_name || '.' || column_name, ', ' order by table_name, column_name) from information_schema.columns
    where table_schema = 'public' and (column_name ~ '(email|phone)' or column_name in ('full_name', 'first_name', 'last_name'))),
-  'clients.email, clients.phone, enquiries.submitted_email, enquiries.submitted_phone, organization.email, organization.phone, people.email, people.full_name, people.phone, staff.email, staff.full_name, staff.work_phone, staff_private.emergency_contact_phone, staff_private.personal_email, staff_private.personal_phone, staff_profiles.public_email');
+  'clients.email, clients.phone, enquiries.submitted_email, enquiries.submitted_phone, invoices.billing_contact_email_snapshot, organization.email, organization.phone, people.email, people.full_name, people.phone, staff.email, staff.full_name, staff.work_phone, staff_private.emergency_contact_phone, staff_private.personal_email, staff_private.personal_phone, staff_profiles.public_email');
 select tests.check('any identity-like column outside the core tables is explicitly documented as a SNAPSHOT of what was submitted',
   (select coalesce(string_agg(c.table_name || '.' || c.column_name, ', ' order by 1), 'none') from information_schema.columns c
    where c.table_schema = 'public' and (c.column_name ~ '(email|phone|name)' and c.column_name ~ '^(submitted|customer|client|contact|staff|person|applicant)_')

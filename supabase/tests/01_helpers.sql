@@ -322,3 +322,11 @@ begin
   perform tests.scalar('web_lead', format('select contract_transition(%L, ''signed'')::text', tests.id('contract:1')));
   perform tests.scalar('web_lead', format('select contract_transition(%L, ''active'')::text', tests.id('contract:1')));
 end $$;
+
+-- For setup steps whose value is only needed as a stored id: remembers it and returns 'ok' (or the error).
+create function tests.remember_ok(p_key text, p_value text) returns text language plpgsql as $$
+begin
+  if p_value is null or p_value like 'ERR:%' then return coalesce(p_value, 'null'); end if;
+  perform tests.remember(p_key, p_value);
+  return 'ok';
+end $$;

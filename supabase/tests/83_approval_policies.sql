@@ -8,7 +8,7 @@ select tests.remember('svc:a', tests.scalar('web_lead', $q$ insert into services
 select tests.remember('svc:b', tests.scalar('web_lead', $q$ insert into services (division_id, name, summary, description) select id, 'Policy Service B', 's', 'd' from divisions where key = 'web' returning id::text $q$));
 
 -- Default policy: a SOLE approver may approve their own request - and it is recorded ------------------------------------
-select tests.check('default policies exist for price changes, quotes and contracts', (select string_agg(kind, ',' order by kind) from approval_policies), 'contract,price_change,quote');
+select tests.check('default policies exist for price changes, quotes and contracts', (select string_agg(kind, ',' order by kind) from approval_policies), 'contract,invoice,price_change,quote');
 select tests.check('the CEO proposes a price (CEO holds pricing.propose)', tests.try('ceo', $q$ select price_propose((select id from tests.ids where key = 'svc:a'), 1000, 'NAD', current_date, 'first price') $q$), 'ok');
 insert into tests.ids select 'price:a1', id from service_prices where service_id = tests.id('svc:a');
 select tests.check('while the CEO is the only qualified approver, the CEO may approve their own price',
