@@ -25,6 +25,7 @@ psql_ "$URL" -f supabase/tests/01_helpers.sql >/dev/null
 status=0
 for f in supabase/tests/[1-9][0-9]_*.sql; do
   echo "== $(basename "$f")"
+  if ! grep -q 'tests.finish()' "$f"; then echo "  FAIL: $(basename "$f") never calls tests.finish(), so its failures would go unreported"; status=1; fi
   if out=$(psql_ "$URL" -f "$f" 2>&1 >/dev/null); then rc=0; else rc=$?; fi
   # keep failures, errors and the summary line; drop passing checks
   printf '%s\n' "$out" | sed -E 's/^psql:[^:]+:[0-9]+: //' | grep -vE '^(NOTICE:  ok  |CONTEXT:|PL/pgSQL|LINE|HINT)' | sed 's/^/  /' || true

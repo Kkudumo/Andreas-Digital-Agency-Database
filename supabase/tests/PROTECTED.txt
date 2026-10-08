@@ -72,3 +72,58 @@ every record with an ADA ID is in the central entity registry
 ADA IDs are unique and sequential per prefix
 # permission matrix
 matrix CSV == database (missing from DB)
+# finance: restricted clients and cross-division isolation
+restricted contract: select by id
+restricted contract: lifecycle command
+restricted invoice: select by id
+restricted invoice: balance
+restricted payment: select by id
+restricted payment: allocate
+propagation: contract, billable items, invoices and payments all inherit the restriction
+propagation: pending approvals follow too
+a bank reference used by a restricted client''s payment is free for anyone else
+removing the client propagates: contracts, invoices and payments disappear
+a client with open commercial records cannot be removed
+cross-division: Tech staff and Tech lead cannot see Web''s contract
+cross-division: Tech lead sees no Web invoices, lines or billable items
+cross-division: Tech lead sees no payments, allocations, reversals or balances
+a hidden contract is indistinguishable from a missing one
+a hidden invoice is indistinguishable from a missing one
+a hidden payment is indistinguishable from a missing one
+# finance: price and term preservation
+quote -> contract preserves quoted prices, quantities, discounts and price versions line by line
+later price changes do not alter the contract
+contract -> invoice preserves contracted prices and discounts
+after a later catalogue price change the issued invoice is unchanged
+renaming the client / contact does not change the issued invoice
+a signed version''s lines are immutable even for the database owner
+a signed version''s terms are immutable even for the owner
+an issued invoice''s total is immutable
+version 1 is exactly as it was signed
+# finance: payments
+partial payment calculates the correct balance
+the balance is never stored
+a fully allocated payment cannot be allocated again
+the database refuses a double allocation even for the owner
+an allocation cannot exceed the invoice balance
+payment reversal restores the correct outstanding balance
+a payment cannot settle another client''s invoice
+# finance: approvals and self-approval
+a large invoice selects the higher tier
+the boundary amount belongs to the higher tier
+the division-specific rule wins in its division
+contracts, invoices and payment reversals all decide through approval_gate()
+there is no finance-specific approval table or hardcoded
+the sole qualified approver (management) may approve their own invoice
+management cannot approve its own invoice while another qualified approver
+with invoices.approve held by finance alone, finance is the only qualified approver
+payment reversals forbid self-approval
+once a second qualified approver exists, management cannot approve their own invoice either
+a discount of N$500 (>= N$400) also needs discounts.approve
+# finance: no duplicate identity, audit survives
+contract tables hold no client or contact identity columns
+invoice tables hold no client/contact identity except the documented issue snapshots
+payment tables hold no client identity columns
+contact and identity columns exist only where reviewed
+audit history survives status changes and amendments
+audit history survives reversal
