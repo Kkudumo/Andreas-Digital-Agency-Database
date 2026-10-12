@@ -47,13 +47,14 @@ functions), so no client — IRM, a website, or a person with API access — can
 | Domains | `domains`, `domain_relations`, `domain_registrations`, `domain_transfers`, `domain_events`, `domain_reviews`, `domain_expiry_status`, `website_hostname_domains` | built, tested |
 | Communications | `communication_threads`, `communication_messages`, `communication_participants`, `communication_links`, `communication_attachments`, `communication_access`, `communication_holds`, `communication_comments`, `communication_disposals`, `communication_events`, `communication_types`, `communication_retention_status` | built, tested (records only: no sending or synchronisation) |
 | Search | `search_index` (derived), `search_sources`, `search_refresh_queue`; `search`, `search_execute`, `search_suggest`, `search_parse` | built, tested (staff only; derived, rebuildable, authorization-first) |
-| Reports, dashboards | — | not started |
+| Dashboard | `dashboard_summary()` (derived, read-only, invoker) | built, tested ([Dashboard](workflows/DASHBOARD.md)) |
+| Reports | — | not started |
 
 Documents: [Module checklist](MODULE_CHECKLIST.md) · [Institutional skeleton](architecture/INSTITUTIONAL_SKELETON.md) · [Entity graph](architecture/ENTITY_GRAPH.md) · [Data dictionary](architecture/DATA_DICTIONARY.md) · [ERD](architecture/ERD.md) ·
 [Permission matrix](architecture/PERMISSION_MATRIX.md) · [Security](SECURITY.md) · [Public API](api/PUBLIC_API.md) ·
 [Recruitment workflow](workflows/RECRUITMENT.md) · [Services, pricing & quotes](workflows/QUOTES_PRICING.md) · [Leads & enquiries](workflows/LEADS_ENQUIRIES.md) · [Contracts](workflows/CONTRACTS.md) · [Invoices & payments](workflows/INVOICES_PAYMENTS.md) · [Assets](workflows/ASSETS.md) · [Tickets](workflows/TICKETS.md) · [Documents](workflows/DOCUMENTS.md) · [Organizations](workflows/ORGANIZATIONS.md) · [Publication layer (design)](architecture/PUBLICATION_LAYER.md) · [Approvals](workflows/APPROVALS.md) · [Development](operations/DEVELOPMENT.md) ·
 [Backup, restore & migration](operations/BACKUP_RESTORE_MIGRATION.md) · [Deployment](operations/DEPLOYMENT.md) ·
-[ADA Hub Pilot V0.1](workflows/ADA_HUB_PILOT_V0_1.md) · [Original audit/gap report](architecture/ARCHITECTURE_REPORT.md)
+[ADA Hub Pilot V0.1](workflows/ADA_HUB_PILOT_V0_1.md) · [Dashboard](workflows/DASHBOARD.md) · [Original audit/gap report](architecture/ARCHITECTURE_REPORT.md)
 
 ## Decisions (recorded)
 

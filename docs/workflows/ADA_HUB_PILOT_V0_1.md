@@ -235,6 +235,6 @@ Sign in as the person named; each step is one screen. (The live harness does exa
 - The interface is deliberately plain: no dashboards, charts, animation or branding. Dropdowns are not narrowed to what you may do; the database refuses the rest with a short message.
 - `client_360.activity` covers the client, its contacts and divisions only, and needs `audit.view`; module event tables hold the rest of the history (page text says so).
 - `project_360` payments show allocations to the project's invoices; a payment not yet allocated appears on Client 360 only.
-- Not built, on purpose: dashboards, reporting, public API, public search, publication layer, AI of any kind, email / WhatsApp / SMS, external sharing, saved searches or search analytics, document full-text search, expenses and credit notes, client merge.
+- Not built, on purpose (the dashboard was added afterwards, at your request; see [Dashboard](DASHBOARD.md)): reporting, public API, public search, publication layer, AI of any kind, email / WhatsApp / SMS, external sharing, saved searches or search analytics, document full-text search, expenses and credit notes, client merge.
 
 ![Search as the front door](pilot-search.png)

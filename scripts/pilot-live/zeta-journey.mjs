@@ -115,6 +115,17 @@ await F2.click('table a:has-text("ADA-INV")'); await F2.waitForURL(/\/invoices\/
 await F2.goto(BASE + '/search?q=type:payment'); ok('finance finds the payment by type', /1 result/.test(await text(F2)), await text(F2));
 await ctxF2.close();
 
+// ---------- the dashboard shows the same engagement as derived numbers, and only to those who may see them
+let { ctx: ctxD, page: Dp } = await session('ceo@ada.test');
+await Dp.goto(BASE + '/dashboard'); await Dp.waitForTimeout(1500); const dt = await text(Dp);
+ok('dashboard (management): receivables 3,750 outstanding, a pipeline, live projects, open tickets', /Outstanding receivables/i.test(dt) && /3,750\.00/.test(dt) && /Sales pipeline/i.test(dt) && /Live projects/i.test(dt) && /Open tickets/i.test(dt), dt.slice(0, 900));
+await Dp.screenshot({ path: process.env.DASH_SHOT || 'dashboard.png', fullPage: true });
+await ctxD.close();
+let { ctx: ctxD2, page: Dq } = await session('tech_staff@ada.test');
+await Dq.goto(BASE + '/dashboard'); await Dq.waitForTimeout(1500); const dq = await text(Dq);
+ok('dashboard (another division, no finance rights): none of the Zeta money or tiles', !/3,750\.00/.test(dq) && !/Outstanding receivables/i.test(dq), dq.slice(0, 600));
+await ctxD2.close();
+
 // ---------- outsiders see nothing
 let { ctx: ctxW, page: W } = await session('web_staff@ada.test');
 await W.goto(BASE + '/r/ZZZZZZZZZ'); ok('unknown / hidden id: not found', /Record not found/.test(await text(W)));

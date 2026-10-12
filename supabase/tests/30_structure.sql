@@ -57,7 +57,7 @@ select tests.check('authenticated can execute only the reviewed functions',
        -- workflow / command functions (each checks its own permission inside)
        'link_staff_account', 'issue_website_key', 'vacancy_transition', 'staff_record_application', 'application_transition', 'make_offer',
        'accept_application', 'profile_transition', 'terminate_staff', 'client_lookup', 'claim_client_for_division', 'set_client_owner',
-       'add_client_contact', 'price_propose', 'price_decide', 'price_withdraw', 'service_transition', 'project_transition', 'project_add_service', 'project_create', 'project_add_contact', 'project_add_division', 'project_add_member', 'task_create',
+       'add_client_contact', 'price_propose', 'price_decide', 'price_withdraw', 'service_transition', 'project_transition', 'project_add_service', 'project_create', 'project_add_contact', 'project_add_division', 'project_add_member', 'task_create', 'dashboard_summary',
        'project_lead_division', 'portfolio_transition', 'can_view_quote', 'can_view_quote_row', 'quote_create',
        'quote_add_line', 'quote_remove_line', 'quote_transition', 'quote_convert_to_project',
        -- 360 views: SECURITY INVOKER, so they add no access beyond ordinary row-level security
