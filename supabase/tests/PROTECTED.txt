@@ -481,3 +481,19 @@ a rebuild corrects a row whose label is right but whose terms are wrong
 a hard delete of a record removes its index row
 a refresh request from someone who is not staff is ignored
 the live-field helper (granted to API users) answers nothing for a record the caller cannot see
+
+# ADA Hub Pilot V0.1 (workflow integration and access across modules)
+the restricted records ARE in the system (only authorization hides them)
+are IDENTICAL with and without the restricted records, for B, C, suspended and an outsider
+Client 360 of a hidden client = of a random id
+Project 360 of a hidden project (of a hidden client, and of a visible client) = of a random id
+workflow WRITES against a hidden record fail exactly as against a random id
+B, C, suspended and an outsider get the same answer for every restricted institutional id
+Project 360 / Client 360 show communication METADATA only
+the quote line takes the catalogue price (5,000) from the approved version
+the catalogue now says 6,000 tomorrow; the quote still says 5,000
+an issued invoice is immutable
+there is no stored balance column
+still ONE organization, ONE client, ONE person, ONE project, ONE quote, ONE contract, ONE invoice
+the asset's permanent id survives a move between divisions
+Project 360 shows the client, contact, service, quote, contract, invoice, payment

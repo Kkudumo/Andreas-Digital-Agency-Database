@@ -200,5 +200,30 @@ res=$(psql_ "$URL" -At -c "select (select count(*) from search_index where entit
 nerr=$(ls "$ERRDIR" | wc -l); rm -rf "$ERRDIR"
 if [ "$res" = "160,0,true,0" ] && [ "$nerr" = "0" ]; then echo "  160 concurrent client creations indexed, 2 sessions rebuilding the index 3 times each, 8 sessions renaming one client and searching at once: no failed statement, every client findable, the contested row equals its record, zero drift, no orphans"; else echo "  FAIL concurrent search: got $res with $nerr failed statements, expected 160,0,true,0 and 0"; status=1; fi
 
+# Concurrency: the pilot workflow. Eight sessions (half "Web", half "Tech") create the SAME organization/client at once: one organization, one client role. Eight
+# sessions add the SAME contact: one person, one contact. Eight sessions convert the SAME accepted quote: one project, one priced service line. Eight sessions create
+# a contract from the SAME quote: exactly one contract. Eight sessions invoice the SAME billable item: exactly one invoice with one active line.
+echo "== concurrent_pilot"
+psql_ "$URL" -f supabase/tests/concurrency/pilot_setup.sql >/dev/null
+ASP="select set_config('request.jwt.claim.sub', md5('conc-pilot-user'), false); set role authenticated;"
+DIVW=$(psql_ "$URL" -At -c "select id from divisions where key = 'web'")
+DIVT=$(psql_ "$URL" -At -c "select id from divisions where key = 'tech'")
+PCL=$(psql_ "$URL" -At -c "select id from clients where name = 'Pilot Race Client'")
+PQ1=$(psql_ "$URL" -At -c "select id from quotes where title = 'race quote 1'")
+PQ2=$(psql_ "$URL" -At -c "select id from quotes where title = 'race quote 2'")
+psql_ "$URL" -c "$ASP select add_client_contact('$PCL', 'Billing Person', 'billing@pilotrace.example', null, 'Finance', false, true)" >/dev/null
+PBI=$(psql_ "$URL" -At -c "insert into billable_items (client_id, division_id, source, description, quantity, unit_price, currency, manual_reason) values ('$PCL', '$DIVW', 'manual', 'race charge', 1, 500, 'NAD', 'race') returning id")
+for i in $(seq 1 $N_PROC); do
+  PDIV=$DIVW; [ $((i % 2)) -eq 0 ] || PDIV=$DIVT
+  ( psql -X -q "$URL" -c "$ASP select client_create('Pilot Race Org Ltd', '$PDIV')" >/dev/null 2>&1 ) &
+  ( psql -X -q "$URL" -c "$ASP select add_client_contact('$PCL', 'Race Person', 'race@pilotrace.example', null, 'Director')" >/dev/null 2>&1 ) &
+  ( psql -X -q "$URL" -c "$ASP select quote_convert_to_project('$PQ1')" >/dev/null 2>&1 ) &
+  ( psql -X -q "$URL" -c "$ASP select contract_create_from_quote('$PQ2')" >/dev/null 2>&1 ) &
+  ( psql -X -q "$URL" -c "$ASP select invoice_create(array['$PBI']::uuid[])" >/dev/null 2>&1 ) &
+done
+wait
+res=$(psql_ "$URL" -At -c "select (select count(*) from organizations where name ilike 'pilot race org%') || ',' || (select count(*) from clients where name ilike 'pilot race org%') || ',' || (select count(*) from people where email = 'race@pilotrace.example') || ',' || (select count(*) from client_contacts cc join people p on p.id = cc.person_id where p.email = 'race@pilotrace.example') || ',' || (select count(*) from projects where client_id = '$PCL') || ',' || (select count(*) from project_services ps join projects p on p.id = ps.project_id where p.client_id = '$PCL') || ',' || (select count(*) from contracts where quote_id = '$PQ2') || ',' || (select count(distinct invoice_id) from invoice_lines where billable_item_id = '$PBI') || ',' || (select count(*) from invoice_lines where billable_item_id = '$PBI' and active)")
+if [ "$res" = "1,1,1,1,1,1,1,1,1" ]; then echo "  8 racing creations of one organization/client from two divisions: one organization, one client; 8 racing contacts: one person, one contact; 8 racing quote conversions: one project, one service line; 8 racing contracts from one quote: one contract; 8 racing invoices of one billable item: one invoice, one active line"; else echo "  FAIL concurrent pilot: got $res expected 1,1,1,1,1,1,1,1,1"; status=1; fi
+
 [ "$status" -eq 0 ] && echo "ALL TESTS PASSED" || echo "TESTS FAILED"
 exit $status
