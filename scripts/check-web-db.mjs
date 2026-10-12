@@ -11,12 +11,12 @@ if (!url) { console.error('usage: check-web-db.mjs <postgres url>'); process.exi
 const q = (sql) => execFileSync('psql', ['-X', '-At', '-F', '\t', url, '-c', sql], { encoding: 'utf8' }).trim().split('\n').filter(Boolean).map((l) => l.split('\t'));
 
 const fns = new Map();   // name -> list of Set(arg names)
-for (const [name, args] of q(`select p.proname, coalesce(array_to_string(p.proargnames, ','), '') from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'public'`)) {
+for (const [name, args = ''] of q(`select p.proname, coalesce(array_to_string(p.proargnames, ','), '') from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'public'`)) {
   if (!fns.has(name)) fns.set(name, []);
   fns.get(name).push(new Set(args.split(',').filter(Boolean)));
 }
 const cols = new Map();  // table -> Set(columns)
-for (const [t, c] of q(`select table_name, column_name from information_schema.columns where table_schema = 'public'`)) {
+for (const [t, c = ''] of q(`select table_name, column_name from information_schema.columns where table_schema = 'public'`)) {
   if (!cols.has(t)) cols.set(t, new Set());
   cols.get(t).add(c);
 }

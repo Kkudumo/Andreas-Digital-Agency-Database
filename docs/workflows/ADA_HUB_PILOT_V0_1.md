@@ -11,7 +11,7 @@
 2. **One scenario joining every module**, with restricted-user probes across all of it: `110_ada_hub_pilot.sql` (42 checks) and `111_ada_hub_pilot_access_restricted.sql` (25 checks), plus a pilot concurrency block.
 3. **One real defect**, found by that scenario and fixed in `0042_pilot_project_360.sql`: Project 360 did not show invoices billed through a contract, and had no payments slice (finding F1).
 
-Everything else was reused as it was. No table was added. No completed module's architecture changed.
+Everything else was reused as it was. No table was added. No completed module's architecture changed. CI additionally exposed a pre-existing deadlock in Search's concurrency handling (F8), fixed by `0043` without changing Search's behaviour.
 
 Baseline before any pilot work: `./scripts/test-db.sh` on PostgreSQL 16 — 2,760 checks, 0 failed. After the pilot: 2,827 checks, 0 failed, plus all concurrency scripts (section G).
 
@@ -90,9 +90,14 @@ Observations to check during the pilot (do not "fix" in advance):
 
 Dashboards and reporting; public API HTTP layer; public search; publication layer; expenses and credit notes; recurring invoicing; client merge UI; email / WhatsApp / SMS; external document sharing; saved searches and search analytics; AI interpreter, semantic or vector search; MFA and rate limiting; staging run on a real Supabase project (recommended but separate).
 
-### B.4 Baseline: one intermittent concurrency failure (not reproduced)
+### B.4 Baseline: an intermittent concurrency failure in Search — root-caused and fixed (migration 0043)
 
-The first baseline run printed `FAIL concurrent search: got 160,0,true,0 with 1 failed statements` (the data assertions held; exactly one parallel statement errored). The second full run passed everything. The test script discards the statement's error text, so the cause was unknown. I looped that exact block 16 times (8 of them with 4 busy CPU loops on the machine) with stderr captured: **0 failed statements in 16 rounds**. It is recorded as an unexplained, unreproduced one-off. Search was not changed. If it recurs, the harness in the git history of this section (the loop that keeps stderr) is the way to get the message.
+The first baseline run printed `FAIL concurrent search: … 1 failed statements` (all data assertions held), the second run passed, and my 16-round local loop could not reproduce it. GitHub CI then failed the same way on some runs and passed on others, including on a docs-only commit and on two runs of the identical commit — so it was never caused by pilot code. The test script threw the statement's error away; I made it keep stderr (diagnostic only), and the next failure showed the cause: **`ERROR: deadlock detected`** in two places in Search (migration 0041):
+
+1. `search_rebuild()`: two concurrent rebuilds deadlock on `delete from search_refresh_queue`.
+2. `search_flag_stale()` (called from `search()` / `search_suggest()`): two searches that flag overlapping ids across several calls in one transaction deadlock on the queue's unique index.
+
+Impact: an occasional "deadlock detected" error returned to one of two concurrent searches or rebuilds; no wrong results and no data damage (every assertion on the data held). This is a genuine concurrency defect in a closed module, documented here before the change, and fixed minimally in **`0043_search_rebuild_lock.sql`**: rebuilds are serialised with a transaction-level advisory lock and clear the queue with `skip locked`; stale-flagging takes a try-lock and skips if another transaction is flagging (it is best-effort bookkeeping — a stale row is never returned either way, and the next search flags it again). Same results, same grants, no schema change. After the fix: 8 consecutive full `test-db.sh` runs passed in this environment (5 plain runs after the last change; 3 more after the intermediate fixes, with the failing runs before them each showing the error text above).
 
 ---
 
@@ -151,7 +156,7 @@ Every step in the original plan was done in order, except that the "thin wrapper
 | Zeta engagement suite | `supabase/tests/110_ada_hub_pilot.sql` | search → organization/client → contact → project → service price → quote → approval → acceptance → contract → invoice → payment → document → communication → ticket → asset → domain → Client/Project 360 → search again; identity, immutability, stable-ID checks |
 | Restricted-workflow suite | `supabase/tests/111_ada_hub_pilot_access_restricted.sql` | users A (manages), B (other division), C (same division, too few permissions), suspended, outsider, anonymous; a restricted engagement beside the visible one; differential and "hidden id = random id" probes |
 | Pilot concurrency | `supabase/tests/concurrency/pilot_setup.sql` + a block in `scripts/test-db.sh` | races on organization/client, contact, quote conversion, contract creation, invoicing |
-| Migration | `supabase/migrations/0042_pilot_project_360.sql` | **read side only**: `project_360` adds contract invoices and a derived payments slice. No table, column, grant or policy change |
+| Migrations | `0042_pilot_project_360.sql`, `0043_search_rebuild_lock.sql` | 0042: **read side only**, `project_360` adds contract invoices and a derived payments slice. 0043: Search deadlock fix (two functions, locks only). Neither changes a table, column, grant or policy |
 | Interface | `web/app/(irm)/…`, `web/components/panels.tsx`, `web/lib/db.ts` | search, record resolver, clients, projects, quote, contract, invoice, generic record pages (ticket, asset, document, thread, domain…) |
 | Interface ↔ database check | `scripts/check-web-db.mjs` (run by `test-db.sh`) | every function, argument, table and column the interface uses exists in the migrated schema; mutation-checked |
 | Live harness | `scripts/pilot-live/` | runs the Zeta journey through the real interface against the real database with no Supabase account (PostgREST + a local auth stand-in + headless Chromium). A dev harness, not CI |
@@ -187,7 +192,7 @@ The only write that is not a named function is **project creation**, a guarded `
 | **F5** | Projects (and project contacts, members, tasks) have no `project_create` / `…_add` functions. They are written by guarded inserts under row-level security (the guard trigger and audit apply). | **Not changed**: wrappers would add code without adding a rule. The interface uses the same insert path. Say so if you want wrappers. |
 | **F6** | `client_lookup` returns nothing for restricted clients even to management; cleared staff find them with Search. | Documented. |
 | **F7** | `communications.read` is granted to division staff by the permission matrix, so a same-division staff member can read bodies; client visibility alone never does. `111` proves this against finance (which lacks the permission). | Documented. |
-| **F8** | `concurrent_search` failed once in the baseline and not again in 18 further runs (section B.4). | Recorded; Search untouched. |
+| **F8** | **Defect (Search).** `concurrent_search` failed intermittently (locally and in CI) with `deadlock detected` in `search_rebuild()` and `search_flag_stale()` (section B.4). Pre-existing, not caused by the pilot. | Fixed in `0043` (locks only; no change to results or grants). The runner now prints the error text on failure. |
 
 ---
 
@@ -217,7 +222,7 @@ Sign in as the person named; each step is one screen. (The live harness does exa
 | `./scripts/test-db.sh` (all numbered suites, protected-check guard, all concurrency scripts, interface-reference check) | **ALL TESTS PASSED**: 2,827 checks, 0 failed (was 2,760 before the pilot; +42 in `110`, +25 in `111`) |
 | Pilot concurrency (`concurrent_pilot`) | 8 sessions racing: one organization and one client from two divisions; one person and one contact; one project and one service line from one accepted quote; one contract from one quote; one invoice with one active line for one billable item |
 | Mutation checks | `111` fails (4 checks) when project visibility is broken; `110` check 31 fails without `0042`; `check-web-db.mjs` fails on a misspelled argument or function argument |
-| `./scripts/rehearse-migration.sh` | **MIGRATION REHEARSAL PASSED** (dump, restore, identical security posture, structure suite on the restored database) with 0042 included |
+| `./scripts/rehearse-migration.sh` | **MIGRATION REHEARSAL PASSED** (dump, restore, identical security posture, structure suite on the restored database) with 0042 and 0043 included |
 | Interface | `tsc --noEmit` and `next build` clean; `check-web-db.mjs`: 40 function calls and 41 table reads all valid |
 | Live journey (`scripts/pilot-live/run.sh`) | **ALL JOURNEY STEPS PASSED** (31 steps) through the real interface against the real migrated database |
 

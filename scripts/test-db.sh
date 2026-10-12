@@ -128,7 +128,7 @@ echo "== upgrade_0038"
 UDB="${DB}_up"; UURL="$BASE/$UDB"
 psql_ "$ADMIN_URL" -c "create database $UDB"
 psql_ "$UURL" -f supabase/tests/00_supabase_shim.sql >/dev/null
-for f in supabase/migrations/*.sql; do case "$f" in *0038_*|*0039_*|*0040_*|*0041_*) continue;; esac; psql_ "$UURL" -f "$f" >/dev/null; done
+for f in supabase/migrations/*.sql; do case "$f" in *0038_*|*0039_*|*0040_*|*0041_*|*0042_*|*0043_*) continue;; esac; psql_ "$UURL" -f "$f" >/dev/null; done
 psql_ "$UURL" -f supabase/tests/concurrency/org_legacy_seed.sql >/dev/null
 before=$(psql_ "$UURL" -At -c "select string_agg(id::text || ada_id, ',' order by id) from (select id, ada_id from clients union all select id, ada_id from suppliers) x")
 audit_before=$(psql_ "$UURL" -At -c "select count(*) from audit_log")
@@ -185,20 +185,21 @@ if [ "$res" = "41,41,41,41,1,2,$((N_PROC * 3)),0,true" ]; then echo "  8x5 racin
 echo "== concurrent_search"
 psql_ "$URL" -f supabase/tests/concurrency/search_setup.sql >/dev/null
 SC="select set_config('request.jwt.claim.sub', md5('conc-search-user'), false); set role authenticated;"
-ERRDIR=$(mktemp -d)
+ERRDIR=$(mktemp -d); ERRLOG=$(mktemp)
 for i in $(seq 1 $N_PROC); do
-  ( psql -X -q -v ON_ERROR_STOP=1 "$URL" -c "insert into clients (name) select 'cs$i-' || g from generate_series(1, 20) g" >/dev/null 2>&1 || touch "$ERRDIR/insert_$i" ) &
+  ( psql -X -q -v ON_ERROR_STOP=1 "$URL" -c "insert into clients (name) select 'cs$i-' || g from generate_series(1, 20) g" >/dev/null 2>>"$ERRLOG" || touch "$ERRDIR/insert_$i" ) &
   ( for k in 1 2 3 4 5; do
-      psql -X -q -v ON_ERROR_STOP=1 "$URL" -c "update clients set name = 'cs-target-$i-$k' where name like 'cs-target%'" >/dev/null 2>&1 || touch "$ERRDIR/rename_${i}_$k"
-      psql -X -q -v ON_ERROR_STOP=1 "$URL" -c "$SC select search('cs target', 5, 0, true), search_suggest('cs-t')" >/dev/null 2>&1 || touch "$ERRDIR/search_${i}_$k"
+      psql -X -q -v ON_ERROR_STOP=1 "$URL" -c "update clients set name = 'cs-target-$i-$k' where name like 'cs-target%'" >/dev/null 2>>"$ERRLOG" || touch "$ERRDIR/rename_${i}_$k"
+      psql -X -q -v ON_ERROR_STOP=1 "$URL" -c "$SC select search('cs target', 5, 0, true), search_suggest('cs-t')" >/dev/null 2>>"$ERRLOG" || touch "$ERRDIR/search_${i}_$k"
     done ) &
 done
-for j in 1 2; do ( for k in 1 2 3; do psql -X -q -v ON_ERROR_STOP=1 "$URL" -c "set role service_role; select search_rebuild()" >/dev/null 2>&1 || touch "$ERRDIR/rebuild_${j}_$k"; done ) & done
+for j in 1 2; do ( for k in 1 2 3; do psql -X -q -v ON_ERROR_STOP=1 "$URL" -c "set role service_role; select search_rebuild()" >/dev/null 2>>"$ERRLOG" || touch "$ERRDIR/rebuild_${j}_$k"; done ) & done
 wait
 psql_ "$URL" -c "set role service_role; select search_rebuild()" >/dev/null
 res=$(psql_ "$URL" -At -c "select (select count(*) from search_index where entity_type = 'client' and label ~ '^cs[0-9]+-[0-9]+\$') || ',' || (select count(*) from search_drift()) || ',' || (select (i.label = c.name)::text from clients c join search_index i on i.entity_id = c.id and i.table_name = 'clients' where c.name like 'cs-target%') || ',' || (select count(*) from search_index i where not exists (select 1 from entity_registry r where r.institutional_id = i.institutional_id))")
 nerr=$(ls "$ERRDIR" | wc -l); rm -rf "$ERRDIR"
-if [ "$res" = "160,0,true,0" ] && [ "$nerr" = "0" ]; then echo "  160 concurrent client creations indexed, 2 sessions rebuilding the index 3 times each, 8 sessions renaming one client and searching at once: no failed statement, every client findable, the contested row equals its record, zero drift, no orphans"; else echo "  FAIL concurrent search: got $res with $nerr failed statements, expected 160,0,true,0 and 0"; status=1; fi
+if [ "$res" = "160,0,true,0" ] && [ "$nerr" = "0" ]; then echo "  160 concurrent client creations indexed, 2 sessions rebuilding the index 3 times each, 8 sessions renaming one client and searching at once: no failed statement, every client findable, the contested row equals its record, zero drift, no orphans"; else echo "  FAIL concurrent search: got $res with $nerr failed statements, expected 160,0,true,0 and 0"; sed -E 's/^/    stderr: /' "$ERRLOG" | sort | uniq -c | sort -rn | head -8; status=1; fi
+rm -f "$ERRLOG"
 
 # Concurrency: the pilot workflow. Eight sessions (half "Web", half "Tech") create the SAME organization/client at once: one organization, one client role. Eight
 # sessions add the SAME contact: one person, one contact. Eight sessions convert the SAME accepted quote: one project, one priced service line. Eight sessions create
