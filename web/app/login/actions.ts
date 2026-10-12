@@ -9,7 +9,7 @@ export async function signIn(formData: FormData) {
   const { error } = await supabase.auth.signInWithPassword({ email, password });
   // Same message for every failure so the form cannot be used to discover which emails exist.
   if (error) redirect('/login?error=' + encodeURIComponent('Invalid email or password.'));
-  redirect('/dashboard');
+  redirect('/search');
 }
 
 export async function signOut() {

@@ -225,5 +225,9 @@ wait
 res=$(psql_ "$URL" -At -c "select (select count(*) from organizations where name ilike 'pilot race org%') || ',' || (select count(*) from clients where name ilike 'pilot race org%') || ',' || (select count(*) from people where email = 'race@pilotrace.example') || ',' || (select count(*) from client_contacts cc join people p on p.id = cc.person_id where p.email = 'race@pilotrace.example') || ',' || (select count(*) from projects where client_id = '$PCL') || ',' || (select count(*) from project_services ps join projects p on p.id = ps.project_id where p.client_id = '$PCL') || ',' || (select count(*) from contracts where quote_id = '$PQ2') || ',' || (select count(distinct invoice_id) from invoice_lines where billable_item_id = '$PBI') || ',' || (select count(*) from invoice_lines where billable_item_id = '$PBI' and active)")
 if [ "$res" = "1,1,1,1,1,1,1,1,1" ]; then echo "  8 racing creations of one organization/client from two divisions: one organization, one client; 8 racing contacts: one person, one contact; 8 racing quote conversions: one project, one service line; 8 racing contracts from one quote: one contract; 8 racing invoices of one billable item: one invoice, one active line"; else echo "  FAIL concurrent pilot: got $res expected 1,1,1,1,1,1,1,1,1"; status=1; fi
 
+# The interface may only reference database functions, arguments, tables and columns that exist in the migrated schema.
+echo "== web_db_references"
+node scripts/check-web-db.mjs "$URL" || status=1
+
 [ "$status" -eq 0 ] && echo "ALL TESTS PASSED" || echo "TESTS FAILED"
 exit $status
