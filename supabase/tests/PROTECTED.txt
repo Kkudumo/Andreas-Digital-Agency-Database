@@ -543,3 +543,7 @@ the preview lists exactly the periods a run would bill
 the scheduled run is not callable by application users
 a runner without invoices.create bills nothing
 the identity is handed back after the job
+
+# Dashboard finance
+spend is derived by state
+someone without expense, credit note or schedule access sees empty spend

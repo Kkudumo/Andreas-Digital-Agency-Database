@@ -32,3 +32,12 @@ Trend lines or history (the figures are "now"), exports, scheduled or e-mailed r
 ## Verified
 
 `./scripts/test-db.sh`: all suites and concurrency scripts pass (2,854 checks, of which 12 are `113_dashboard.sql`); the migration rehearsal passes; the live journey (`scripts/pilot-live/run.sh`) opens the dashboard as management (receivables 3,750 outstanding, pipeline, live projects, open tickets) and as a person without finance rights (none of it). Breaking the function's authorization on purpose (SECURITY DEFINER) fails four of the checks.
+
+
+## Finance additions (migration 0052, suite 119)
+
+* **Spend** card: expenses awaiting approval, approved and not yet paid, and paid in the last 30 days, by currency (shown to those with `expenses.view`).
+* **Receivables** gains customer credit not yet applied (issued credit notes) and credit notes awaiting approval.
+* **Recurring billing** card (only when something needs attention): schedules due for a run and paused schedules, linking to Billing runs.
+
+All derived at read time under the caller's own row-level security, exactly like the rest of the dashboard.

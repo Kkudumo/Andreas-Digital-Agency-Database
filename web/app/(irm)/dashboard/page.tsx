@@ -122,8 +122,30 @@ export default async function Dashboard() {
                     <Row k="Received in the last 30 days"><Money rows={R.received_30d} /></Row>
                     <Row k="Received, not yet allocated"><Money rows={R.unallocated_credit} /></Row>
                     <Row k="Invoices awaiting approval">{R.invoices_awaiting_approval ?? 0}</Row>
+                    <Row k="Customer credit not yet applied"><Money rows={R.credit_unapplied} /></Row>
+                    <Row k="Credit notes awaiting approval">{R.credit_notes_awaiting_approval ?? 0}</Row>
                   </tbody></table>
                   <p className="muted small" style={{ marginBottom: 0 }}>Derived from invoices and payment allocations each time; nothing here is stored. Totals never mix currencies.</p>
+                </section>
+              )}
+
+              {canAnywhere(access, 'expenses.view') && (
+                <section className="card"><h2>Spend</h2>
+                  <table><tbody>
+                    <Row k="Expenses awaiting approval" to="/expenses"><Money rows={(D.spend?.awaiting_approval ?? []) as MoneyRow[]} /></Row>
+                    <Row k="Approved, not yet paid" to="/expenses"><Money rows={(D.spend?.approved_unpaid ?? []) as MoneyRow[]} /></Row>
+                    <Row k="Paid in the last 30 days"><Money rows={(D.spend?.paid_30d ?? []) as MoneyRow[]} /></Row>
+                  </tbody></table>
+                  <p className="muted small" style={{ marginBottom: 0 }}>Derived from the expense records; nothing is stored.</p>
+                </section>
+              )}
+
+              {showFin && (Number(D.billing?.schedules_due ?? 0) > 0 || Number(D.billing?.schedules_paused ?? 0) > 0) && (
+                <section className="card"><h2>Recurring billing</h2>
+                  <table><tbody>
+                    <Row k="Schedules due for a run" to="/billing"><span style={{ color: Number(D.billing?.schedules_due ?? 0) ? 'var(--warn, inherit)' : undefined }}>{D.billing?.schedules_due ?? 0}</span></Row>
+                    <Row k="Paused schedules" to="/billing">{D.billing?.schedules_paused ?? 0}</Row>
+                  </tbody></table>
                 </section>
               )}
 

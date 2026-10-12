@@ -155,6 +155,7 @@ await ctxX.close();
 
 ({ ctx: ctxC, page: C } = await session('ceo@ada.test'));
 await C.goto(BASE + '/organization/reviews'); await settle(C); ok('the duplicates page opens for management', /Possible duplicate organizations/.test(await text(C)), await text(C));
+await C.goto(BASE + '/dashboard'); await settle(C); ok('the dashboard shows the new spend and credit figures', /Spend/.test(await text(C)) && /1,200\.00/.test(await text(C)), await text(C));
 await C.goto(BASE + '/reports?report=aging'); await settle(C); ok('aging report shows the client with the derived balance', /Zeta Test Company/.test(await text(C)) && /3,175\.00/.test(await text(C)), await text(C));
 await C.goto(BASE + '/reports?report=profitability'); await settle(C); ok('profitability report: invoiced and cost for the project', /Zeta Website/.test(await text(C)) && /1,200\.00/.test(await text(C)), await text(C));
 const csv = await C.request.get(BASE + '/reports/csv?report=aging'); const csvBody = await csv.text();
