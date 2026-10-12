@@ -19,6 +19,8 @@ export default async function ClientPage({ params, searchParams }: { params: Pro
   const supabase = await createClient();
   const { data: accounts } = await supabase.from('bank_accounts').select('id, name').eq('is_active', true);
   const { data: me } = await supabase.from('clients').select('owner_division_id').eq('id', id).maybeSingle();
+  const { data: contactRows } = await supabase.from('client_contacts').select('id, is_primary, person:people(full_name)').eq('client_id', id).eq('is_active', true).order('is_primary', { ascending: false });
+  const contactOptions = (contactRows ?? []) as any[];
   const instClient = (await call<Rec>('entity_resolve', { p_id: o.id })).data?.institutional_id as string | undefined;
   const mine = v.relationship?.divisions?.map((d: Rec) => d.code) ?? [];
   const links = instClient ?? '';
@@ -93,6 +95,7 @@ export default async function ClientPage({ params, searchParams }: { params: Pro
             <label>Title<input name="title" required /></label>
             <div className="row">
               <label>Division<select name="division" defaultValue={me?.owner_division_id ?? undefined}>{divisions.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}</select></label>
+              <label>Client contact (required to contract)<select name="contact" defaultValue={contactOptions.find((c) => c.is_primary)?.id}><option value="">— none —</option>{contactOptions.map((c) => <option key={c.id} value={c.id}>{c.person?.full_name}</option>)}</select></label>
               <label>Project (optional)<select name="project"><option value="">— none yet —</option>{(await projectOptions(id)).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select></label>
             </div>
             <button className="primary" type="submit">Create quote</button>

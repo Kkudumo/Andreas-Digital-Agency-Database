@@ -18,7 +18,7 @@ export default async function QuotePage({ params, searchParams }: { params: Prom
   await requireAccess();
   const { id } = await params; const sp = await searchParams;
   const supabase = await createClient();
-  const { data: q } = await supabase.from('quotes').select('*, client:clients(id, name, ada_id), project:projects(id, name, ada_id), division:divisions(name)').eq('id', id).maybeSingle();
+  const { data: q } = await supabase.from('quotes').select('*, client:clients(id, name, ada_id), project:projects(id, name, ada_id), division:divisions(name), contact:client_contacts(person:people(full_name))').eq('id', id).maybeSingle();
   if (!q) notFound();
   const [{ data: lines }, { data: approvals }, catalogue] = await Promise.all([
     supabase.from('quote_lines').select('*, service:services(name)').eq('quote_id', id).order('position'),
@@ -35,7 +35,7 @@ export default async function QuotePage({ params, searchParams }: { params: Prom
       <Flash error={sp.error} ok={sp.ok} />
       <Section title="Quote">
         <KV rows={[['Status', <Badge key="s" v={q.status} />], ['Client', q.client ? <Link key="c" href={`/clients/${q.client.id}`}>{q.client.name}</Link> : '—'],
-          ['Project', q.project ? <Link key="p" href={`/projects/${q.project.id}`}>{q.project.name}</Link> : 'not linked yet'], ['Total', money(q.total, q.currency)], ['Valid until', fmtDate(q.valid_until)], ['Created', fmtDateTime(q.created_at)]]} />
+          ['Project', q.project ? <Link key="p" href={`/projects/${q.project.id}`}>{q.project.name}</Link> : 'not linked yet'], ['Client contact', q.contact?.person?.full_name ?? 'none — a contract needs one'], ['Total', money(q.total, q.currency)], ['Valid until', fmtDate(q.valid_until)], ['Created', fmtDateTime(q.created_at)]]} />
         <div style={{ marginTop: '.8rem' }}><Transitions action={quoteTransitionAction} field="quote" id={id} options={NEXT[q.status] ?? []} returnTo={here} /></div>
         <div className="muted small" style={{ marginTop: '.4rem' }}>Approval is decided by the approval policy: the person who requests it generally cannot approve it. The database refuses what you may not do.</div>
       </Section>

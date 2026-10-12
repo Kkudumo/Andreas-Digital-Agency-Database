@@ -79,7 +79,7 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
         <Section title="Domains" count={v.domains?.length}><LinkTable rows={v.domains} cols={[{ head: 'Domain', render: (d) => <Link href={rid(d.domain)}><b>{d.name}</b></Link> }, { head: 'Status', render: (d) => <Status r={d} /> }, { head: 'Expires', render: (d) => fmtDate(d.expires_on) }]} /></Section>
       </div>
 
-      <AttachPanel divisions={divisions} returnTo={here} clientId={clientUuid} projectId={id} links={links} />
+      <AttachPanel divisions={divisions} returnTo={here} clientId={clientUuid} projectId={id} links={links} defaultDivision={divisions.find((d) => d.key === o.division)?.id} />
 
       <Section title="History" count={v.activity?.length}>
         <LinkTable rows={(v.activity ?? []).map((a: Rec, i: number) => ({ ...a, id: i }))} cols={[{ head: 'When', render: (a) => new Date(a.at).toLocaleString('en-GB') }, { head: 'Action', key: 'action' }, { head: 'Changed', render: (a) => (a.changed ?? []).join(', ') }]} />

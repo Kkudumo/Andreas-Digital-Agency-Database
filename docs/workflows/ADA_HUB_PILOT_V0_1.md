@@ -1,22 +1,19 @@
 # ADA Hub Pilot V0.1 — Operational Map
 
-> **Status:** deliverable 1 (operational map). Written from the migrations (0001–0041), the test suites and the `web/` scaffold as they stand. No pilot code has been written yet.
+> **Status:** the operational map (sections A–C, written first from the migrations 0001–0041, the test suites and the `web/` scaffold) **plus what the pilot then built and proved (sections D–H)**. Pilot V0.1 is complete and waiting for approval; nothing beyond it (dashboards, reporting) has been started.
 > **Scope rule:** completed modules (Documents, Organizations, Domains, Communications, Search, Assets, Finance, Tickets) are closed. This map records what they already offer so the pilot *calls* them; it does not propose changing them.
 
 ## 0. Headline finding
 
-**The backend can already run the whole engagement.** Every step of Workflow A has a controlled, authorized, audited database function, and `client_360` / `project_360` / `organization_360` already return the cross-module slices (contracts, invoices, payments, assets, tickets, documents, domains, communications).
-`91_enquiry_to_quote_scenario.sql` and `93_finance_scenario.sql` already drive enquiry → quote → approval → accept → project → contract → invoice → partial payment → paid.
+**The backend could already run the whole engagement, and now it has been shown to.** Every step of Workflow A had a controlled, authorized, audited database function; the 360 views already carried the cross-module slices. What was missing, and is now built:
 
-What does **not** exist:
+1. **An interface** (the `web/` scaffold had login, dashboard, organization and staff only). Search is now the front door; Client 360, Project 360, quote, contract and invoice pages and four "attach" forms exist (section D).
+2. **One scenario joining every module**, with restricted-user probes across all of it: `110_ada_hub_pilot.sql` (42 checks) and `111_ada_hub_pilot_access_restricted.sql` (25 checks), plus a pilot concurrency block.
+3. **One real defect**, found by that scenario and fixed in `0042_pilot_project_360.sql`: Project 360 did not show invoices billed through a contract, and had no payments slice (finding F1).
 
-1. **Any usable interface.** `web/` has login, a dashboard, an organization page and a staff list. There is no search box, no client/project/quote/invoice/payment screen and no 360 page. "Without touching SQL" is currently impossible.
-2. **One scenario that joins everything.** No test runs organization → client → contact → project → quote → contract → invoice → payment → document → communication → ticket → asset → domain → 360 → search in a single chain, with restricted-user probes across all of it.
-3. **A few controlled write paths** for steps the UI will need (see §B, "Required for pilot"): standalone project creation, adding project contacts/divisions/members/tasks, and a few thin entry points the UI would otherwise implement as direct table writes.
+Everything else was reused as it was. No table was added. No completed module's architecture changed.
 
-So Pilot V0.1 is mostly **interface + one integration test suite + a small number of thin wrappers**, not new modules.
-
-Baseline before any pilot work: `./scripts/test-db.sh` on PostgreSQL 16 — 2,760 checks, 0 failed across the numbered suites. One concurrency check (`concurrent_search`) failed in the first run and passed in the second; see §B.4.
+Baseline before any pilot work: `./scripts/test-db.sh` on PostgreSQL 16 — 2,760 checks, 0 failed. After the pilot: 2,827 checks, 0 failed, plus all concurrency scripts (section G).
 
 ---
 
@@ -93,9 +90,9 @@ Observations to check during the pilot (do not "fix" in advance):
 
 Dashboards and reporting; public API HTTP layer; public search; publication layer; expenses and credit notes; recurring invoicing; client merge UI; email / WhatsApp / SMS; external document sharing; saved searches and search analytics; AI interpreter, semantic or vector search; MFA and rate limiting; staging run on a real Supabase project (recommended but separate).
 
-### B.4 Baseline defect to investigate first
+### B.4 Baseline: one intermittent concurrency failure (not reproduced)
 
-`./scripts/test-db.sh` first run: all numbered suites passed (2,760 checks, 0 failed) but the final `concurrent_search` script printed `got 160,0,true,0 with 1 failed statements`. The data assertions all held (160 clients indexed, 0 drift, contested row correct, 0 orphans). Exactly one of the many parallel statements errored. A second full run passed everything, including `concurrent_search` ("ALL TESTS PASSED"). So the failure is **intermittent and not yet explained**: one statement errored under 8× parallel rename + search + 2 concurrent rebuilds on a loaded machine. It could be a real race in Search (for example a deadlock or serialization error between `search_rebuild` and the refresh trigger) or a test-harness timing artefact; the script discards the error text, so the cause is unknown. Next step: loop that script with stderr captured to find the message. Search stays closed unless that shows a genuine defect, which would be documented separately before any change.
+The first baseline run printed `FAIL concurrent search: got 160,0,true,0 with 1 failed statements` (the data assertions held; exactly one parallel statement errored). The second full run passed everything. The test script discards the statement's error text, so the cause was unknown. I looped that exact block 16 times (8 of them with 4 busy CPU loops on the machine) with stderr captured: **0 failed statements in 16 rounds**. It is recorded as an unexplained, unreproduced one-off. Search was not changed. If it recurs, the harness in the git history of this section (the loop that keeps stderr) is the way to get the message.
 
 ---
 
@@ -141,11 +138,98 @@ Each step names the **controlled operation** the interface calls. "Needs" = perm
 - `111_ada_hub_pilot_access_restricted.sql` — probes comparing a restricted id with a random id for Client 360, Project 360, search, suggest, facets, counts and `related:`, as Users B, C and suspended.
 - `concurrency/pilot_setup.sql` + a block in `test-db.sh` — racing `client_create` of one name, racing project/contract creation from one accepted quote, racing `invoice_create` over the same billable items, racing `payment_allocate`.
 
-### C.3 Order of work after this map is accepted
+### C.3 What happened to the plan
 
-1. Root-cause the `concurrent_search` failure (B.4).
-2. Write `110` against the existing functions and see what breaks. That will confirm or shrink R3/R4 before any migration is written.
-3. Add only the migration (`0042_pilot_workflow.sql`) that the failing steps prove necessary.
-4. Write `111` and the concurrency block.
-5. Build the minimal interface (search first, then the 360 pages, then the forms).
-6. Run the full suite and `rehearse-migration.sh`; write the final report; stop and wait for approval.
+Every step in the original plan was done in order, except that the "thin wrappers" for project writes (R3) were deliberately **not** built (finding F5), and R4 needed no wrapper (`client_create` already does it).
+
+---
+
+## D. What was built
+
+| Piece | Where | Notes |
+|---|---|---|
+| Zeta engagement suite | `supabase/tests/110_ada_hub_pilot.sql` | search → organization/client → contact → project → service price → quote → approval → acceptance → contract → invoice → payment → document → communication → ticket → asset → domain → Client/Project 360 → search again; identity, immutability, stable-ID checks |
+| Restricted-workflow suite | `supabase/tests/111_ada_hub_pilot_access_restricted.sql` | users A (manages), B (other division), C (same division, too few permissions), suspended, outsider, anonymous; a restricted engagement beside the visible one; differential and "hidden id = random id" probes |
+| Pilot concurrency | `supabase/tests/concurrency/pilot_setup.sql` + a block in `scripts/test-db.sh` | races on organization/client, contact, quote conversion, contract creation, invoicing |
+| Migration | `supabase/migrations/0042_pilot_project_360.sql` | **read side only**: `project_360` adds contract invoices and a derived payments slice. No table, column, grant or policy change |
+| Interface | `web/app/(irm)/…`, `web/components/panels.tsx`, `web/lib/db.ts` | search, record resolver, clients, projects, quote, contract, invoice, generic record pages (ticket, asset, document, thread, domain…) |
+| Interface ↔ database check | `scripts/check-web-db.mjs` (run by `test-db.sh`) | every function, argument, table and column the interface uses exists in the migrated schema; mutation-checked |
+| Live harness | `scripts/pilot-live/` | runs the Zeta journey through the real interface against the real database with no Supabase account (PostgREST + a local auth stand-in + headless Chromium). A dev harness, not CI |
+| Protected checks | `supabase/tests/PROTECTED.txt` | 14 new phrases; `check-protected-tests.mjs` also requires `concurrent_pilot` and `check-web-db.mjs` in the runner |
+
+### D.1 Interface pages
+
+| Page | What it is | Calls (all under the signed-in user's session) |
+|---|---|---|
+| `/search` | the front door; also a search box on every page | `search`, `search_suggest` |
+| `/r/<any id>` | resolver for any institutional or legacy ID; "not found" and "not allowed" look the same | `entity_resolve` |
+| `/clients`, `/clients/new` | list; **check-then-create** so a duplicate organization is hard to make | `client_lookup`, `client_create` |
+| `/clients/<id>` | **Client 360**; add contact, join from another division, new project, new quote, record payment, attach | `client_360`, `add_client_contact`, `claim_client_for_division`, `quote_create`, `payment_record` |
+| `/projects`, `/projects/<id>` | **Project 360**; status moves, add service at today's catalogue price, attach | `project_360`, `project_transition`, `project_add_service` |
+| `/quotes/<id>` | lines from the catalogue (price copied), approval trail, status moves, convert to project, create contract | `quote_add_line`, `quote_transition`, `quote_convert_to_project`, `contract_create_from_quote` |
+| `/contracts/<id>` | status moves, covered projects, bill a line | `contract_transition`, `contract_link_project`, `billable_from_contract`, `invoice_create` |
+| `/invoices/<id>` | derived paid / balance, status moves, allocate a payment | `invoice_transition`, `invoice_balance`, `invoice_paid`, `payment_allocate` |
+| `/e/<id>` | generic record page; ticket moves and comments; assign an asset to a project | `ticket_transition`, `ticket_comment_add`, `asset_assign` |
+| Attach panel (client and project pages) | document, communication, ticket, asset | `document_register` + `document_link_add`, `communication_start` + `communication_message_add` + `communication_link_add`, `ticket_create`, `asset_create` |
+
+The only write that is not a named function is **project creation**, a guarded `INSERT` under row-level security (finding F5). The existing staff page already works the same way.
+
+---
+
+## E. Findings
+
+| # | Finding | Action |
+|---|---|---|
+| **F1** | **Defect.** Project 360 showed a contract but none of its invoices (a project covered by a signed or active contract can only be billed through the contract, and such invoices carry the contract, not the project) and had no payments slice, although the brief puts Payments in Project 360. Caught by check 31 of `110`, which failed before the fix. | Fixed in `0042` (read side). A contract covering several projects shows its invoices on each of them. |
+| **F2** | **Documentation / scope gap.** Invoices and payments are not Search sources, although `SEARCH.md` says `related:` reaches "invoices". `related:<client id>` returns projects, contracts, quotes, tickets, assets, documents, domains and communications, not invoices. | **Not changed** (Search is closed). Invoices and payments are reached through Client 360, Project 360 and the contract page. `110` records the limit. **Decision for you:** index them (and how: label only?), or correct `SEARCH.md`. |
+| **F3** | Interface gap found by the live run: a contract needs a client contact ("an authorised contact is required"), but the new-quote form had no contact field. | Fixed in the interface: the quote form takes a contact (the primary one by default) and the quote page shows it. |
+| **F4** | By design, not a defect: someone who cannot see a restricted client and creates a company with the same name gets an ordinary success and a **separate** organization; only a cleared reviewer sees the resulting duplicate review. This is the existing "restricted records look like missing records" trade-off. | Documented; `111` asserts both halves. |
+| **F5** | Projects (and project contacts, members, tasks) have no `project_create` / `…_add` functions. They are written by guarded inserts under row-level security (the guard trigger and audit apply). | **Not changed**: wrappers would add code without adding a rule. The interface uses the same insert path. Say so if you want wrappers. |
+| **F6** | `client_lookup` returns nothing for restricted clients even to management; cleared staff find them with Search. | Documented. |
+| **F7** | `communications.read` is granted to division staff by the permission matrix, so a same-division staff member can read bodies; client visibility alone never does. `111` proves this against finance (which lacks the permission). | Documented. |
+| **F8** | `concurrent_search` failed once in the baseline and not again in 18 further runs (section B.4). | Recorded; Search untouched. |
+
+---
+
+## F. Manual demonstration (Zeta Test Company) in the interface
+
+Sign in as the person named; each step is one screen. (The live harness does exactly this and passes: section H.)
+
+1. **web_lead** — `Search` for `zeta`: 0 results. Open **Clients → New client**, type `Zeta Test Company`: "No existing client found". Choose *ADA Web*, registration `ZTC-2026`, **Create**. You land on **Client 360**; the organization has its own institutional ID.
+2. **tech_lead** — `Clients → New client`, same name: Tech sees ADA already knows the company, and can only open it or join it from the client page; no second organization is possible.
+3. **web_lead** — on Client 360: **Add a contact** (Zoe Zeta, primary). **Create a project** (Zeta Website, lead division ADA Web): status *proposed*.
+4. **web_lead** — **New quote** (contact Zoe, project Zeta Website). On the quote, **Add line**: *Website Development* at the approved catalogue price (5,000), copied into the quote with its price version. **Pending approval**. Try **Approved** yourself: refused (the requester cannot approve).
+5. **ceo** — open the quote, **Approved**. Later changes to the catalogue price never alter this quote.
+6. **web_lead** — **Sent**, **Accepted**, then **Link quote to its project** (the project now carries the priced service) and **Create contract from this quote**. On the contract: **Internal review**.
+7. **ceo** — contract **Approved**. **web_lead** — **Sent**, **Signed**, **Active**; the contract lists the project it covers.
+8. **fin** — on the contract, **Bill this line**: a draft invoice (5,000 + 15% VAT = 5,750). **Pending approval**; **ceo** approves; **fin** **Issued** (client name and VAT number are snapshotted; the invoice can no longer be edited).
+9. **fin** — on Client 360, **Record a payment** of 2,000 against that invoice. The invoice now shows paid 2,000, balance 3,750, *partially paid* (derived, never stored).
+10. **web_lead** — on Project 360, **Attach**: register a document, record a communication (its body is kept but never shown on client or project pages), register an asset, raise a ticket. Open the ticket or asset: *Related records* and the generic record page.
+11. **Client 360 / Project 360** now show organization, contacts, projects, quotes, contracts, invoices, payments, services, assets, tickets, documents, domains and communication **metadata**, with the derived finance summary.
+12. **Search** `zeta`, `type:client zeta`, an institutional ID, and `related:<id>`; every record resolves through `/r/<id>`. **tech_staff** searching `zeta`, or opening the Zeta client URL, sees nothing.
+
+---
+
+## G. Verification
+
+| What | Result |
+|---|---|
+| `./scripts/test-db.sh` (all numbered suites, protected-check guard, all concurrency scripts, interface-reference check) | **ALL TESTS PASSED**: 2,827 checks, 0 failed (was 2,760 before the pilot; +42 in `110`, +25 in `111`) |
+| Pilot concurrency (`concurrent_pilot`) | 8 sessions racing: one organization and one client from two divisions; one person and one contact; one project and one service line from one accepted quote; one contract from one quote; one invoice with one active line for one billable item |
+| Mutation checks | `111` fails (4 checks) when project visibility is broken; `110` check 31 fails without `0042`; `check-web-db.mjs` fails on a misspelled argument or function argument |
+| `./scripts/rehearse-migration.sh` | **MIGRATION REHEARSAL PASSED** (dump, restore, identical security posture, structure suite on the restored database) with 0042 included |
+| Interface | `tsc --noEmit` and `next build` clean; `check-web-db.mjs`: 40 function calls and 41 table reads all valid |
+| Live journey (`scripts/pilot-live/run.sh`) | **ALL JOURNEY STEPS PASSED** (31 steps) through the real interface against the real migrated database |
+
+## H. Caveats
+
+- **Not tested against a real Supabase project.** The live journey replaces Supabase Auth with a small local stand-in (it checks signatures but is not GoTrue) and runs PostgREST directly. The first run against staging remains a recommended first step; nothing in the interface depends on Supabase-specific behaviour beyond `@supabase/ssr` and `rpc`.
+- The browser journey is a development harness, not part of CI.
+- Roles: the demo uses the test fixture's people (`web_lead`, `ceo`, `fin`, `tech_lead`, `web_staff`, `tech_staff`). A real deployment needs real staff with roles (`link_staff_account`).
+- The interface is deliberately plain: no dashboards, charts, animation or branding. Dropdowns are not narrowed to what you may do; the database refuses the rest with a short message.
+- `client_360.activity` covers the client, its contacts and divisions only, and needs `audit.view`; module event tables hold the rest of the history (page text says so).
+- Search results hide invoices and payments (F2).
+- `project_360` payments show allocations to the project's invoices; a payment not yet allocated appears on Client 360 only.
+- Not built, on purpose: dashboards, reporting, public API, public search, publication layer, AI of any kind, email / WhatsApp / SMS, external sharing, saved searches or search analytics, document full-text search, expenses and credit notes, client merge.
+
+![Search as the front door](pilot-search.png)
