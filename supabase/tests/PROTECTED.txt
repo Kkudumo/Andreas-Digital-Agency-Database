@@ -537,3 +537,9 @@ project profitability: revenue is net of issued credit notes
 expenses by month and category count approved and paid bills only
 a restricted client's figures leave every report for everyone without access
 reports run as the caller (SECURITY INVOKER)
+
+# Billing automation
+the preview lists exactly the periods a run would bill
+the scheduled run is not callable by application users
+a runner without invoices.create bills nothing
+the identity is handed back after the job

@@ -150,10 +150,11 @@ ok('finance pays it: final', /paid/i.test(await text(X)) && !/Record payment/.te
 
 await X.goto(contractUrl); await X.fill('input[name=start]', '2026-11-01'); await X.click('button:has-text("Schedule")'); await settle(X);
 ok('scheduling a line that is already fully billed is refused by the database', /fully billed/i.test(await flash(X)), await flash(X));
-await X.goto(BASE + '/billing'); ok('billing runs page opens', /Billing runs/.test(await text(X)), await text(X));
+await X.goto(BASE + '/billing?preview=2030-01-01'); ok('billing runs page opens and the preview says nothing would be billed', /Billing runs/.test(await text(X)) && /Nothing would be billed/.test(await text(X)), await text(X));
 await ctxX.close();
 
 ({ ctx: ctxC, page: C } = await session('ceo@ada.test'));
+await C.goto(BASE + '/organization/reviews'); await settle(C); ok('the duplicates page opens for management', /Possible duplicate organizations/.test(await text(C)), await text(C));
 await C.goto(BASE + '/reports?report=aging'); await settle(C); ok('aging report shows the client with the derived balance', /Zeta Test Company/.test(await text(C)) && /3,175\.00/.test(await text(C)), await text(C));
 await C.goto(BASE + '/reports?report=profitability'); await settle(C); ok('profitability report: invoiced and cost for the project', /Zeta Website/.test(await text(C)) && /1,200\.00/.test(await text(C)), await text(C));
 const csv = await C.request.get(BASE + '/reports/csv?report=aging'); const csvBody = await csv.text();

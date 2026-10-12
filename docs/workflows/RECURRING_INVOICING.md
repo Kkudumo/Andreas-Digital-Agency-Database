@@ -32,6 +32,16 @@ It does not invent a second way to bill. Each period becomes an ordinary **billa
 
 A schedule is exactly as visible as its contract and needs `invoices.view` in its division. A restricted client's schedules and runs are invisible to everyone without access, and commands on them answer exactly as for an id that does not exist. A run only touches schedules the caller may see and may bill; anyone else's run is simply empty.
 
+## Unattended runs (migration 0051, suite 118)
+
+* `billing_schedule_preview(as_of)` is read-only: it lists the periods a run for that date would bill (same arithmetic, same cap), for the schedules the caller may bill. The Billing runs page has a Preview box.
+* A scheduled job has no logged-in person, so it runs **as a named staff member**: `finance_settings.billing_runner_id`, set with `billing_runner_set(staff)` (needs `finance.configure`; active staff with a login). `billing_schedule_run_scheduled(as_of)` is callable by the **service role only**; it takes the runner's identity for the call, runs billing with draft invoices, restores the previous identity and writes an audit event. The runner is held to what they could do by hand, every row is audited as theirs, and nothing is ever issued automatically.
+* To schedule it on Supabase (pg_cron), once the runner is set:
+
+```sql
+select cron.schedule('ada-billing', '0 5 * * *', $$ select billing_schedule_run_scheduled() $$);
+```
+
 ## Not built (by design)
 
-No automatic scheduler: a run is a command someone (or a future job) calls. No price indexation or proration of part-periods. UI: a Recurring billing section on the contract page and a Billing runs page.
+The cron entry above is not created by a migration (it needs the pg_cron extension of your project). No price indexation or proration of part-periods. UI: a Recurring billing section on the contract page and a Billing runs page.

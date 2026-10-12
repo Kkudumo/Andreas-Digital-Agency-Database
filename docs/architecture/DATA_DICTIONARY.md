@@ -1477,6 +1477,7 @@ _(no description)_
 | `default_payment_terms_days` | integer | yes | 30 |  |
 | `updated_by` | uuid | no |  | `staff` |
 | `updated_at` | timestamp with time zone | yes | now() |  |
+| `billing_runner_id` | uuid | no |  | `staff` |
 
 ## `id_codebook`
 

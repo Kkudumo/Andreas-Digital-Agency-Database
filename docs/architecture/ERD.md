@@ -326,6 +326,7 @@ erDiagram
   staff o|--o{ expenses : "approved_by"
   staff o|--o{ expenses : "created_by"
   staff o|--o{ expenses : "requested_by"
+  staff o|--o{ finance_settings : "billing_runner_id"
   staff o|--o{ finance_settings : "updated_by"
   staff o|--o{ invoices : "approved_by"
   staff o|--o{ invoices : "created_by"

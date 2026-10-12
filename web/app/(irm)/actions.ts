@@ -233,3 +233,17 @@ export async function runBillingAction(fd: FormData) {
   revalidatePath(where(fd));
   back(where(fd), problems.length ? 'error' : 'ok', `${out.length} schedule(s) processed, ${periods} period(s) billed.${problems.length ? ' Needs attention: ' + problems.join('; ') : ''}`);
 }
+
+export async function setBillingRunnerAction(fd: FormData) {
+  done(await run(fd, 'billing_runner_set', { p_staff: str(fd.get('staff')) }, 'Billing runner updated.'));
+}
+
+// --- organization duplicates (merge) -----------------------------------------------------------------------------------------------------
+export async function resolveOrganizationReviewAction(fd: FormData) {
+  const keep = str(fd.get('outcome')) ?? '';
+  const same = keep === 'same_left' || keep === 'same_right';
+  done(await run(fd, 'organization_review_resolve', {
+    p_review: str(fd.get('review')), p_outcome: same ? 'same' : keep, p_note: str(fd.get('note')),
+    p_survivor: same ? str(fd.get(keep === 'same_left' ? 'left' : 'right')) : null,
+  }, same ? 'Merged. The absorbed organization keeps its ID as a tombstone pointing to the survivor.' : 'Review resolved.'));
+}

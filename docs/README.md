@@ -93,7 +93,7 @@ allocations. Rules were validated with mutation tests (deliberately breaking a r
 
 ## Known limitations
 
-- Client **merge** is a database operation (`organization_merge`, with a tombstone so every old ID stays valid); there is no merge screen yet.
+- Client **merge** is a database operation (`organization_merge`, with a tombstone so every old ID stays valid); merging is done from the Duplicates page (`/organization/reviews`).
 - Timing side channels are not equalised; the similarity threshold for "possible duplicate" (0.55) is a constant in `client_candidates`.
 - The approval gate covers prices, quotes, contracts, invoices, reversals/refunds and discounts; other kinds (vacancies, profiles, expenses, hiring) adopt it as their modules need thresholds.
 - Enquiries carry no registration number, so an exact normalised-name match to an existing client is treated as the same organization (a person who is a contact elsewhere is only ever a candidate).
