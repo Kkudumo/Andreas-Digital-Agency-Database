@@ -18,7 +18,24 @@
 
 The Supabase **service-role key** must never be placed in a website, in IRM's browser code, or in this repository.
 
-## First staging check on real Supabase (not yet done)
+## First staging check on real Supabase (partly done, 12 October 2026)
+**Done.** All 52 migrations (`0001`–`0052`, commit `b0ac525`) were applied to a new, empty Supabase project, **ADA Core** (organization "ADA Core", account hello@andreasdigitalagency.com, region eu-central-1, ref `uyhwcbjfvfkqsixthxkn`, "automatically expose new tables" switched off). Each file ran in the dashboard SQL editor as one transaction with its row in `supabase_migrations.schema_migrations`, exactly as `scripts/supabase-apply.mjs` does (the files were fetched from GitHub at that commit; no access token was used). Every migration succeeded on the first attempt.
+
+Posture checked on the real project straight afterwards:
+
+| Check | Result |
+|---|---|
+| Tables in `public` | 139 |
+| Tables without row-level security | 0 |
+| Table privileges held by `anon` | 0 |
+| `public_api` functions executable by `anon` / `authenticated` | 0 |
+| `public` functions `anon` can execute | 143, all trigger functions (cannot be called as RPC) |
+| Seed data | 9 divisions, 7 roles, 155 permissions |
+| Migrations recorded | 52 |
+
+**Still to do:** create two test logins with different roles and confirm through the REST/RPC endpoints that `anon` receives nothing and a division lead sees only their division; link the real CEO account with `link_staff_account()`.
+
+### Original plan
 Apply the migrations to a fresh Supabase project, run the structure checks, create two test logins with different roles, and confirm through the REST/RPC endpoints that `anon` receives nothing, a division lead sees only their division, and `public_api` functions are unreachable to `anon`/`authenticated`. Record the result in this file.
 
 **Tools ready for that check (not yet run against a real project):**
