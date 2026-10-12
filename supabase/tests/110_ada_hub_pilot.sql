@@ -145,11 +145,17 @@ create function tests.sr_ids(p_user text, p_q text) returns text language sql as
 $$;
 select tests.check('32. "Zeta" finds the client, project, quote, contract, ticket, asset, domain, document and thread',
   (select bool_and(tests.sr_ids('web_lead', 'zeta') like '%' || t || '%')::text from unnest(array['client', 'project', 'quote', 'contract', 'ticket', 'asset', 'domain', 'document']) t), 'true');
+select tests.check('32b. invoices and payments are searchable too: by type, by their ADA number, and by the bank reference',
+  tests.sr_ids('web_lead', 'type:invoice') || '|' || tests.sr_ids('fin', 'type:invoice') || '|' || tests.sr_ids('fin', 'type:payment') || '|' || tests.sr_ids('fin', 'EFT-Z1') || '|' || tests.sr_ids('web_lead', 'type:payment'),
+  'invoice|invoice|payment|payment|-');
 select tests.check('33. "type:client Zeta" finds exactly the client', tests.sr_ids('web_lead', 'type:client zeta'), 'client');
 select tests.check('34. the institutional id resolves to the client', (tests.scalar('web_lead', format($q$ select (search(%L) -> 'results' -> 0 ->> 'entity_type') $q$, tests.inst_of('clients', 'client:zeta')))), 'client');
 select tests.check('35. "related:<client id>" reaches the project, contract, invoice, ticket, asset, document, domain and thread through the registry',
   (select bool_and(tests.sr_ids('web_lead', 'related:' || tests.inst_of('clients', 'client:zeta')) like '%' || t || '%')::text from unnest(array['project', 'contract', 'ticket', 'asset', 'document', 'domain', 'communication', 'quote']) t), 'true');
--- Known, documented limit (see ADA_HUB_PILOT_V0_1.md, finding F2): invoices and payments are not Search sources, so they are reached through Client / Project 360, not Search.
+select tests.check('35b. ...and, for finance, `related:<client id>` returns the invoice and the payment (finance sees them; the division lead sees the invoice but not the payment), and `related:<project id>` returns the invoice billed through the contract that covers it',
+  (tests.sr_ids('fin', 'related:' || tests.inst_of('clients', 'client:zeta')) like '%invoice%payment%')::text ||  '|' ||
+  (tests.sr_ids('web_lead', 'related:' || tests.inst_of('clients', 'client:zeta')) like '%invoice%')::text || '|' || (tests.sr_ids('web_lead', 'related:' || tests.inst_of('clients', 'client:zeta')) like '%payment%')::text || '|' ||
+  (tests.sr_ids('fin', 'related:' || tests.inst_of('projects', 'prj:site')) like '%invoice%')::text, 'true|true|false|true');
 
 -- 12. INTEGRITY: identity stays one, ids stay stable, nothing was copied ----------------------------------------------------------------------------
 select tests.check('36. still ONE organization, ONE client, ONE person, ONE project, ONE quote, ONE contract, ONE invoice',

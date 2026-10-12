@@ -108,6 +108,13 @@ await A.goto(BASE + '/search?q=zeta'); const s1 = await text(A); ok('search "zet
 await A.click('table a:has-text("Zeta Test Company")'); await A.waitForURL('**/clients/**'); ok('search result opens Client 360', /Client 360/.test(await text(A)));
 await A.goto(BASE + '/search?q=type:client zeta'); ok('type:client filter', /1 result/.test(await text(A)), await text(A));
 
+// ---------- invoices and payments are found through Search too
+let { ctx: ctxF2, page: F2 } = await session('fin@ada.test');
+await F2.goto(BASE + '/search?q=type:invoice'); ok('finance finds the invoice by type', /1 result/.test(await text(F2)), await text(F2));
+await F2.click('table a:has-text("ADA-INV")'); await F2.waitForURL(/\/invoices\/[0-9a-f-]{36}/); ok('the search result opens the invoice page', /Invoice ADA-INV/.test(await text(F2)), await text(F2));
+await F2.goto(BASE + '/search?q=type:payment'); ok('finance finds the payment by type', /1 result/.test(await text(F2)), await text(F2));
+await ctxF2.close();
+
 // ---------- outsiders see nothing
 let { ctx: ctxW, page: W } = await session('web_staff@ada.test');
 await W.goto(BASE + '/r/ZZZZZZZZZ'); ok('unknown / hidden id: not found', /Record not found/.test(await text(W)));

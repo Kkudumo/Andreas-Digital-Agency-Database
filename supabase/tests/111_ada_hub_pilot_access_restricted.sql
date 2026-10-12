@@ -47,6 +47,8 @@ begin
     tests.scalar(p_user, $q$ select (search('type:project', null, 0, true) - 'query')::text $q$),
     tests.scalar(p_user, $q$ select (search('type:document', null, 0, true) - 'query')::text $q$),
     tests.scalar(p_user, $q$ select (search('type:communication', null, 0, true) - 'query')::text $q$),
+    tests.scalar(p_user, $q$ select (search('type:invoice', null, 0, true) - 'query')::text $q$),
+    tests.scalar(p_user, $q$ select (search('type:payment', null, 0, true) - 'query')::text $q$),
     tests.scalar(p_user, $q$ select (search('ltd', null, 0, true) - 'query')::text $q$),
     tests.scalar(p_user, format($q$ select (search('related:%s', null, 0, true) - 'query')::text $q$, z.client)),
     tests.scalar(p_user, $q$ select search_suggest('zet')::text $q$),
@@ -125,12 +127,13 @@ select tests.check('creating a quote or a ticket for a hidden client / project s
 
 -- Search by name and by identity: nothing about the restricted engagement ----------------------------------------------------------------------------------
 create temp table qinst as select tests.inst_of('clients', 'c:quasar') as client, tests.inst_of('projects', 'p:quasar') as project, tests.inst_of('documents', 'doc:quasar') as doc,
-  tests.inst_of('communication_threads', 'thr:quasar') as thr, tests.inst_of('tickets', 't:quasar') as ticket, tests.inst_of('assets', 'asset:quasar') as asset;
+  tests.inst_of('communication_threads', 'thr:quasar') as thr, tests.inst_of('tickets', 't:quasar') as ticket, tests.inst_of('assets', 'asset:quasar') as asset,
+  tests.inst_of('invoices', 'inv:quasar') as invoice, tests.inst_of('payments', 'pay:quasar') as payment;
 create function tests.quiet(p_user text) returns text language plpgsql as $$
 declare q record; r text := ''; ids text[]; i text; v text; fake text := 'ZZZZZZZZ' || id_check_char('ZZZZZZZZ');
 begin
   select * into q from qinst;
-  ids := array[q.client, q.project, q.doc, q.thr, q.ticket, q.asset];
+  ids := array[q.client, q.project, q.doc, q.thr, q.ticket, q.asset, q.invoice, q.payment];
   foreach i in array ids loop
     v := tests.scalar(p_user, format($q$ select (search(%L, null, 0, true) - 'query')::text $q$, i));
     if v is distinct from tests.scalar(p_user, format($q$ select (search(%L, null, 0, true) - 'query')::text $q$, fake)) then r := r || 'id:' || i || ' '; end if;
@@ -139,7 +142,7 @@ begin
     v := tests.scalar(p_user, format($q$ select entity_resolve(%L)::text $q$, i));
     if v is distinct from tests.scalar(p_user, format($q$ select entity_resolve(%L)::text $q$, fake)) then r := r || 'res:' || i || ' '; end if;
   end loop;
-  foreach i in array array['quasar', 'type:client quasar', 'type:project rollout', 'type:document quasar', 'quasar holdings', 'QH-9', 'type:ticket quasar', 'type:asset SN-Q1'] loop
+  foreach i in array array['quasar', 'type:client quasar', 'type:project rollout', 'type:document quasar', 'quasar holdings', 'QH-9', 'type:ticket quasar', 'type:asset SN-Q1', 'EFT-Q', 'type:payment EFT-Q', 'type:invoice'] loop
     v := tests.scalar(p_user, format($q$ select (search(%L, null, 0, true) - 'query')::text $q$, i));
     if v is distinct from tests.scalar(p_user, format($q$ select (search(%L, null, 0, true) - 'query')::text $q$, 'nothingwillmatchthis')) then r := r || 'q:' || i || ' '; end if;
   end loop;

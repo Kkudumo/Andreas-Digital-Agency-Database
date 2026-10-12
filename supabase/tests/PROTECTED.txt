@@ -497,3 +497,7 @@ there is no stored balance column
 still ONE organization, ONE client, ONE person, ONE project, ONE quote, ONE contract, ONE invoice
 the asset's permanent id survives a move between divisions
 Project 360 shows the client, contact, service, quote, contract, invoice, payment
+invoices and payments are searchable too
+for every caller (cleared or not) project_create and a direct insert give the SAME outcome
+a hidden (confidential) client answers exactly as an id that never existed, for every uncleared caller
+all five are SECURITY INVOKER (they run with the caller's rights)

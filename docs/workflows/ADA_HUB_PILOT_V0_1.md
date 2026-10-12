@@ -8,12 +8,12 @@
 **The backend could already run the whole engagement, and now it has been shown to.** Every step of Workflow A had a controlled, authorized, audited database function; the 360 views already carried the cross-module slices. What was missing, and is now built:
 
 1. **An interface** (the `web/` scaffold had login, dashboard, organization and staff only). Search is now the front door; Client 360, Project 360, quote, contract and invoice pages and four "attach" forms exist (section D).
-2. **One scenario joining every module**, with restricted-user probes across all of it: `110_ada_hub_pilot.sql` (42 checks) and `111_ada_hub_pilot_access_restricted.sql` (25 checks), plus a pilot concurrency block.
+2. **One scenario joining every module**, with restricted-user probes across all of it: `110_ada_hub_pilot.sql` (44 checks), `111_ada_hub_pilot_access_restricted.sql` (25 checks) and `112_pilot_project_writes.sql` (13 checks), plus a pilot concurrency block.
 3. **One real defect**, found by that scenario and fixed in `0042_pilot_project_360.sql`: Project 360 did not show invoices billed through a contract, and had no payments slice (finding F1).
 
 Everything else was reused as it was. No table was added. No completed module's architecture changed. CI additionally exposed a pre-existing deadlock in Search's concurrency handling (F8), fixed by `0043` without changing Search's behaviour.
 
-Baseline before any pilot work: `./scripts/test-db.sh` on PostgreSQL 16 — 2,760 checks, 0 failed. After the pilot: 2,827 checks, 0 failed, plus all concurrency scripts (section G).
+Baseline before any pilot work: `./scripts/test-db.sh` on PostgreSQL 16 — 2,760 checks, 0 failed. After the pilot: 2,842 checks, 0 failed, plus all concurrency scripts (section G).
 
 ---
 
@@ -145,7 +145,7 @@ Each step names the **controlled operation** the interface calls. "Needs" = perm
 
 ### C.3 What happened to the plan
 
-Every step in the original plan was done in order, except that the "thin wrappers" for project writes (R3) were deliberately **not** built (finding F5), and R4 needed no wrapper (`client_create` already does it).
+Every step in the original plan was done in order. R3 (project write functions) was first left out and then built after your go-ahead (finding F5, migration 0045); R4 needed no wrapper (`client_create` already does it).
 
 ---
 
@@ -154,9 +154,10 @@ Every step in the original plan was done in order, except that the "thin wrapper
 | Piece | Where | Notes |
 |---|---|---|
 | Zeta engagement suite | `supabase/tests/110_ada_hub_pilot.sql` | search → organization/client → contact → project → service price → quote → approval → acceptance → contract → invoice → payment → document → communication → ticket → asset → domain → Client/Project 360 → search again; identity, immutability, stable-ID checks |
+| Project write functions suite | `supabase/tests/112_pilot_project_writes.sql` | wrapper = direct insert for every caller; hidden = unknown; SECURITY INVOKER; audit; guard |
 | Restricted-workflow suite | `supabase/tests/111_ada_hub_pilot_access_restricted.sql` | users A (manages), B (other division), C (same division, too few permissions), suspended, outsider, anonymous; a restricted engagement beside the visible one; differential and "hidden id = random id" probes |
 | Pilot concurrency | `supabase/tests/concurrency/pilot_setup.sql` + a block in `scripts/test-db.sh` | races on organization/client, contact, quote conversion, contract creation, invoicing |
-| Migrations | `0042_pilot_project_360.sql`, `0043_search_rebuild_lock.sql` | 0042: **read side only**, `project_360` adds contract invoices and a derived payments slice. 0043: Search deadlock fix (two functions, locks only). Neither changes a table, column, grant or policy |
+| Migrations | `0042_pilot_project_360.sql`, `0043_search_rebuild_lock.sql`, `0044_search_finance_sources.sql`, `0045_project_write_functions.sql` | 0042: `project_360` adds contract invoices and a derived payments slice (read side). 0043: Search deadlock fix (locks only). 0044: invoices and payments become Search sources (metadata only) and join the relationship family. 0045: five SECURITY INVOKER project write functions. No table, column or policy is added or changed; 0045 adds only function grants |
 | Interface | `web/app/(irm)/…`, `web/components/panels.tsx`, `web/lib/db.ts` | search, record resolver, clients, projects, quote, contract, invoice, generic record pages (ticket, asset, document, thread, domain…) |
 | Interface ↔ database check | `scripts/check-web-db.mjs` (run by `test-db.sh`) | every function, argument, table and column the interface uses exists in the migrated schema; mutation-checked |
 | Live harness | `scripts/pilot-live/` | runs the Zeta journey through the real interface against the real database with no Supabase account (PostgREST + a local auth stand-in + headless Chromium). A dev harness, not CI |
@@ -177,7 +178,7 @@ Every step in the original plan was done in order, except that the "thin wrapper
 | `/e/<id>` | generic record page; ticket moves and comments; assign an asset to a project | `ticket_transition`, `ticket_comment_add`, `asset_assign` |
 | Attach panel (client and project pages) | document, communication, ticket, asset | `document_register` + `document_link_add`, `communication_start` + `communication_message_add` + `communication_link_add`, `ticket_create`, `asset_create` |
 
-The only write that is not a named function is **project creation**, a guarded `INSERT` under row-level security (finding F5). The existing staff page already works the same way.
+Every write the interface performs is now a named function (project creation is `project_create`, finding F5). Direct table access is only used for reads, and for the existing staff page.
 
 ---
 
@@ -186,10 +187,10 @@ The only write that is not a named function is **project creation**, a guarded `
 | # | Finding | Action |
 |---|---|---|
 | **F1** | **Defect.** Project 360 showed a contract but none of its invoices (a project covered by a signed or active contract can only be billed through the contract, and such invoices carry the contract, not the project) and had no payments slice, although the brief puts Payments in Project 360. Caught by check 31 of `110`, which failed before the fix. | Fixed in `0042` (read side). A contract covering several projects shows its invoices on each of them. |
-| **F2** | **Documentation / scope gap.** Invoices and payments are not Search sources, although `SEARCH.md` says `related:` reaches "invoices". `related:<client id>` returns projects, contracts, quotes, tickets, assets, documents, domains and communications, not invoices. | **Not changed** (Search is closed). Invoices and payments are reached through Client 360, Project 360 and the contract page. `110` records the limit. **Decision for you:** index them (and how: label only?), or correct `SEARCH.md`. |
+| **F2** | **Documentation / scope gap.** Invoices and payments were not Search sources, although `SEARCH.md` said `related:` reaches invoices. | **Resolved** (you said yes): migration `0044_search_finance_sources.sql` indexes them as metadata only (invoice: ADA number, status, currency; payment: ADA number, method, status, bank reference; no amounts) and extends the relationship family (a client's payments; a project's contract-billed invoices and their payments). Visibility is the row's own row-level security: finance sees both, the division lead sees invoices but not payments, restricted clients' finance records stay invisible (same probes as every other type, extended in `111`). |
 | **F3** | Interface gap found by the live run: a contract needs a client contact ("an authorised contact is required"), but the new-quote form had no contact field. | Fixed in the interface: the quote form takes a contact (the primary one by default) and the quote page shows it. |
 | **F4** | By design, not a defect: someone who cannot see a restricted client and creates a company with the same name gets an ordinary success and a **separate** organization; only a cleared reviewer sees the resulting duplicate review. This is the existing "restricted records look like missing records" trade-off. | Documented; `111` asserts both halves. |
-| **F5** | Projects (and project contacts, members, tasks) have no `project_create` / `…_add` functions. They are written by guarded inserts under row-level security (the guard trigger and audit apply). | **Not changed**: wrappers would add code without adding a rule. The interface uses the same insert path. Say so if you want wrappers. |
+| **F5** | Projects (and project contacts, divisions, members, tasks) were written by direct inserts under row-level security. | **Resolved** (you said yes): migration `0045_project_write_functions.sql` adds `project_create`, `project_add_contact`, `project_add_division`, `project_add_member`, `task_create`. They are **SECURITY INVOKER** over the same policies and guard triggers (no new power, no new rule; direct insert privileges remain because other modules and tests use them); `112_pilot_project_writes.sql` proves each refusal equals the direct-insert refusal, hidden = unknown, nothing is executable by anon, and the audit trail is written. The interface now calls `project_create`. |
 | **F6** | `client_lookup` returns nothing for restricted clients even to management; cleared staff find them with Search. | Documented. |
 | **F7** | `communications.read` is granted to division staff by the permission matrix, so a same-division staff member can read bodies; client visibility alone never does. `111` proves this against finance (which lacks the permission). | Documented. |
 | **F8** | **Defect (Search).** `concurrent_search` failed intermittently (locally and in CI) with `deadlock detected` in `search_rebuild()` and `search_flag_stale()` (section B.4). Pre-existing, not caused by the pilot. | Fixed in `0043` (locks only; no change to results or grants). The runner now prints the error text on failure. |
@@ -219,12 +220,12 @@ Sign in as the person named; each step is one screen. (The live harness does exa
 
 | What | Result |
 |---|---|
-| `./scripts/test-db.sh` (all numbered suites, protected-check guard, all concurrency scripts, interface-reference check) | **ALL TESTS PASSED**: 2,827 checks, 0 failed (was 2,760 before the pilot; +42 in `110`, +25 in `111`) |
+| `./scripts/test-db.sh` (all numbered suites, protected-check guard, all concurrency scripts, interface-reference check) | **ALL TESTS PASSED**: 2,842 checks, 0 failed (was 2,760 before the pilot; +44 in `110`, +25 in `111`, +13 in `112`) |
 | Pilot concurrency (`concurrent_pilot`) | 8 sessions racing: one organization and one client from two divisions; one person and one contact; one project and one service line from one accepted quote; one contract from one quote; one invoice with one active line for one billable item |
-| Mutation checks | `111` fails (4 checks) when project visibility is broken; `110` check 31 fails without `0042`; `check-web-db.mjs` fails on a misspelled argument or function argument |
-| `./scripts/rehearse-migration.sh` | **MIGRATION REHEARSAL PASSED** (dump, restore, identical security posture, structure suite on the restored database) with 0042 and 0043 included |
-| Interface | `tsc --noEmit` and `next build` clean; `check-web-db.mjs`: 40 function calls and 41 table reads all valid |
-| Live journey (`scripts/pilot-live/run.sh`) | **ALL JOURNEY STEPS PASSED** (31 steps) through the real interface against the real migrated database |
+| Mutation checks | `111` fails (4 checks) when project visibility is broken; `110` check 31 fails without `0042`; `111` fails when invoice visibility is broken (the finance search probes); `112` fails (4 checks) if `project_create` is made SECURITY DEFINER; `check-web-db.mjs` fails on a misspelled argument or function argument |
+| `./scripts/rehearse-migration.sh` | **MIGRATION REHEARSAL PASSED** (dump, restore, identical security posture, structure suite on the restored database) with 0042 to 0045 included |
+| Interface | `tsc --noEmit` and `next build` clean; `check-web-db.mjs`: 41 function calls and 40 table reads all valid |
+| Live journey (`scripts/pilot-live/run.sh`) | **ALL JOURNEY STEPS PASSED** (34 steps) through the real interface against the real migrated database |
 
 ## H. Caveats
 
@@ -233,7 +234,6 @@ Sign in as the person named; each step is one screen. (The live harness does exa
 - Roles: the demo uses the test fixture's people (`web_lead`, `ceo`, `fin`, `tech_lead`, `web_staff`, `tech_staff`). A real deployment needs real staff with roles (`link_staff_account`).
 - The interface is deliberately plain: no dashboards, charts, animation or branding. Dropdowns are not narrowed to what you may do; the database refuses the rest with a short message.
 - `client_360.activity` covers the client, its contacts and divisions only, and needs `audit.view`; module event tables hold the rest of the history (page text says so).
-- Search results hide invoices and payments (F2).
 - `project_360` payments show allocations to the project's invoices; a payment not yet allocated appears on Client 360 only.
 - Not built, on purpose: dashboards, reporting, public API, public search, publication layer, AI of any kind, email / WhatsApp / SMS, external sharing, saved searches or search analytics, document full-text search, expenses and credit notes, client merge.
 

@@ -128,7 +128,7 @@ echo "== upgrade_0038"
 UDB="${DB}_up"; UURL="$BASE/$UDB"
 psql_ "$ADMIN_URL" -c "create database $UDB"
 psql_ "$UURL" -f supabase/tests/00_supabase_shim.sql >/dev/null
-for f in supabase/migrations/*.sql; do case "$f" in *0038_*|*0039_*|*0040_*|*0041_*|*0042_*|*0043_*) continue;; esac; psql_ "$UURL" -f "$f" >/dev/null; done
+for f in supabase/migrations/*.sql; do [ "$((10#$(basename "$f" | cut -c1-4)))" -ge 38 ] && continue; psql_ "$UURL" -f "$f" >/dev/null; done
 psql_ "$UURL" -f supabase/tests/concurrency/org_legacy_seed.sql >/dev/null
 before=$(psql_ "$UURL" -At -c "select string_agg(id::text || ada_id, ',' order by id) from (select id, ada_id from clients union all select id, ada_id from suppliers) x")
 audit_before=$(psql_ "$UURL" -At -c "select count(*) from audit_log")

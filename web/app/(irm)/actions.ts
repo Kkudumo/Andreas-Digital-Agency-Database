@@ -1,7 +1,6 @@
 'use server';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
-import { createClient } from '@/lib/supabase/server';
 import { call, rid } from '@/lib/db';
 import { back, friendly } from '@/lib/flash';
 import { str } from '@/lib/format';
@@ -48,14 +47,12 @@ export async function addContactAction(fd: FormData) {
 }
 
 // --- project ---------------------------------------------------------------------------------------------------------------------------
-// Projects are created by a guarded INSERT under row-level security (no separate create function exists; the guard trigger and audit apply).
 export async function createProjectAction(fd: FormData) {
-  const supabase = await createClient();
-  const { data, error } = await supabase.from('projects')
-    .insert({ client_id: str(fd.get('client')), lead_division_id: str(fd.get('division')), name: str(fd.get('name')), description: str(fd.get('description')) })
-    .select('id').single();
+  const { data, error } = await call('project_create', {
+    p_client: str(fd.get('client')), p_division: str(fd.get('division')), p_name: str(fd.get('name')), p_description: str(fd.get('description')),
+  });
   if (error || !data) back(where(fd), 'error', friendly(error));
-  redirect(`/projects/${data!.id}?ok=${encodeURIComponent('Project created (status: proposed).')}`);
+  redirect(`/projects/${data}?ok=${encodeURIComponent('Project created (status: proposed).')}`);
 }
 export async function projectTransitionAction(fd: FormData) {
   done(await run(fd, 'project_transition', { p_id: str(fd.get('project')), p_to: str(fd.get('to')), p_reason: str(fd.get('note')) }, 'Project status changed.'));
