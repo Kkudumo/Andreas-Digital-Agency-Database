@@ -25,6 +25,7 @@ const utm = (v) => {
 const money = (v) => (v === undefined || v === null ? null : typeof v === 'number' && Number.isFinite(v) && v >= 0 && v < 1e12 ? v : undefined);
 const currency = (v) => (v === undefined || v === null ? 'NAD' : typeof v === 'string' && /^[A-Za-z]{3}$/.test(v) ? v.toUpperCase() : undefined);
 const code = (v) => (v === undefined || v === null || v === '' ? null : typeof v === 'string' && /^[a-z0-9-]{1,40}$/.test(v) ? v : undefined);
+const limit = (v) => (v === null || v === undefined || v === '' ? 30 : /^[0-9]{1,3}$/.test(v) && Number(v) >= 1 && Number(v) <= 100 ? Number(v) : undefined);
 const id = (v) => (typeof v === 'string' && /^[A-Za-z0-9._-]{1,60}$/.test(v) ? v : undefined);
 
 // Each GET: the function, and how the query string / path becomes its (typed) arguments after the key hash.
@@ -35,6 +36,11 @@ export const ROUTES = [
   { method: 'GET', path: /^\/vacancies\/([^/]+)$/, fn: 'vacancy', args: (m) => [id(decodeURIComponent(m[1]))], bad: (a) => a[0] === undefined, cache: 60, nullIs404: true },
   { method: 'GET', path: /^\/services$/, fn: 'services', args: (m, q) => [code(q.get('division'))], bad: (a) => a[0] === undefined, cache: 300 },
   { method: 'GET', path: /^\/portfolio$/, fn: 'portfolio', args: (m, q) => [code(q.get('division'))], bad: (a) => a[0] === undefined, cache: 300 },
+  { method: 'GET', path: /^\/posts$/, fn: 'posts', args: (m, q) => [code(q.get('type')), code(q.get('division')), limit(q.get('limit'))], bad: (a) => a.includes(undefined), cache: 60 },
+  { method: 'GET', path: /^\/posts\/([^/]+)$/, fn: 'post', args: (m) => [code(decodeURIComponent(m[1]))], bad: (a) => a[0] === undefined || a[0] === null, cache: 60, nullIs404: true },
+  { method: 'GET', path: /^\/testimonials$/, fn: 'testimonials', args: (m, q) => [code(q.get('division'))], bad: (a) => a[0] === undefined, cache: 300 },
+  { method: 'GET', path: /^\/faqs$/, fn: 'faqs', args: (m, q) => [code(q.get('division'))], bad: (a) => a[0] === undefined, cache: 300 },
+  { method: 'GET', path: /^\/settings$/, fn: 'settings', args: (m, q) => [code(q.get('division'))], bad: (a) => a[0] === undefined, cache: 300 },
   { method: 'GET', path: /^\/team$/, fn: 'team', args: () => [], cache: 300 },
   { method: 'GET', path: /^\/statistics$/, fn: 'statistics', args: () => [], cache: 300 },
   { method: 'GET', path: /^\/documents$/, fn: 'documents', args: (m, q) => [code(q.get('type'))], bad: (a) => a[0] === undefined, cache: 300 },

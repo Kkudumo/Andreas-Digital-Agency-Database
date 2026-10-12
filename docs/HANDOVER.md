@@ -98,6 +98,19 @@ Updated 13 October 2026. Repos: `Kkudumo/Andreas-Digital-Agency-Database` (ADA C
 - The website project's real schema is not in git. Dump it before copying data.
 - Free Supabase plan: 2 free projects per account. ADA Core is on the new account (hello@); the two older projects are on kkudumo65@gmail.com.
 
+## Update (13 October 2026): database gaps closed in the repository (not yet applied to the live project)
+
+New migrations **0053–0056**, all tested, none applied to `uyhwcbjfvfkqsixthxkn` yet (apply them in order, then the catalogue load):
+
+| Migration | What | Docs |
+|---|---|---|
+| 0053 | price versions can be "from" (starting) prices | `workflows/CATALOGUE.md` |
+| 0054 | **content module**: news/announcements/updates, testimonials, FAQs, site settings (company facts, marketing budget rule), public API for all of them | `workflows/CONTENT.md` |
+| 0055 | **event dispatch**: signed, batched, retrying delivery of change events to websites (worker in `public-api/`) | `operations/EVENT_DISPATCH.md` |
+| 0056 | **careers import**: details column on applications, legacy-import map, owner-only import functions; generator `scripts/import-careers.mjs` | `operations/CAREERS_IMPORT.md` |
+
+Still open: the website sides (main site and division sites reading posts, FAQs, testimonials and settings from the API; forms posting to it), moving real careers data (needs an export from the old project), CV file storage, retiring the old `/admin`, deploying `public-api/` and the dispatcher, and the Hub-triggered or event-driven rebuilds on Vercel.
+
 ## How to continue in a new session
 
 1. Read this document and `docs/README.md`, `docs/operations/DEPLOYMENT.md` in the ADA Core repo.

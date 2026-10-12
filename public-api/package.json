@@ -6,7 +6,7 @@
   "description": "ADA Core public API: the thin HTTP layer websites use. Holds the credentials of the ada_public_api database role and nothing else.",
   "scripts": {
     "start": "node src/server.mjs",
-    "test": "node --test test/api.test.mjs"
+    "test": "node --test test/api.test.mjs test/dispatcher.test.mjs"
   },
   "engines": { "node": ">=20" },
   "dependencies": {

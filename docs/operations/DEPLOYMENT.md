@@ -19,7 +19,7 @@
 The Supabase **service-role key** must never be placed in a website, in IRM's browser code, or in this repository.
 
 ## First staging check on real Supabase (partly done, 12 October 2026)
-**Done.** (Since then migration `0053_starting_prices.sql` has been added and is NOT yet applied to the live project.) All 52 migrations (`0001`–`0052`, commit `b0ac525`) were applied to a new, empty Supabase project, **ADA Core** (organization "ADA Core", account hello@andreasdigitalagency.com, region eu-central-1, ref `uyhwcbjfvfkqsixthxkn`, "automatically expose new tables" switched off). Each file ran in the dashboard SQL editor as one transaction with its row in `supabase_migrations.schema_migrations`, exactly as `scripts/supabase-apply.mjs` does (the files were fetched from GitHub at that commit; no access token was used). Every migration succeeded on the first attempt.
+**Done.** (Since then migrations `0053`–`0056` have been added and are NOT yet applied to the live project.) All 52 migrations (`0001`–`0052`, commit `b0ac525`) were applied to a new, empty Supabase project, **ADA Core** (organization "ADA Core", account hello@andreasdigitalagency.com, region eu-central-1, ref `uyhwcbjfvfkqsixthxkn`, "automatically expose new tables" switched off). Each file ran in the dashboard SQL editor as one transaction with its row in `supabase_migrations.schema_migrations`, exactly as `scripts/supabase-apply.mjs` does (the files were fetched from GitHub at that commit; no access token was used). Every migration succeeded on the first attempt.
 
 Posture checked on the real project straight afterwards:
 

@@ -18,6 +18,11 @@ requires a **capability** on that website. Source attribution (which website an 
 | `GET /api/public/portfolio?division=` | `public_api.portfolio(hash, division)` | `portfolio.read` | published, consented portfolio entries of finished projects |
 | `GET /api/public/team` | `public_api.team(hash)` | `team.read` | published profiles of current staff |
 | `GET /api/public/statistics` | `public_api.statistics(hash)` | `statistics.read` | `staff, team_members, open_vacancies, divisions, services, portfolio_projects` (derived live) |
+| `GET /api/public/posts?type=&division=&limit=` | `public_api.posts(hash, type, division, limit)` | `content.read` | published news / announcements / updates (featured first); agency-wide posts appear for every division |
+| `GET /api/public/posts/{slug}` | `public_api.post(hash, slug)` | `content.read` | one published post or `null` |
+| `GET /api/public/testimonials?division=` | `public_api.testimonials(hash, division)` | `content.read` | published testimonials whose consent is recorded |
+| `GET /api/public/faqs?division=` | `public_api.faqs(hash, division)` | `content.read` | published FAQs in their set order |
+| `GET /api/public/settings?division=` | `public_api.settings(hash, division)` | `settings.read` | public settings: company facts, division email, planner rules (agency-wide plus the division's) |
 | `POST /api/public/enquiries` | `public_api.submit_enquiry(hash, name, email, phone, organization, service, message, page, referrer, utm, budget, currency)` | `enquiries.submit` | `{ "reference": "ADA-ENQ-…" }` only |
 | `POST /api/public/applications` | `public_api.submit_application(hash, vacancy, name, email, phone, cover, page, referrer, utm)` | `applications.submit` | `{ "reference": "ADA-APP-…" }` only |
 
@@ -28,6 +33,11 @@ requires a **capability** on that website. Source attribution (which website an 
 - **portfolio entry**: `id, title, summary, description, technologies, images, completed_on, division{code,name}, services[] (names)`, and `client` (name) only when the client consented to being named — never prices, contacts, project or client IDs
 - **team member**: `id, name, title, bio, photo, email (only if the person approved a public email), division{code,name}`
 - Divisions that are not published (Management, Administration, Finance) never appear, even as a vacancy's or person's division.
+
+- **post**: `id, type, title, slug, summary, content, cover_image_url, image_alt_text, author_name, source_label, featured, published_at, division{code,name}` (division absent = whole agency)
+- **testimonial**: `id, quote, person_name, person_role, organization_name, service (name), division{code,name}` — never the consent note
+- **faq**: `id, question, answer, category, service (name), division{code,name}`
+- **setting**: `key, label, value, type, group, division{code,name}` — only settings marked public
 
 ## Documents (capability `documents.read`)
 | Function | Returns |

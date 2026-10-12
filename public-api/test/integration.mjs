@@ -38,6 +38,16 @@ try {
   r = await get('/api/public/vacancies/ADA-VAC-2099-9999', FULL); ok('a missing vacancy is 404', r.status === 404);
   r = await get('/api/public/statistics', FULL); const st = await r.json(); ok('statistics are derived live', r.status === 200 && st.services === svc.length && st.services >= 3, JSON.stringify(st));
 
+  // Content and settings (the owner-level fixture publishes one post and one FAQ; settings come from the migration's seed)
+  r = await get('/api/public/posts', FULL); const posts = await r.json();
+  ok('posts: only the published one, with the approved fields', r.status === 200 && posts.length === 1 && posts[0].title === 'Integration news' && !('status' in posts[0]) && !('created_by' in posts[0]), JSON.stringify(posts));
+  r = await get('/api/public/posts/integration-news', FULL); ok('a post by its address', r.status === 200 && (await r.json()).slug === 'integration-news');
+  r = await get('/api/public/posts/does-not-exist', FULL); ok('an unknown address is 404', r.status === 404);
+  r = await get('/api/public/faqs', FULL); const faqs = await r.json(); ok('FAQs: published only', r.status === 200 && faqs.length === 1 && faqs[0].question === 'Integration question?', JSON.stringify(faqs));
+  r = await get('/api/public/settings?division=marketing', FULL); const st2 = await r.json();
+  ok('settings: company facts plus the marketing rule for that division, never internal ones', r.status === 200 && st2.some((x) => x.key === 'company.phone' && x.value === '+264 81 803 2641') && st2.some((x) => x.key === 'marketing.min_budget' && x.value === '1499.99') && !st2.some((x) => x.key === 'integration.internal_note'), JSON.stringify(st2).slice(0, 200));
+  r = await get('/api/public/settings', LIMITED); ok('settings need their own capability (403)', r.status === 403);
+
   // The role itself: it can run the API functions and nothing else.
   const c = new pg.Client({ connectionString: process.env.ADA_PUBLIC_API_DATABASE_URL, ssl: false }); await c.connect();
   for (const q of ['select * from services', 'select * from websites', 'select * from staff', 'select api_key_hash from websites']) {

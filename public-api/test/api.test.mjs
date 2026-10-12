@@ -46,6 +46,19 @@ test('query parameters are validated before they reach the database', async () =
   for (const bad of ["web';drop table x;--", 'WEB', 'a'.repeat(41)]) assert.equal((await handle(mk({ url: `/api/public/services?division=${encodeURIComponent(bad)}` }), { call: d.call })).status, 422);
   assert.equal(d.calls.length, 1);
 });
+test('content routes: filters validated, limit bounded, single post by address', async () => {
+  const d = rec([]);
+  assert.equal((await handle(mk({ url: '/api/public/posts?type=news&division=web&limit=5' }), { call: d.call })).status, 200);
+  assert.deepEqual(d.calls[0][1].slice(1), ['news', 'web', 5]);
+  assert.equal((await handle(mk({ url: '/api/public/posts' }), { call: d.call })).status, 200);
+  assert.deepEqual(d.calls[1][1].slice(1), [null, null, 30]);
+  for (const bad of ['limit=0', 'limit=101', 'limit=abc', 'type=NEWS', "division=x'y"]) assert.equal((await handle(mk({ url: `/api/public/posts?${bad}` }), { call: d.call })).status, 422, bad);
+  assert.equal((await handle(mk({ url: '/api/public/posts/new-website-prices' }), { call: async () => ({ title: 't' }) })).status, 200);
+  assert.equal((await handle(mk({ url: '/api/public/posts/new-website-prices' }), { call: async () => null })).status, 404);
+  assert.equal((await handle(mk({ url: '/api/public/settings?division=marketing' }), { call: d.call })).status, 200);
+  assert.equal(d.calls.at(-1)[0], 'settings'); assert.equal(d.calls.at(-1)[1][1], 'marketing');
+  assert.equal(d.calls.length, 3);
+});
 test('GET responses carry Cache-Control and an ETag, and If-None-Match gives 304', async () => {
   const d = rec([{ id: 'a' }]);
   const a = await handle(mk(), { call: d.call });

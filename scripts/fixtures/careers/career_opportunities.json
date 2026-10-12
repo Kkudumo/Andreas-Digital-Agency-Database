@@ -1,0 +1,5 @@
+[
+ {"id":"op-1","title":"Web Developer","division":"ADA Web Division","location":"Rundu, Kavango East, Namibia","employment_type":"Full-time","positions_available":2,"summary":"Build client websites.","description":"Work with the web team.","responsibilities":"Build and test.","requirements":"HTML, CSS, JS","qualifications":"Diploma","experience":"1 year","application_instructions":"Apply on the website.","deadline":"2099-12-31","status":"published","featured":true,"is_test":false,"created_at":"2026-09-01T08:00:00Z","published_at":"2026-09-02T08:00:00Z"},
+ {"id":"op-2","title":"IT Technician","division":"ADA Tech Division","employment_type":"Contract","positions_available":1,"summary":"Repairs and installs.","description":"Field work.","status":"draft","is_test":false,"created_at":"2026-09-05T08:00:00Z"},
+ {"id":"op-3","title":"TEST VACANCY","division":"ADA Web Division","employment_type":"Full-time","summary":"test","description":"test","status":"published","is_test":true,"created_at":"2026-09-06T08:00:00Z"}
+]

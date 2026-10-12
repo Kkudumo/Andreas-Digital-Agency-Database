@@ -556,3 +556,18 @@ the existing five-argument call still works and means a fixed price
 the API role cannot read tables
 a website without the capability is refused (403)
 a quote-based service has no price at all
+
+# Content
+a testimonial cannot be published without the person's consent
+editing a published post returns it to draft
+the address of an approved or published post cannot change
+only settings.update changes a setting
+
+# Event dispatch
+after 8 failed attempts the deliveries are abandoned as failed
+only the dispatcher role can claim or report
+the debounce holds a fresh burst back
+
+# Careers import
+nobody but the owner can run the imports
+the same person twice for one vacancy and a record with no usable e-mail are skipped

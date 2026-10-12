@@ -14,7 +14,7 @@ export function getPool() {
 }
 
 // Function names come from the fixed ROUTES table (never from the request), and arguments are always bound parameters.
-const FUNCTIONS = new Set(['divisions', 'vacancies', 'vacancy', 'services', 'portfolio', 'team', 'statistics', 'documents', 'document', 'submit_enquiry', 'submit_application']);
+const FUNCTIONS = new Set(['divisions', 'vacancies', 'vacancy', 'services', 'portfolio', 'team', 'statistics', 'documents', 'document', 'posts', 'post', 'testimonials', 'faqs', 'settings', 'submit_enquiry', 'submit_application']);
 export async function call(fn, args) {
   if (!FUNCTIONS.has(fn)) throw new Error('unknown function');
   const params = args.map((_, i) => `$${i + 1}`).join(', ');

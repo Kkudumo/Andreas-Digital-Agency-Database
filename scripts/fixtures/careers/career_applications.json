@@ -1,0 +1,7 @@
+[
+ {"id":"ap-1","opportunity_id":"op-1","opportunity_title":"Web Developer","application_type":"employment","full_name":"Fixture Person One","email":"fixture.one@example.test","phone":"+264 81 000 0001","status":"new","location":"Rundu","nationality":"Namibian","highest_qualification":"Diploma","institution":"Fixture College","skills":"HTML, CSS","portfolio_url":"https://example.test/p1","cv_url":"applications/ap-1/cv.pdf","internal_notes":"Strong portfolio","created_at":"2026-09-10T09:00:00Z","updated_at":"2026-09-11T09:00:00Z"},
+ {"id":"ap-2","opportunity_id":"op-1","application_type":"employment","full_name":"Fixture Person Two","email":"FIXTURE.TWO@example.test","status":"shortlisted","created_at":"2026-09-12T09:00:00Z"},
+ {"id":"ap-3","opportunity_id":null,"application_type":"talent_pool","full_name":"Fixture Person Three","email":"fixture.three@example.test","division":"ADA Marketing Division","status":"archived","cv_url":"applications/ap-3/cv.pdf","created_at":"2026-09-13T09:00:00Z"},
+ {"id":"ap-4","opportunity_id":"op-1","full_name":"Fixture Person One Again","email":"fixture.one@example.test","status":"new","created_at":"2026-09-14T09:00:00Z"},
+ {"id":"ap-5","opportunity_id":"op-1","full_name":"No Email","email":"","status":"new","created_at":"2026-09-15T09:00:00Z"}
+]

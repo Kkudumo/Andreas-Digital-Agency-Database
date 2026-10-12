@@ -49,6 +49,8 @@ functions), so no client — IRM, a website, or a person with API access — can
 | Domains | `domains`, `domain_relations`, `domain_registrations`, `domain_transfers`, `domain_events`, `domain_reviews`, `domain_expiry_status`, `website_hostname_domains` | built, tested |
 | Communications | `communication_threads`, `communication_messages`, `communication_participants`, `communication_links`, `communication_attachments`, `communication_access`, `communication_holds`, `communication_comments`, `communication_disposals`, `communication_events`, `communication_types`, `communication_retention_status` | built, tested (records only: no sending or synchronisation) |
 | Search | `search_index` (derived), `search_sources`, `search_refresh_queue`; `search`, `search_execute`, `search_suggest`, `search_parse` | built, tested (staff only; derived, rebuildable, authorization-first) |
+| Website content | `content_posts`, `testimonials`, `faqs`, `site_settings` (+ `public_api.posts/post/testimonials/faqs/settings`) | built, tested ([Content](workflows/CONTENT.md)) |
+| Event dispatch | `dispatch_claim`, `dispatch_report`, role `ada_dispatcher`; worker `public-api/src/dispatcher.mjs` | built, tested ([Event dispatch](operations/EVENT_DISPATCH.md)) |
 | Dashboard | `dashboard_summary()` (derived, read-only, invoker) | built, tested ([Dashboard](workflows/DASHBOARD.md)) |
 | Reports | `report_receivables_aging`, `report_revenue`, `report_expenses`, `report_project_profitability`, `report_pipeline` (derived, read-only, invoker) | built, tested ([Reports](workflows/REPORTS.md)); reports page with CSV |
 

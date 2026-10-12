@@ -299,6 +299,19 @@ psql_ "$URL" -q -f public-api/test/fixture.sql >/dev/null
 psql_ "$ADMIN_URL" -q -c "alter role ada_public_api login password 'itest-only'" >/dev/null
 ADA_PUBLIC_API_SSL=off ADA_PUBLIC_API_DATABASE_URL="postgresql://ada_public_api:itest-only@${BASE#postgresql://*@}/$DB" node public-api/test/integration.mjs || status=1
 psql_ "$ADMIN_URL" -q -c "alter role ada_public_api nologin password null" >/dev/null
+# The careers import generator (fixtures shaped like the old website's tables) loads into the migrated database, and loading it twice adds nothing.
+echo "== careers_import"
+node scripts/import-careers.mjs --vacancies scripts/fixtures/careers/career_opportunities.json --applications scripts/fixtures/careers/career_applications.json --out "/tmp/careers-import-$$.sql" >/dev/null || status=1
+psql_ "$URL" -q -f "/tmp/careers-import-$$.sql" >/dev/null; psql_ "$URL" -q -f "/tmp/careers-import-$$.sql" >/dev/null
+car=$(psql_ "$URL" -At -c "select (select count(*) from legacy_imports where entity_type = 'vacancy' and source_id like 'op-%') || ',' || (select count(*) from legacy_imports where entity_type = 'application' and source_id like 'ap-%') || ',' || (select count(*) from applications a join people p on p.id = a.person_id where p.email like 'fixture.%@example.test' and a.cv_ref like 'legacy-storage:career-documents/%')")
+rm -f "/tmp/careers-import-$$.sql"
+if [ "$car" = "2,3,2" ]; then echo "  careers export -> SQL -> ADA Core: 2 vacancies (the test one skipped), 3 applications (a duplicate person and an empty e-mail skipped), CV references kept; running it twice adds nothing"; else echo "  FAIL careers import: got $car expected 2,3,2"; status=1; fi
+
+# The event dispatcher against the real database as the ada_dispatcher role (real claim/report, fake network).
+psql_ "$ADMIN_URL" -q -c "alter role ada_dispatcher login password 'itest-only'" >/dev/null
+echo "== event_dispatcher"
+ADA_PUBLIC_API_SSL=off ADA_DISPATCHER_DATABASE_URL="postgresql://ada_dispatcher:itest-only@${BASE#postgresql://*@}/$DB" ADA_OWNER_DATABASE_URL="$URL" node public-api/test/dispatcher.integration.mjs || status=1
+psql_ "$ADMIN_URL" -q -c "alter role ada_dispatcher nologin password null" >/dev/null
 
 [ "$status" -eq 0 ] && echo "ALL TESTS PASSED" || echo "TESTS FAILED"
 exit $status

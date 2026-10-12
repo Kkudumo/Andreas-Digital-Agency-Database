@@ -76,6 +76,7 @@ Row-level security is enabled on every table; the policies are in the migrations
 | `staff_id` | uuid | no |  | `staff` |
 | `created_at` | timestamp with time zone | yes | now() |  |
 | `updated_at` | timestamp with time zone | yes | now() |  |
+| `details` | jsonb | yes | '{}'::jsonb |  |
 
 ## `approval_decisions`
 
@@ -715,6 +716,34 @@ Row-level security is enabled on every table; the policies are in the migrations
 | `default_classification` | data_classification | yes | 'internal'::data_classification |  |
 | `is_active` | boolean | yes | true |  |
 | `sort_order` | integer | yes | 100 |  |
+
+## `content_posts`
+
+**Purpose:** news, announcements and updates for the websites. Public only when status = published (through public_api.posts). Editing the public wording of an approved/published post returns it to draft. [class: internal]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | uuid | yes | gen_random_uuid() |  |
+| `ada_id` | text | yes |  |  |
+| `division_id` | uuid | no |  | `divisions` |
+| `content_type` | content_kind | yes | 'news'::content_kind |  |
+| `title` | text | yes |  |  |
+| `slug` | text | yes |  |  |
+| `summary` | text | yes |  |  |
+| `body` | text | yes | ''::text |  |
+| `cover_image_url` | text | no |  |  |
+| `image_alt_text` | text | no |  |  |
+| `author_name` | text | no |  |  |
+| `source_label` | text | no |  |  |
+| `featured` | boolean | yes | false |  |
+| `status` | publication_state | yes | 'draft'::publication_state |  |
+| `approved_by` | uuid | no |  | `staff` |
+| `approved_at` | timestamp with time zone | no |  |  |
+| `published_at` | timestamp with time zone | no |  |  |
+| `status_reason` | text | no |  |  |
+| `created_by` | uuid | no |  | `staff` |
+| `created_at` | timestamp with time zone | yes | now() |  |
+| `updated_at` | timestamp with time zone | yes | now() |  |
 
 ## `contract_lines`
 
@@ -1462,6 +1491,29 @@ _(no description)_
 | `created_at` | timestamp with time zone | yes | now() |  |
 | `updated_at` | timestamp with time zone | yes | now() |  |
 
+## `faqs`
+
+**Purpose:** frequently asked questions for the websites, agency-wide or per division / service. [class: internal]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | uuid | yes | gen_random_uuid() |  |
+| `ada_id` | text | yes |  |  |
+| `division_id` | uuid | no |  | `divisions` |
+| `service_id` | uuid | no |  | `services` |
+| `category` | text | no |  |  |
+| `question` | text | yes |  |  |
+| `answer` | text | yes |  |  |
+| `sort_order` | integer | yes | 100 |  |
+| `status` | publication_state | yes | 'draft'::publication_state |  |
+| `approved_by` | uuid | no |  | `staff` |
+| `approved_at` | timestamp with time zone | no |  |  |
+| `published_at` | timestamp with time zone | no |  |  |
+| `status_reason` | text | no |  |  |
+| `created_by` | uuid | no |  | `staff` |
+| `created_at` | timestamp with time zone | yes | now() |  |
+| `updated_at` | timestamp with time zone | yes | now() |  |
+
 ## `finance_settings`
 
 **Purpose:** the single row of organisation-wide finance settings. Invoices COPY the VAT rate and terms they were issued under (snapshot), so changing this never alters an issued invoice. [class: confidential]
@@ -1631,6 +1683,18 @@ _(no description)_
 | `created_at` | timestamp with time zone | yes | now() |  |
 | `updated_at` | timestamp with time zone | yes | now() |  |
 | `effective_classification` | data_classification | yes | 'internal'::data_classification |  |
+
+## `legacy_imports`
+
+**Purpose:** which record of a previous system became which ADA Core record (so a re-run of an import is safe). [class: internal]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `source` | text | yes |  |  |
+| `source_id` | text | yes |  |  |
+| `entity_type` | text | yes |  |  |
+| `entity_id` | uuid | yes |  |  |
+| `imported_at` | timestamp with time zone | yes | now() |  |
 
 ## `matching_reviews`
 
@@ -2293,6 +2357,24 @@ _(no description)_
 | `created_at` | timestamp with time zone | yes | now() |  |
 | `updated_at` | timestamp with time zone | yes | now() |  |
 
+## `site_settings`
+
+**Purpose:** facts the websites print (contact details, place) and business rules the planners use (marketing budget split). Public settings are returned by public_api.settings. Changed only by settings.update; every change is audited. [class: internal]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | uuid | yes | gen_random_uuid() |  |
+| `division_id` | uuid | no |  | `divisions` |
+| `key` | text | yes |  |  |
+| `label` | text | yes |  |  |
+| `value` | text | yes |  |  |
+| `value_type` | text | yes | 'text'::text |  |
+| `group_name` | text | yes | 'general'::text |  |
+| `is_public` | boolean | yes | true |  |
+| `sort_order` | integer | yes | 100 |  |
+| `updated_by` | uuid | no |  | `staff` |
+| `updated_at` | timestamp with time zone | yes | now() |  |
+
 ## `staff`
 
 **Purpose:** staff directory and the link from a login (auth.users) to ADA. Directory columns only; sensitive HR data lives in staff_private. [class: internal]
@@ -2463,6 +2545,32 @@ _(no description)_
 | `created_at` | timestamp with time zone | yes | now() |  |
 | `updated_at` | timestamp with time zone | yes | now() |  |
 | `milestone_id` | uuid | no |  | `milestones` |
+
+## `testimonials`
+
+**Purpose:** client testimonials. Cannot be published until the person's consent is recorded (and a note says how it was given). [class: internal]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | uuid | yes | gen_random_uuid() |  |
+| `ada_id` | text | yes |  |  |
+| `division_id` | uuid | no |  | `divisions` |
+| `service_id` | uuid | no |  | `services` |
+| `quote` | text | yes |  |  |
+| `person_name` | text | yes |  |  |
+| `person_role` | text | no |  |  |
+| `organization_name` | text | no |  |  |
+| `consent_confirmed` | boolean | yes | false |  |
+| `consent_note` | text | no |  |  |
+| `sort_order` | integer | yes | 100 |  |
+| `status` | publication_state | yes | 'draft'::publication_state |  |
+| `approved_by` | uuid | no |  | `staff` |
+| `approved_at` | timestamp with time zone | no |  |  |
+| `published_at` | timestamp with time zone | no |  |  |
+| `status_reason` | text | no |  |  |
+| `created_by` | uuid | no |  | `staff` |
+| `created_at` | timestamp with time zone | yes | now() |  |
+| `updated_at` | timestamp with time zone | yes | now() |  |
 
 ## `ticket_categories`
 

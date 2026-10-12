@@ -172,7 +172,7 @@ await ctxR.close();
 ({ ctx: ctxC, page: C } = await session('ceo@ada.test'));
 await C.goto(BASE + '/websites'); await settle(C);
 await C.fill('input[name=name]', 'Journey test site'); await C.fill('input[name=domain]', 'journey.example.test');
-await C.click('button:has-text("Register")'); await settle(C);
+await C.check('input[name="cap:content.read"]'); await C.check('input[name="cap:settings.read"]'); await C.click('button:has-text("Register")'); await settle(C);
 ok('a website is registered', await seen(C, 'Journey test site'), await flash(C));
 await C.locator('tr:has-text("Journey test site") button:has-text("Issue key")').click(); await settle(C);
 const keyText = await C.locator('tr:has-text("Journey test site") .mono').filter({ hasText: /^ada_[0-9a-f]{48}$/ }).first().innerText().catch(() => '');
@@ -206,6 +206,23 @@ ok('saving a new price shows it, with the old one kept in the history', /249\.00
 svcs = await api(); ok('...and the public API answers 249 on the next request, with no other step', svcs[0].price.amount === 249, JSON.stringify(svcs));
 await C.click('button:has-text("Take off the websites")'); await settle(C);
 svcs = await api(); ok('taking it off the websites removes it from the API', svcs.length === 0, JSON.stringify(svcs));
+await ctxC.close();
+
+
+// ---------- website content: write a post in Hub, publish it, and the public API serves it; the company facts come from the database
+({ ctx: ctxC, page: C } = await session('ceo@ada.test'));
+await C.goto(BASE + '/content?tab=post'); await settle(C);
+await C.fill('input[name=title]', 'Journey news item'); await C.fill('textarea[name=summary]', 'A short summary for the journey.'); await C.fill('textarea[name=body]', 'The full text.');
+await C.click('button:has-text("Save as draft")'); await C.waitForURL(/\/content\/post\/[0-9a-f-]{36}/);
+ok('a post is saved as a draft', /Journey news item/.test(await text(C)) && /draft/i.test(await text(C)), await text(C));
+const feed = async () => (await (await fetch('http://127.0.0.1:8787/api/public/posts', { headers: { authorization: `Bearer ${keyText}` } })).json());
+ok('...and is not on the public API yet', (await feed()).length === 0);
+await C.click('button:has-text("Publish to the websites")'); await settle(C);
+const posts2 = await feed(); ok('publishing puts it on the public API at once, with its own address', posts2.length === 1 && posts2[0].slug === 'journey-news-item' && posts2[0].title === 'Journey news item', JSON.stringify(posts2));
+await C.goto(BASE + '/site-settings'); await settle(C);
+const html = await C.content(); ok('website facts: the agency phone and the marketing rule are in the database (shown in editable fields)', html.includes('value="+264 81 803 2641"') && html.includes('value="1499.99"'), (await text(C)).slice(0, 300));
+const setg = await (await fetch('http://127.0.0.1:8787/api/public/settings', { headers: { authorization: `Bearer ${keyText}` } })).json();
+ok('the same facts come out of the public API', setg.some((x) => x.key === 'company.phone' && x.value === '+264 81 803 2641'), JSON.stringify(setg).slice(0, 200));
 await ctxC.close();
 
 // ---------- outsiders see nothing

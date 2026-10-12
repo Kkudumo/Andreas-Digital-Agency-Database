@@ -7,3 +7,5 @@ node_modules/
 next-env.d.ts
 supabase/.temp/
 backups/
+careers-*.json
+careers-import*.sql
