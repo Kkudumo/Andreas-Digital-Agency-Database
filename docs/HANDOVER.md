@@ -78,7 +78,7 @@ Updated 13 October 2026. Repos: `Kkudumo/Andreas-Digital-Agency-Database` (ADA C
    - `supabase/seed_data/catalogue.csv` (56 services, 40 priced) and the generated `catalogue.sql`, built from the price lists the websites publish. Read `docs/workflows/CATALOGUE.md` first: it has the full table and the questions for the owner.
    - **Apply migration `0053_starting_prices.sql` to the live project first** (it adds the "from" flag; the load script needs it).
    - To finish: the owner checks the prices (against the audit of 8 October, which is not in the repo), then runs `catalogue.sql` in the Supabase SQL editor. Services load as approved, **not published**.
-3. **Public API service.** Build it and register the six websites with keys.
+3. **Public API service.** *Built 13 October 2026, not yet deployed.* `public-api/` (tests: unit + the real database as the `ada_public_api` role) and ADA Hub → Websites (register a site, issue its key once). Deploy steps are at the end of `docs/api/PUBLIC_API.md`. To finish: the owner gives the role a login, deploys `public-api/`, registers the six websites and issues their keys.
 4. **Prices and services on the websites come from ADA Core.**
    - Division sites at build time; main site at request time.
    - Rebuild on change.

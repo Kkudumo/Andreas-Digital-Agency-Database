@@ -1,0 +1,15 @@
+{
+  "name": "ada-public-api",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "ADA Core public API: the thin HTTP layer websites use. Holds the credentials of the ada_public_api database role and nothing else.",
+  "scripts": {
+    "start": "node src/server.mjs",
+    "test": "node --test test/api.test.mjs"
+  },
+  "engines": { "node": ">=20" },
+  "dependencies": {
+    "pg": "8.13.1"
+  }
+}

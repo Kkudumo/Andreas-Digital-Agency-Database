@@ -120,7 +120,7 @@ select tests.check('management publishes', tests.scalar('ceo', $q$ select servic
 select tests.check('the website now receives the service with the price in force, and nothing else',
   (select string_agg(k, ',' order by k) from jsonb_object_keys(tests.pub('main', 'services')::jsonb -> 0) k), 'billing_unit,category,description,division,id,name,price,pricing_model,summary');
 select tests.check('...with the right price', (tests.pub('main', 'services')::jsonb -> 0 -> 'price' ->> 'amount'), '5000.00');
-select tests.check('...price DTO is only amount, currency and effective_from', (select string_agg(k, ',' order by k) from jsonb_object_keys(tests.pub('main', 'services')::jsonb -> 0 -> 'price') k), 'amount,currency,effective_from');
+select tests.check('...price DTO is only amount, currency, effective_from and starting_price', (select string_agg(k, ',' order by k) from jsonb_object_keys(tests.pub('main', 'services')::jsonb -> 0 -> 'price') k), 'amount,currency,effective_from,starting_price');
 select tests.check('publishing queued a revalidation for the website', (select count(*)::text from event_deliveries d join events e on e.id = d.event_id where e.event_type = 'service.published' and d.status = 'pending'), '1');
 select tests.scalar('tech_lead', $q$ select service_transition((select id from tests.ids where key = 'svc:cctv'), 'pending_approval')::text $q$);
 select tests.scalar('ceo', $q$ select service_transition((select id from tests.ids where key = 'svc:cctv'), 'approved')::text $q$);

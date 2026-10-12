@@ -289,5 +289,14 @@ if [ "$cat_res" = "56,40,0,0,0,2899.00,3296.00,22,false,true" ]; then echo "  56
 
 
 
+# The public API's HTTP layer (build step 3). Unit tests with a fake database, then the real server -> the real database as the ada_public_api role.
+echo "== public_api_http"
+[ -d public-api/node_modules/pg ] || npm ci --no-audit --no-fund --prefix public-api >/dev/null
+(cd public-api && npm test --silent) || status=1
+psql_ "$URL" -q -f public-api/test/fixture.sql >/dev/null
+psql_ "$ADMIN_URL" -q -c "alter role ada_public_api login password 'itest-only'" >/dev/null
+ADA_PUBLIC_API_SSL=off ADA_PUBLIC_API_DATABASE_URL="postgresql://ada_public_api:itest-only@${BASE#postgresql://*@}/$DB" node public-api/test/integration.mjs || status=1
+psql_ "$ADMIN_URL" -q -c "alter role ada_public_api nologin password null" >/dev/null
+
 [ "$status" -eq 0 ] && echo "ALL TESTS PASSED" || echo "TESTS FAILED"
 exit $status

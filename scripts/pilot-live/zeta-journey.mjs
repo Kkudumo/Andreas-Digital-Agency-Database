@@ -166,6 +166,28 @@ await R.goto(BASE + '/reports?report=aging'); await settle(R); ok('staff without
 const csv2 = await R.request.get(BASE + '/reports/csv?report=aging'); ok('and an empty CSV (header only)', !/Zeta/.test(await csv2.text()));
 await ctxR.close();
 
+
+// ---------- websites: management registers a site and issues its key; the key works against the public API; nobody else can
+({ ctx: ctxC, page: C } = await session('ceo@ada.test'));
+await C.goto(BASE + '/websites'); await settle(C);
+await C.fill('input[name=name]', 'Journey test site'); await C.fill('input[name=domain]', 'journey.example.test');
+await C.click('button:has-text("Register")'); await settle(C);
+ok('a website is registered', await seen(C, 'Journey test site'), await flash(C));
+await C.locator('tr:has-text("Journey test site") button:has-text("Issue key")').click(); await settle(C);
+const keyText = await C.locator('tr:has-text("Journey test site") .mono').filter({ hasText: /^ada_[0-9a-f]{48}$/ }).first().innerText().catch(() => '');
+ok('the key is shown once on the page and is not in the address bar', /^ada_[0-9a-f]{48}$/.test(keyText) && !C.url().includes(keyText), keyText);
+const pa = await fetch('http://127.0.0.1:8787/api/public/divisions', { headers: { authorization: `Bearer ${keyText}` } });
+ok('the new key works against the public API and returns only published divisions', pa.status === 200 && Array.isArray(await pa.json()), String(pa.status));
+const pb = await fetch('http://127.0.0.1:8787/api/public/services', { headers: { authorization: `Bearer ${keyText}` } });
+ok('...and is refused what it was not ticked for (services.read was ticked by default, enquiries not)', pb.status === 200);
+const pc = await fetch('http://127.0.0.1:8787/api/public/enquiries', { method: 'POST', headers: { authorization: `Bearer ${keyText}`, 'content-type': 'application/json' }, body: JSON.stringify({ name: 'X' }) });
+ok('enquiries.submit was not ticked, so submitting is refused (403)', pc.status === 403, String(pc.status));
+await C.reload(); await settle(C); ok('after a reload the key is gone: only its prefix remains', !(await text(C)).includes(keyText) && (await text(C)).includes(keyText.slice(0, 8)), await text(C));
+await ctxC.close();
+let { ctx: ctxW2, page: W2 } = await session('web_staff@ada.test');
+await W2.goto(BASE + '/websites'); await settle(W2); ok('staff without websites.view see no registry and no register form', !/Journey test site/.test(await text(W2)) && !/Register a website/.test(await text(W2)), await text(W2));
+await ctxW2.close();
+
 // ---------- outsiders see nothing
 let { ctx: ctxW, page: W } = await session('web_staff@ada.test');
 await W.goto(BASE + '/r/ZZZZZZZZZ'); ok('unknown / hidden id: not found', /Record not found/.test(await text(W)));

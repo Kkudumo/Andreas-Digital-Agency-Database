@@ -551,3 +551,8 @@ someone without expense, credit note or schedule access sees empty spend
 # Starting prices
 the flag is part of the immutable version
 the existing five-argument call still works and means a fixed price
+
+# Public API
+the API role cannot read tables
+a website without the capability is refused (403)
+a quote-based service has no price at all
