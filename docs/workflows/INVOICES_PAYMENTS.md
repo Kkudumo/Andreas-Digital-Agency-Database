@@ -40,5 +40,8 @@ Example configuration (all through `approval_policies`, `approvals.configure`): 
 ## Client lifecycle effects
 Restricting a client hides its contracts, billable items, invoices, payments and approval history from everyone without access; un-restricting restores them. Soft-deleting a client hides them from anyone without `records.view_deleted`; a client with open commercial records (live contracts, unpaid invoices, unallocated credit) cannot be deleted.
 
+## See also
+Credit notes ([CREDIT_NOTES.md](CREDIT_NOTES.md)) correct issued invoices; expenses ([EXPENSES.md](EXPENSES.md)) are what ADA spends.
+
 ## Not built
-Credit notes, expenses, recurring invoicing, PDF/e-mail delivery (documents/communications modules), multi-currency conversion, tax reporting, bank-feed import.
+Debit notes, PDF/e-mail delivery (documents/communications modules), multi-currency conversion, tax reporting, bank-feed import.

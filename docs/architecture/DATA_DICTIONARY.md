@@ -385,6 +385,41 @@ Row-level security is enabled on every table; the policies are in the migrations
 | `created_at` | timestamp with time zone | yes | now() |  |
 | `updated_at` | timestamp with time zone | yes | now() |  |
 
+## `billing_schedule_runs`
+
+**Purpose:** the append-only log of billed periods; the unique (schedule, period start) is what makes a period impossible to bill twice. Never updated or deleted. [class: confidential]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | uuid | yes | gen_random_uuid() |  |
+| `schedule_id` | uuid | yes |  | `billing_schedules` |
+| `period_start` | date | yes |  |  |
+| `billable_item_id` | uuid | yes |  | `billable_items` |
+| `invoice_id` | uuid | no |  | `invoices` |
+| `quantity` | numeric(12,2) | yes |  |  |
+| `run_by` | uuid | no |  | `staff` |
+| `run_at` | timestamp with time zone | yes | now() |  |
+
+## `billing_schedules`
+
+**Purpose:** recurring billing of one contract line (quantity per period, every 1/3/6/12 months, billed in advance on the period start). Written only by the billing_schedule_* functions; every period goes through billable_from_contract so the contract caps apply. Progress is derived (billing_schedule_progress). [class: confidential]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | uuid | yes | gen_random_uuid() |  |
+| `contract_id` | uuid | yes |  | `contracts` |
+| `origin_line_id` | uuid | yes |  | `contract_lines` |
+| `interval_months` | integer | yes |  |  |
+| `quantity_per_period` | numeric(12,2) | yes | 1 |  |
+| `first_period_start` | date | yes |  |  |
+| `next_bill_on` | date | yes |  |  |
+| `end_on` | date | no |  |  |
+| `status` | billing_schedule_status | yes | 'active'::billing_schedule_status |  |
+| `status_reason` | text | no |  |  |
+| `created_by` | uuid | no |  | `staff` |
+| `created_at` | timestamp with time zone | yes | now() |  |
+| `updated_at` | timestamp with time zone | yes | now() |  |
+
 ## `client_contacts`
 
 **Purpose:** a person's role at a client (one row per client+person). Projects reference this row, so the same contact serves every project. Identity (name, email, phone) lives in people. [class: internal]
@@ -787,6 +822,81 @@ Row-level security is enabled on every table; the policies are in the migrations
 | `activated_at` | timestamp with time zone | no |  |  |
 | `terminated_at` | timestamp with time zone | no |  |  |
 | `status_reason` | text | no |  |  |
+| `effective_classification` | data_classification | yes | 'internal'::data_classification |  |
+| `client_deleted` | boolean | yes | false |  |
+| `created_by` | uuid | no |  | `staff` |
+| `created_at` | timestamp with time zone | yes | now() |  |
+| `updated_at` | timestamp with time zone | yes | now() |  |
+
+## `credit_note_allocations`
+
+**Purpose:** how much of which issued credit note settles which invoice. Never beyond the credit left on the note or the amount still owed on the invoice (enforced under row locks). Released, not deleted. [class: confidential]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | uuid | yes | gen_random_uuid() |  |
+| `credit_note_id` | uuid | yes |  | `credit_notes` |
+| `invoice_id` | uuid | yes |  | `invoices` |
+| `amount` | numeric(14,2) | yes |  |  |
+| `status` | text | yes | 'active'::text |  |
+| `allocated_by` | uuid | no |  | `staff` |
+| `allocated_at` | timestamp with time zone | yes | now() |  |
+| `released_by` | uuid | no |  | `staff` |
+| `released_at` | timestamp with time zone | no |  |  |
+| `release_reason` | text | no |  |  |
+
+## `credit_note_lines`
+
+**Purpose:** the credit note's line snapshots (quantity, price, discount, tax rate). Taken from an invoice line (so a price change elsewhere never moves them) or free-form. Locked once the credit note leaves draft. [class: confidential]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | uuid | yes | gen_random_uuid() |  |
+| `credit_note_id` | uuid | yes |  | `credit_notes` |
+| `invoice_line_id` | uuid | no |  | `invoice_lines` |
+| `position` | integer | yes | 100 |  |
+| `description` | text | yes |  |  |
+| `quantity` | numeric(12,2) | yes |  |  |
+| `unit_price` | numeric(14,2) | yes |  |  |
+| `discount_amount` | numeric(14,2) | yes | 0 |  |
+| `tax_rate` | numeric(5,2) | yes | 0 |  |
+| `net_amount` | numeric(14,2) | no | round(((quantity * unit_price) - discount_amount), 2) |  |
+| `tax_amount` | numeric(14,2) | no | round(((round(((quantity * unit_price) - discount_amount), 2) * tax_rate) / (100)::numeric), 2) |  |
+| `line_total` | numeric(14,2) | no | (round(((quantity * unit_price) - discount_amount), 2) + round(((round(((quantity * unit_price) - discount_amount), 2) * tax_rate) / (100)::numeric), 2)) |  |
+| `created_at` | timestamp with time zone | yes | now() |  |
+
+## `credit_notes`
+
+**Purpose:** one credit note against one issued invoice. Client, division and currency come from the invoice; lines are snapshots; totals derive from the lines while draft; an issued credit note is a legal record (identity snapshot taken once at issue). What is applied / left unapplied is derived from credit_note_allocations. Written only by the credit_note_* functions. [class: confidential]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | uuid | yes | gen_random_uuid() |  |
+| `ada_id` | text | yes |  |  |
+| `invoice_id` | uuid | yes |  | `invoices` |
+| `client_id` | uuid | yes |  | `clients` |
+| `division_id` | uuid | yes |  | `divisions` |
+| `currency` | character(3) | yes |  |  |
+| `reason_code` | text | yes |  |  |
+| `reason_note` | text | no |  |  |
+| `status` | credit_note_status | yes | 'draft'::credit_note_status |  |
+| `subtotal` | numeric(14,2) | yes | 0 |  |
+| `discount_total` | numeric(14,2) | yes | 0 |  |
+| `tax_total` | numeric(14,2) | yes | 0 |  |
+| `total` | numeric(14,2) | yes | 0 |  |
+| `requested_by` | uuid | no |  | `staff` |
+| `approved_by` | uuid | no |  | `staff` |
+| `approved_at` | timestamp with time zone | no |  |  |
+| `issued_by` | uuid | no |  | `staff` |
+| `issued_at` | timestamp with time zone | no |  |  |
+| `issue_date` | date | no |  |  |
+| `cancelled_at` | timestamp with time zone | no |  |  |
+| `status_reason` | text | no |  |  |
+| `client_name_snapshot` | text | no |  |  |
+| `client_address_snapshot` | text | no |  |  |
+| `client_registration_snapshot` | text | no |  |  |
+| `seller_legal_name_snapshot` | text | no |  |  |
+| `seller_vat_number_snapshot` | text | no |  |  |
 | `effective_classification` | data_classification | yes | 'internal'::data_classification |  |
 | `client_deleted` | boolean | yes | false |  |
 | `created_by` | uuid | no |  | `staff` |
@@ -1291,6 +1401,67 @@ _(no description)_
 | `payload` | jsonb | yes | '{}'::jsonb |  |
 | `actor_staff_id` | uuid | no |  |  |
 
+## `expense_categories`
+
+**Purpose:** the reviewed list of expense categories used to group costs in reports. Changed only through expense_category_set (finance.configure). [class: internal]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | uuid | yes | gen_random_uuid() |  |
+| `key` | text | yes |  |  |
+| `name` | text | yes |  |  |
+| `is_active` | boolean | yes | true |  |
+| `sort_order` | integer | yes | 100 |  |
+
+## `expense_events`
+
+**Purpose:** the append-only story of an expense: who did what, when, with what note. Visible exactly where the expense is. [class: confidential]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | bigint | yes |  |  |
+| `expense_id` | uuid | yes |  | `expenses` |
+| `kind` | text | yes |  |  |
+| `from_status` | expense_status | no |  |  |
+| `to_status` | expense_status | no |  |  |
+| `note` | text | no |  |  |
+| `actor_id` | uuid | no |  | `staff` |
+| `at` | timestamp with time zone | yes | now() |  |
+
+## `expenses`
+
+**Purpose:** one cost ADA incurred: supplier, project, division and category by reference; net amount, tax and the derived total; a controlled lifecycle (draft -> pending_approval -> approved -> paid). The client is derived from the project; classification is inherited from the project / client. Nothing derived (project cost, payables) is stored here. Written only by the expense_* functions. [class: confidential]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | uuid | yes | gen_random_uuid() |  |
+| `ada_id` | text | yes |  |  |
+| `division_id` | uuid | yes |  | `divisions` |
+| `supplier_id` | uuid | no |  | `suppliers` |
+| `project_id` | uuid | no |  | `projects` |
+| `client_id` | uuid | no |  | `clients` |
+| `category_id` | uuid | yes |  | `expense_categories` |
+| `description` | text | yes |  |  |
+| `supplier_reference` | text | no |  |  |
+| `expense_date` | date | yes | CURRENT_DATE |  |
+| `currency` | character(3) | yes |  |  |
+| `amount_net` | numeric(14,2) | yes |  |  |
+| `tax_amount` | numeric(14,2) | yes | 0 |  |
+| `total` | numeric(14,2) | no | (amount_net + tax_amount) |  |
+| `status` | expense_status | yes | 'draft'::expense_status |  |
+| `requested_by` | uuid | no |  | `staff` |
+| `approved_by` | uuid | no |  | `staff` |
+| `approved_at` | timestamp with time zone | no |  |  |
+| `paid_on` | date | no |  |  |
+| `paid_from_account_id` | uuid | no |  | `bank_accounts` |
+| `payment_reference` | text | no |  |  |
+| `status_reason` | text | no |  |  |
+| `effective_classification` | data_classification | yes | 'internal'::data_classification |  |
+| `client_deleted` | boolean | yes | false |  |
+| `created_by` | uuid | no |  | `staff` |
+| `created_at` | timestamp with time zone | yes | now() |  |
+| `updated_at` | timestamp with time zone | yes | now() |  |
+
 ## `finance_settings`
 
 **Purpose:** the single row of organisation-wide finance settings. Invoices COPY the VAT rate and terms they were issued under (snapshot), so changing this never alters an issued invoice. [class: confidential]
@@ -1306,6 +1477,7 @@ _(no description)_
 | `default_payment_terms_days` | integer | yes | 30 |  |
 | `updated_by` | uuid | no |  | `staff` |
 | `updated_at` | timestamp with time zone | yes | now() |  |
+| `billing_runner_id` | uuid | no |  | `staff` |
 
 ## `id_codebook`
 

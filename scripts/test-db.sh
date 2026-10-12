@@ -201,6 +201,55 @@ nerr=$(ls "$ERRDIR" | wc -l); rm -rf "$ERRDIR"
 if [ "$res" = "160,0,true,0" ] && [ "$nerr" = "0" ]; then echo "  160 concurrent client creations indexed, 2 sessions rebuilding the index 3 times each, 8 sessions renaming one client and searching at once: no failed statement, every client findable, the contested row equals its record, zero drift, no orphans"; else echo "  FAIL concurrent search: got $res with $nerr failed statements, expected 160,0,true,0 and 0"; sed -E 's/^/    stderr: /' "$ERRLOG" | sort | uniq -c | sort -rn | head -8; status=1; fi
 rm -f "$ERRLOG"
 
+# Concurrency: credit notes. Eight sessions submit eight credit notes of 400 against ONE invoice of 1000: exactly two can be accepted (the cap holds under the
+# invoice lock). Sixteen sessions apply ONE issued credit of 600 to two invoices owing 500 each: exactly one application succeeds and nothing exceeds the credit.
+# A payment of 300 and a credit of 300 race to settle ONE invoice owing 300: exactly one wins, the balance never goes negative.
+echo "== concurrent_credit_notes"
+psql_ "$URL" -f supabase/tests/concurrency/credit_setup.sql >/dev/null
+ASK="select set_config('request.jwt.claim.sub', md5('conc-credit-user'), false); set role authenticated;"
+CREDIT_IDS=$(psql_ "$URL" -At -c "select string_agg(c.id::text, ' ') from credit_notes c join invoices i on i.id = c.invoice_id where i.po_reference = 'CR-CAP' and c.status = 'draft'")
+BIG=$(psql_ "$URL" -At -c "select c.id from credit_notes c join credit_note_lines l on l.credit_note_id = c.id where l.description = 'unapplied BIG'")
+ZED=$(psql_ "$URL" -At -c "select c.id from credit_notes c join credit_note_lines l on l.credit_note_id = c.id where l.description = 'unapplied ZED'")
+INVX=$(psql_ "$URL" -At -c "select id from invoices where po_reference = 'CR-X'")
+INVY=$(psql_ "$URL" -At -c "select id from invoices where po_reference = 'CR-Y'")
+INVZ=$(psql_ "$URL" -At -c "select id from invoices where po_reference = 'CR-Z'")
+PAYZ=$(psql_ "$URL" -At -c "select p.id from payments p join clients c on c.id = p.client_id where c.name = 'Credit Race Client' and p.amount = 300")
+for c in $CREDIT_IDS; do
+  ( psql -X -q "$URL" -c "$ASK select credit_note_transition('$c', 'pending_approval')" >/dev/null 2>&1 ) &
+done
+for i in $(seq 1 8); do
+  ( psql -X -q "$URL" -c "$ASK select credit_note_allocate('$BIG', '$INVX', 500)" >/dev/null 2>&1 ) &
+  ( psql -X -q "$URL" -c "$ASK select credit_note_allocate('$BIG', '$INVY', 500)" >/dev/null 2>&1 ) &
+done
+for i in $(seq 1 4); do
+  ( psql -X -q "$URL" -c "$ASK select payment_allocate('$PAYZ', '$INVZ', 300)" >/dev/null 2>&1 ) &
+  ( psql -X -q "$URL" -c "$ASK select credit_note_allocate('$ZED', '$INVZ', 300)" >/dev/null 2>&1 ) &
+done
+wait
+res=$(psql_ "$URL" -At -c "select (select count(*) from credit_notes c join invoices i on i.id = c.invoice_id where i.po_reference = 'CR-CAP' and c.status = 'pending_approval') || ',' || (select coalesce(sum(c.total), 0) from credit_notes c join invoices i on i.id = c.invoice_id where i.po_reference = 'CR-CAP' and c.status = 'pending_approval') || ',' || (select count(*) from credit_note_allocations where credit_note_id = '$BIG' and status = 'active') || ',' || (select coalesce(sum(amount), 0) from credit_note_allocations where credit_note_id = '$BIG' and status = 'active') || ',' || ((select count(*) from credit_note_allocations where invoice_id = '$INVZ' and status = 'active') + (select count(*) from payment_allocations where invoice_id = '$INVZ' and status = 'active')) || ',' || (select (i.total - invoice_valid_allocated(i.id) - invoice_credit_applied(i.id))::int from invoices i where i.id = '$INVZ') || ',' || (select status from invoices where id = '$INVZ')")
+if [ "$res" = "2,800.00,1,500.00,1,0,paid" ]; then echo "  8 racing submissions of 400 against an invoice of 1000: exactly two accepted (800); 16 racing applications of one 600 credit to two invoices owing 500: exactly one (500); a payment and a credit racing for one invoice owing 300: exactly one wins, balance 0, invoice settled"; else echo "  FAIL concurrent credit notes: got $res expected 2,800.00,1,500.00,1,0,paid"; status=1; fi
+
+# Concurrency: recurring invoicing. Sixteen sessions run the billing schedules at once for the same date: each of the two schedules bills exactly the three periods
+# that came due (no period twice). Then eight sessions bill the shorter contract line by hand while eight more run the schedules: the line (4 units) is never
+# billed beyond 4, and the longer schedule ends exactly when its line (10 units) is used up.
+echo "== concurrent_billing_schedules"
+psql_ "$URL" -f supabase/tests/concurrency/schedule_setup.sql >/dev/null
+ASK="select set_config('request.jwt.claim.sub', md5('conc-sched-user'), false); set role authenticated;"
+for i in $(seq 1 16); do
+  ( psql -X -q "$URL" -c "$ASK select billing_schedule_run('2026-03-31')" >/dev/null 2>&1 ) &
+done
+wait
+res1=$(psql_ "$URL" -At -c "select string_agg(c.title || '=' || (select count(*) from billing_schedule_runs r join billing_schedules s on s.id = r.schedule_id where s.contract_id = c.id) || '/' || (select count(*) from billable_items b where b.contract_id = c.id), ' ' order by c.title) from contracts c where c.title like 'SCHED-%'")
+SB=$(psql_ "$URL" -At -c "select c.id from contracts c where c.title = 'SCHED-B'")
+LB=$(psql_ "$URL" -At -c "select origin_line_id from billing_schedules where contract_id = '$SB'")
+for i in $(seq 1 8); do
+  ( psql -X -q "$URL" -c "$ASK select billable_from_contract('$SB', '$LB', 1)" >/dev/null 2>&1 ) &
+  ( psql -X -q "$URL" -c "$ASK select billing_schedule_run('2026-12-31')" >/dev/null 2>&1 ) &
+done
+wait
+res2=$(psql_ "$URL" -At -c "select string_agg(c.title || '=' || (select coalesce(sum(b.quantity), 0) from billable_items b where b.contract_id = c.id and b.status <> 'void') || '/' || (select count(*) from billable_items b where b.contract_id = c.id) || '/' || (select count(*) from billing_schedule_runs r join billing_schedules s on s.id = r.schedule_id where s.contract_id = c.id) || '/' || (select string_agg(s.status::text, ',') from billing_schedules s where s.contract_id = c.id), ' ' order by c.title) from contracts c where c.title like 'SCHED-%'")
+if [ "$res1" = "SCHED-A=3/3 SCHED-B=3/3" ] && [ "${res2%% SCHED-B*}" = "SCHED-A=10.00/10/10/ended" ] && [[ "$res2" == *"SCHED-B=4.00/4/"* ]]; then echo "  16 racing runs: each schedule billed its three due periods exactly once; with ordinary billing racing the runs, the 4-unit line was billed exactly 4 and the 10-unit schedule ended exactly at 10"; else echo "  FAIL concurrent billing schedules: got '$res1' / '$res2'"; status=1; fi
+
 # Concurrency: the pilot workflow. Eight sessions (half "Web", half "Tech") create the SAME organization/client at once: one organization, one client role. Eight
 # sessions add the SAME contact: one person, one contact. Eight sessions convert the SAME accepted quote: one project, one priced service line. Eight sessions create
 # a contract from the SAME quote: exactly one contract. Eight sessions invoice the SAME billable item: exactly one invoice with one active line.

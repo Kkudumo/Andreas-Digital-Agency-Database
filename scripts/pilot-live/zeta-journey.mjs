@@ -115,6 +115,57 @@ await F2.click('table a:has-text("ADA-INV")'); await F2.waitForURL(/\/invoices\/
 await F2.goto(BASE + '/search?q=type:payment'); ok('finance finds the payment by type', /1 result/.test(await text(F2)), await text(F2));
 await ctxF2.close();
 
+// ---------- the dashboard shows the same engagement as derived numbers, and only to those who may see them
+let { ctx: ctxD, page: Dp } = await session('ceo@ada.test');
+await Dp.goto(BASE + '/dashboard'); await Dp.waitForTimeout(1500); const dt = await text(Dp);
+ok('dashboard (management): receivables 3,750 outstanding, a pipeline, live projects, open tickets', /Outstanding receivables/i.test(dt) && /3,750\.00/.test(dt) && /Sales pipeline/i.test(dt) && /Live projects/i.test(dt) && /Open tickets/i.test(dt), dt.slice(0, 900));
+await Dp.screenshot({ path: process.env.DASH_SHOT || 'dashboard.png', fullPage: true });
+await ctxD.close();
+let { ctx: ctxD2, page: Dq } = await session('tech_staff@ada.test');
+await Dq.goto(BASE + '/dashboard'); await Dq.waitForTimeout(1500); const dq = await text(Dq);
+ok('dashboard (another division, no finance rights): none of the Zeta money or tiles', !/3,750\.00/.test(dq) && !/Outstanding receivables/i.test(dq), dq.slice(0, 600));
+await ctxD2.close();
+
+
+// ---------- credit note, expense, report, schedule: the finance modules built after the pilot, through the interface
+let { ctx: ctxX, page: X } = await session('fin@ada.test');
+await X.goto(invoiceUrl); await X.selectOption('select[name=reason_code]', 'price_adjustment'); await X.click('button:has-text("Credit this invoice")'); await X.waitForURL('**/credit-notes/**');
+const cnUrl = X.url().split('?')[0]; ok('a credit note is drafted from the invoice', /Credit note ADA-CRN/.test(await text(X)) && /draft/i.test(await text(X)), await text(X));
+await X.fill('input[name=description]', 'Agreed reduction'); await X.fill('input[name=unit_price]', '500'); await X.click('button:text-is("Add")'); await settle(X);
+ok('a free-form line of 500 is added', await seen(X, 'Agreed reduction') && /500\.00/.test(await text(X)), await flash(X));
+await move(X, 'pending_approval'); ok('credit note submitted', /pending approval/i.test(await text(X)), await flash(X));
+({ ctx: ctxC, page: C } = await session('ceo@ada.test'));
+await C.goto(cnUrl); await move(C, 'approved'); ok('management approves the credit note', /approved/i.test(await text(C)), await flash(C)); await ctxC.close();
+await X.goto(cnUrl); await move(X, 'issued'); ok('finance issues it', /issued/i.test(await text(X)), await flash(X));
+await X.goto(invoiceUrl); ok('the invoice balance is derived net of the credit: 3,175 left (the 500 credit carries the 15% VAT)', /3,175\.00/.test(await text(X)), await text(X));
+
+await X.goto(BASE + '/expenses'); await X.fill('input[name=description]', 'Hosting for Zeta'); await X.fill('input[name=amount]', '1200');
+await X.selectOption('select[name=project]', { label: 'Zeta Website' }); await X.click('button:has-text("Record as draft")'); await X.waitForURL('**/expenses/**');
+const exUrl = X.url().split('?')[0]; ok('an expense is recorded as a draft against the project', /Expense · ADA-EXP/.test(await text(X)) && /draft/i.test(await text(X)), await text(X));
+await move(X, 'pending_approval'); ok('expense submitted', /pending approval/i.test(await text(X)), await flash(X));
+({ ctx: ctxC, page: C } = await session('ceo@ada.test'));
+await C.goto(exUrl); await move(C, 'approved'); ok('management approves the expense', /approved/i.test(await text(C)), await flash(C)); await ctxC.close();
+await X.goto(exUrl); await X.click('button:has-text("Record payment")'); await settle(X);
+ok('finance pays it: final', /paid/i.test(await text(X)) && !/Record payment/.test(await text(X)), await flash(X));
+
+await X.goto(contractUrl); await X.fill('input[name=start]', '2026-11-01'); await X.click('button:has-text("Schedule")'); await settle(X);
+ok('scheduling a line that is already fully billed is refused by the database', /fully billed/i.test(await flash(X)), await flash(X));
+await X.goto(BASE + '/billing?preview=2030-01-01'); ok('billing runs page opens and the preview says nothing would be billed', /Billing runs/.test(await text(X)) && /Nothing would be billed/.test(await text(X)), await text(X));
+await ctxX.close();
+
+({ ctx: ctxC, page: C } = await session('ceo@ada.test'));
+await C.goto(BASE + '/organization/reviews'); await settle(C); ok('the duplicates page opens for management', /Possible duplicate organizations/.test(await text(C)), await text(C));
+await C.goto(BASE + '/dashboard'); await settle(C); ok('the dashboard shows the new spend and credit figures', /Spend/.test(await text(C)) && /1,200\.00/.test(await text(C)), await text(C));
+await C.goto(BASE + '/reports?report=aging'); await settle(C); ok('aging report shows the client with the derived balance', /Zeta Test Company/.test(await text(C)) && /3,175\.00/.test(await text(C)), await text(C));
+await C.goto(BASE + '/reports?report=profitability'); await settle(C); ok('profitability report: invoiced and cost for the project', /Zeta Website/.test(await text(C)) && /1,200\.00/.test(await text(C)), await text(C));
+const csv = await C.request.get(BASE + '/reports/csv?report=aging'); const csvBody = await csv.text();
+ok('the CSV is the same figures', csv.status() === 200 && /text\/csv/.test(csv.headers()['content-type']) && /Zeta Test Company/.test(csvBody) && /3175/.test(csvBody), csvBody.slice(0, 300));
+await ctxC.close();
+let { ctx: ctxR, page: R } = await session('web_staff@ada.test');
+await R.goto(BASE + '/reports?report=aging'); await settle(R); ok('staff without finance rights get an empty report, not the figures', !/Zeta Test Company/.test(await text(R)), await text(R));
+const csv2 = await R.request.get(BASE + '/reports/csv?report=aging'); ok('and an empty CSV (header only)', !/Zeta/.test(await csv2.text()));
+await ctxR.close();
+
 // ---------- outsiders see nothing
 let { ctx: ctxW, page: W } = await session('web_staff@ada.test');
 await W.goto(BASE + '/r/ZZZZZZZZZ'); ok('unknown / hidden id: not found', /Record not found/.test(await text(W)));

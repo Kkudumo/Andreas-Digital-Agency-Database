@@ -13,10 +13,14 @@
 |---|---|---|
 | `DATABASE_URL` | backup/restore, migrations | admin/owner role; never given to a browser |
 | `PUBLIC_API_DATABASE_URL` | public API server | role `ada_public_api` only |
-| `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` | IRM (paused) | browser-safe values only |
+| `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` | IRM | browser-safe values only |
 | website API key | each website's server | stored by the website's host as a secret; only its hash is in ADA Core |
 
 The Supabase **service-role key** must never be placed in a website, in IRM's browser code, or in this repository.
 
 ## First staging check on real Supabase (not yet done)
 Apply the migrations to a fresh Supabase project, run the structure checks, create two test logins with different roles, and confirm through the REST/RPC endpoints that `anon` receives nothing, a division lead sees only their division, and `public_api` functions are unreachable to `anon`/`authenticated`. Record the result in this file.
+
+**Tools ready for that check (not yet run against a real project):**
+- `SUPABASE_ACCESS_TOKEN=... node scripts/supabase-apply.mjs <project-ref> [--dry-run]` applies every migration to a hosted project through the Management API (no database password), recording each in `supabase_migrations.schema_migrations` like the Supabase CLI does.
+- `scripts/pilot-live/run.sh` runs the Zeta engagement through the real interface against a real migrated database, with a local stand-in for Supabase Auth (see the header of that script). Against a real project, point `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` at it, link real staff with `link_staff_account()`, and walk through section F of `docs/workflows/ADA_HUB_PILOT_V0_1.md` by hand.
