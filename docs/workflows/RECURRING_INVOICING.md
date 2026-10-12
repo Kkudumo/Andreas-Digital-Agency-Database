@@ -34,4 +34,4 @@ A schedule is exactly as visible as its contract and needs `invoices.view` in it
 
 ## Not built (by design)
 
-No automatic scheduler: a run is a command someone (or a future job) calls. No price indexation or proration of part-periods. No UI yet.
+No automatic scheduler: a run is a command someone (or a future job) calls. No price indexation or proration of part-periods. UI: a Recurring billing section on the contract page and a Billing runs page.

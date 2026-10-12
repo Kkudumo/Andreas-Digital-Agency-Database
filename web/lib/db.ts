@@ -22,6 +22,8 @@ export function pathFor(domain: string, key: string, institutionalId: string): s
     case 'quotes': return `/quotes/${key}`;
     case 'contracts': return `/contracts/${key}`;
     case 'invoices': return `/invoices/${key}`;
+    case 'expenses': return `/expenses/${key}`;
+    case 'credit_notes': return `/credit-notes/${key}`;
     default: return `/e/${institutionalId}`;
   }
 }

@@ -5,7 +5,7 @@ import { call, rid, money } from '@/lib/db';
 import { createClient } from '@/lib/supabase/server';
 import { Badge, Flash, PageHead } from '@/components/ui';
 import { KV, LinkTable, Return, Section, Transitions } from '@/components/panels';
-import { allocatePaymentAction, invoiceTransitionAction } from '../../actions';
+import { allocatePaymentAction, createCreditNoteAction, invoiceTransitionAction } from '../../actions';
 import { fmtDate, fmtDateTime } from '@/lib/format';
 
 const NEXT: Record<string, string[]> = {
@@ -19,10 +19,11 @@ export default async function InvoicePage({ params, searchParams }: { params: Pr
   const { data: i } = await supabase.from('invoices').select('*, client:clients(id, name), contract:contracts(id, ada_id, title), project:projects(id, name)').eq('id', id).maybeSingle();
   if (!i) notFound();
   const here = `/invoices/${id}`;
-  const [{ data: lines }, { data: allocs }, bal, paid] = await Promise.all([
+  const [{ data: lines }, { data: allocs }, bal, paid, { data: cns }] = await Promise.all([
     supabase.from('invoice_lines').select('*').eq('invoice_id', id).eq('active', true).order('position'),
     supabase.from('payment_allocations').select('amount, status, allocated_at, payment:payments(id, ada_id, reference, received_on)').eq('invoice_id', id).eq('status', 'active'),
     call<number>('invoice_balance', { p_invoice: id }), call<number>('invoice_paid', { p_invoice: id }),
+    supabase.from('credit_notes').select('id, ada_id, status, total').eq('invoice_id', id).order('created_at'),
   ]);
   const issued = ['issued', 'partially_paid'].includes(i.status);
   const { data: open } = issued ? await supabase.from('payment_balances').select('payment_id, credit').eq('client_id', i.client_id).eq('status', 'received').gt('credit', 0) : { data: [] as any[] };
@@ -44,6 +45,17 @@ export default async function InvoicePage({ params, searchParams }: { params: Pr
       </Section>
       <Section title="Lines (values copied at billing time)" count={lines?.length}>
         <LinkTable rows={(lines ?? []) as any[]} cols={[{ head: 'Description', render: (l) => <b>{l.description}</b> }, { head: 'Qty', key: 'quantity' }, { head: 'Unit price', render: (l) => money(l.unit_price, i.currency) }, { head: 'VAT', render: (l) => money(l.tax_amount, i.currency) }, { head: 'Total', render: (l) => money(l.line_total, i.currency) }]} />
+      </Section>
+      <Section title="Credit notes" count={cns?.length}>
+        <LinkTable rows={(cns ?? []) as any[]} cols={[{ head: 'Credit note', render: (n) => <Link className="mono" href={`/credit-notes/${n.id}`}>{n.ada_id}</Link> }, { head: 'Status', render: (n) => <Badge v={n.status} /> }, { head: 'Total', render: (n) => money(n.total, i.currency) }]} />
+        {['issued', 'partially_paid', 'paid'].includes(i.status) && (
+          <form action={createCreditNoteAction} className="row" style={{ gridTemplateColumns: '1fr 2fr auto', alignItems: 'end', marginTop: '.7rem' }}>
+            <Return to={here} /><input type="hidden" name="invoice" value={id} />
+            <label>Reason<select name="reason_code">{['billing_error', 'price_adjustment', 'service_not_delivered', 'goodwill', 'duplicate', 'other'].map((r) => <option key={r} value={r}>{r.replace(/_/g, ' ')}</option>)}</select></label>
+            <label>Note (required for "other")<input name="reason_note" /></label>
+            <button type="submit">Credit this invoice</button>
+          </form>
+        )}
       </Section>
       <Section title="Payments allocated" count={allocs?.length}>
         <LinkTable rows={((allocs ?? []) as any[]).map((a, k) => ({ ...a, id: k }))} cols={[{ head: 'Payment', render: (a) => <Link className="mono" href={rid(a.payment?.ada_id)}>{a.payment?.ada_id}</Link> }, { head: 'Reference', render: (a) => a.payment?.reference ?? '—' }, { head: 'Received', render: (a) => fmtDate(a.payment?.received_on) }, { head: 'Allocated', render: (a) => money(a.amount, i.currency) }]} />

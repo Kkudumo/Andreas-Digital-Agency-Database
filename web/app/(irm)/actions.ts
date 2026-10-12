@@ -168,3 +168,68 @@ export async function createAssetAction(fd: FormData) {
 export async function assignAssetAction(fd: FormData) {
   done(await run(fd, 'asset_assign', { p_asset: str(fd.get('asset')), p_project: str(fd.get('project')), p_note: str(fd.get('note')) }, 'Asset assigned to the project.'));
 }
+
+// --- expenses ----------------------------------------------------------------------------------------------------------------------------
+export async function createExpenseAction(fd: FormData) {
+  const { data, error } = await call('expense_create', {
+    p_division: str(fd.get('division')), p_category: str(fd.get('category')), p_description: str(fd.get('description')), p_amount_net: num(fd.get('amount')),
+    p_tax: num(fd.get('tax')) ?? 0, p_expense_date: str(fd.get('expense_date')), p_supplier: str(fd.get('supplier')),
+    p_supplier_reference: str(fd.get('supplier_reference')), p_project: str(fd.get('project')),
+  });
+  if (error || !data) back(where(fd), 'error', friendly(error));
+  redirect(`/expenses/${data}?ok=${encodeURIComponent('Expense recorded as a draft.')}`);
+}
+export async function expenseTransitionAction(fd: FormData) {
+  done(await run(fd, 'expense_transition', { p_expense: str(fd.get('expense')), p_to: str(fd.get('to')), p_note: str(fd.get('note')) }, 'Expense status changed.'));
+}
+export async function payExpenseAction(fd: FormData) {
+  done(await run(fd, 'expense_pay', { p_expense: str(fd.get('expense')), p_account: str(fd.get('account')), p_paid_on: str(fd.get('paid_on')), p_reference: str(fd.get('reference')) }, 'Payment recorded; the expense is final.'));
+}
+export async function voidExpenseAction(fd: FormData) {
+  done(await run(fd, 'expense_void', { p_expense: str(fd.get('expense')), p_reason: str(fd.get('reason')) }, 'Expense voided.'));
+}
+
+// --- credit notes ------------------------------------------------------------------------------------------------------------------------
+export async function createCreditNoteAction(fd: FormData) {
+  const { data, error } = await call('credit_note_create', { p_invoice: str(fd.get('invoice')), p_reason_code: str(fd.get('reason_code')), p_reason_note: str(fd.get('reason_note')) });
+  if (error || !data) back(where(fd), 'error', friendly(error));
+  redirect(`/credit-notes/${data}?ok=${encodeURIComponent('Credit note drafted. Add the lines being credited.')}`);
+}
+export async function creditNoteLineAction(fd: FormData) {
+  done(await run(fd, 'credit_note_add_line', { p_credit_note: str(fd.get('credit_note')), p_invoice_line: str(fd.get('invoice_line')), p_quantity: num(fd.get('quantity')) }, 'Line added (blank quantity credits the whole remaining line).'));
+}
+export async function creditNoteCustomLineAction(fd: FormData) {
+  done(await run(fd, 'credit_note_add_custom_line', { p_credit_note: str(fd.get('credit_note')), p_description: str(fd.get('description')), p_quantity: num(fd.get('quantity')) ?? 1, p_unit_price: num(fd.get('unit_price')) }, 'Free-form line added.'));
+}
+export async function creditNoteRemoveLineAction(fd: FormData) {
+  done(await run(fd, 'credit_note_remove_line', { p_line: str(fd.get('line')) }, 'Line removed.'));
+}
+export async function creditNoteTransitionAction(fd: FormData) {
+  done(await run(fd, 'credit_note_transition', { p_id: str(fd.get('credit_note')), p_to: str(fd.get('to')), p_note: str(fd.get('note')) }, 'Credit note status changed.'));
+}
+export async function creditNoteAllocateAction(fd: FormData) {
+  done(await run(fd, 'credit_note_allocate', { p_credit_note: str(fd.get('credit_note')), p_invoice: str(fd.get('invoice')), p_amount: num(fd.get('amount')) }, 'Credit applied.'));
+}
+export async function creditNoteUnallocateAction(fd: FormData) {
+  done(await run(fd, 'credit_note_unallocate', { p_allocation: str(fd.get('allocation')), p_reason: str(fd.get('reason')) }, 'Application released.'));
+}
+
+// --- recurring invoicing -----------------------------------------------------------------------------------------------------------------
+export async function createScheduleAction(fd: FormData) {
+  done(await run(fd, 'billing_schedule_create', {
+    p_contract: str(fd.get('contract')), p_line: str(fd.get('line')), p_interval_months: num(fd.get('interval')), p_first_period_start: str(fd.get('start')),
+    p_quantity: num(fd.get('quantity')) ?? 1, p_end_on: str(fd.get('end_on')),
+  }, 'Billing schedule created. Nothing is billed until a run.'));
+}
+export async function scheduleStatusAction(fd: FormData) {
+  done(await run(fd, 'billing_schedule_set_status', { p_schedule: str(fd.get('schedule')), p_status: str(fd.get('to')), p_reason: str(fd.get('note')), p_skip_missed: fd.get('skip') === 'on' }, 'Billing schedule updated.'));
+}
+export async function runBillingAction(fd: FormData) {
+  const { data, error } = await call<any[]>('billing_schedule_run', { p_as_of: str(fd.get('as_of')) ?? new Date().toISOString().slice(0, 10), p_create_invoices: fd.get('invoices') === 'on' });
+  if (error) back(where(fd), 'error', friendly(error));
+  const out = data ?? [];
+  const periods = out.reduce((n, o) => n + (o.periods_billed ?? 0), 0);
+  const problems = out.filter((o) => ['failed', 'paused'].includes(o.outcome)).map((o) => o.message).filter(Boolean);
+  revalidatePath(where(fd));
+  back(where(fd), problems.length ? 'error' : 'ok', `${out.length} schedule(s) processed, ${periods} period(s) billed.${problems.length ? ' Needs attention: ' + problems.join('; ') : ''}`);
+}

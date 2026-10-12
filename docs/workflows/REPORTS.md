@@ -12,4 +12,4 @@ Five read-only report functions. Each is **`SECURITY INVOKER`**: it runs with th
 | `report_project_profitability()` | per project and currency: invoiced (net of tax), credited, cost, margin | Revenue is attributed by invoice line: the invoice's own project, otherwise the project of the line's billable item. Invoices billed through a contract that carries no project are not split across projects. Credit notes are attributed the same way; cost = approved + paid expenses (`project_costs`). |
 | `report_pipeline(from, to)` | per stage (`lead`/`quote`), status, division, currency: count, value | Leads and quotes **created** in the period. Conversion rates are for the reader to derive. |
 
-CSV export and a reports page are a UI concern (not built); the functions return plain tabular rows so any export is a straight serialisation.
+The Reports page (`/reports`) shows each report and `/reports/csv` downloads the same call as CSV, under the caller's own session (formula-looking cells are neutralised).
