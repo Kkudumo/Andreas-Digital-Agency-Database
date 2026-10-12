@@ -6,6 +6,7 @@ export default async function IrmLayout({ children }: { children: React.ReactNod
   const access = await requireAccess();
   // The menu only reflects what the database will allow; it is not what enforces it.
   const items = [
+    { href: '/search', label: 'Search ADA Hub', show: true, group: '' },
     { href: '/dashboard', label: 'Dashboard', show: true, group: '' },
     { href: '/organization', label: 'Organization', show: true, group: 'Organization' },
     { href: '/staff', label: 'Staff', show: true, group: 'Organization' },
@@ -27,7 +28,12 @@ export default async function IrmLayout({ children }: { children: React.ReactNod
           <form action={signOut}><button type="submit">Sign out</button></form>
         </div>
       </aside>
-      <main className="main">{children}</main>
+      <main className="main">
+        <form action="/search" method="get" role="search" style={{ marginBottom: '1.2rem' }}>
+          <input name="q" placeholder="Search ADA Hub — a name, an ID, type:client Zeta, related:<id>" aria-label="Search ADA Hub" />
+        </form>
+        {children}
+      </main>
     </div>
   );
 }

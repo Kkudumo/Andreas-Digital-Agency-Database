@@ -18,5 +18,6 @@ supabase/seed_data/    permission_matrix.csv — the reviewed permission matrix 
 supabase/tests/        authorization, integrity, public-exposure and scenario tests (+ Supabase stand-in for local runs)
 scripts/               test runner, backup/restore, migration rehearsal, doc generators
 docs/                  architecture, security, API, workflows, operations
-web/                   ADA IRM scaffold — PAUSED until the backend modules are finished
+web/                   ADA IRM — the pilot interface (search, Client / Project 360, quote → contract → invoice → payment)
+scripts/pilot-live/    runs the Zeta engagement through that interface against a real migrated database
 ```

@@ -14,7 +14,7 @@
 ```
  Public websites ──► Public API (own route handlers, to be built) ──► role ada_public_api ──► public_api.* functions ┐
                                                                                                                       ├─► PostgreSQL
- ADA IRM (paused) ─► signed-in user's own session ─────────────────► tables, RLS, workflow functions ────────────────┘
+ ADA IRM (pilot interface) ─► signed-in user's own session ─────────────────► tables, RLS, workflow functions ────────────────┘
 ```
 
 A modular monolith. All business rules live in the database (constraints, triggers, SECURITY DEFINER workflow
@@ -53,7 +53,7 @@ Documents: [Module checklist](MODULE_CHECKLIST.md) · [Institutional skeleton](a
 [Permission matrix](architecture/PERMISSION_MATRIX.md) · [Security](SECURITY.md) · [Public API](api/PUBLIC_API.md) ·
 [Recruitment workflow](workflows/RECRUITMENT.md) · [Services, pricing & quotes](workflows/QUOTES_PRICING.md) · [Leads & enquiries](workflows/LEADS_ENQUIRIES.md) · [Contracts](workflows/CONTRACTS.md) · [Invoices & payments](workflows/INVOICES_PAYMENTS.md) · [Assets](workflows/ASSETS.md) · [Tickets](workflows/TICKETS.md) · [Documents](workflows/DOCUMENTS.md) · [Organizations](workflows/ORGANIZATIONS.md) · [Publication layer (design)](architecture/PUBLICATION_LAYER.md) · [Approvals](workflows/APPROVALS.md) · [Development](operations/DEVELOPMENT.md) ·
 [Backup, restore & migration](operations/BACKUP_RESTORE_MIGRATION.md) · [Deployment](operations/DEPLOYMENT.md) ·
-[Original audit/gap report](architecture/ARCHITECTURE_REPORT.md)
+[ADA Hub Pilot V0.1](workflows/ADA_HUB_PILOT_V0_1.md) · [Original audit/gap report](architecture/ARCHITECTURE_REPORT.md)
 
 ## Decisions (recorded)
 
