@@ -270,3 +270,18 @@ button,a,input,select,textarea { -webkit-tap-highlight-color:transparent }
  .hub-quick-links {grid-template-columns:1fr}
  .hub-quick-links a {min-height:60px}
 }
+
+/* Keyboard and small-screen navigation refinements */
+.hub-skip-link {position:fixed;top:-100px;left:16px;z-index:100;padding:12px 16px;background:#fff;color:#153f77;border:2px solid #3d8bef;border-radius:10px;font-weight:700}
+.hub-skip-link:focus {top:12px}
+.hub-sidebar .nav a {overflow-wrap:anywhere}
+.hub-sidebar .hub-close {min-width:42px;min-height:42px}
+.hub-main-inner img,.hub-main-inner iframe {max-width:100%}
+.hub-main-inner pre {max-width:100%;overflow-x:auto}
+@media(max-width:820px) {
+ .hub-sidebar {overflow-x:hidden}
+ .hub-sidebar.is-open .nav a {min-height:46px}
+ .hub-search-link {min-width:44px;min-height:44px;justify-content:center}
+ .hub-menu {width:44px;height:44px}
+ .hub-main-inner .scroll {max-width:100%;overflow-x:auto}
+}
