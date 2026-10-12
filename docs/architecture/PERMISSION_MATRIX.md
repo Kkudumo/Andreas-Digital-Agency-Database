@@ -150,3 +150,9 @@ A role assignment is organization-wide or scoped to one division. **Division Lea
 | `communications.view_critical` — Open critical communications without an explicit grant | confidential | x |  |  |  |  |  |  |
 | `communications.legal_hold` — Place and release legal holds on communications | confidential | x |  |  |  |  |  |  |
 | `communications.configure` — Manage communication types | restricted | x | x |  |  |  |  |  |
+| `expenses.view` — View expenses (own division) | confidential | x | x | x | x |  | x |  |
+| `expenses.create` — Record expenses | confidential | x | x | x | x |  |  |  |
+| `expenses.update` — Edit draft expenses and submit them for approval | confidential | x | x | x | x |  |  |  |
+| `expenses.approve` — Approve or reject submitted expenses | confidential | x |  | x |  |  |  |  |
+| `expenses.pay` — Record that an approved expense was paid | confidential | x |  | x |  |  |  |  |
+| `expenses.void` — Cancel an approved expense that has not been paid | confidential | x |  |  |  |  |  |  |

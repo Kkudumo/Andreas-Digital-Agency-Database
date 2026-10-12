@@ -24,6 +24,7 @@
 | Billable work | `billable_items` | references contract line / project service / (manual, with reason); snapshot of the agreed price |
 | An invoice | `invoices` (`ADA-INV-…`) + `invoice_lines` | references client, billing contact, contract, project, division; line snapshots; the only identity copies are the documented issue-time `*_snapshot` columns |
 | A payment | `payments` (`ADA-PAY-…`), `payment_allocations`, `payment_reversals` | references client and bank account; balances and credit are derived, never stored |
+| An expense | `expenses` (`ADA-EXP-…`), `expense_events`, `expense_categories` | references supplier, project, division, category and bank account; client derived from the project; project cost and payables are derived views, never stored |
 | Public view of a finished project | `portfolio_entries` (`ADA-PFO-…`) | a consent-gated projection, not a copy of the project |
 | Public view of a person on staff | `staff_profiles` (`ADA-PRF-…`) | an approved projection, not the staff record |
 | An opening / an applicant's application | `vacancies` / `applications` | position ≠ vacancy; person reused |

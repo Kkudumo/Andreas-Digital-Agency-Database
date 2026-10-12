@@ -506,3 +506,10 @@ all five are SECURITY INVOKER (they run with the caller's rights)
 for every kind of user the dashboard totals equal that user's own counts
 the dashboards of everyone who cannot see it are byte-for-byte unchanged
 receivables are derived: outstanding
+
+# Expenses
+nobody approves their own expense while another qualified approver exists
+a paid expense records date, account and reference, and is final
+project cost is derived: paid 1,825 + approved 4,000 = cost 5,825
+an expense of a confidential client's project inherits the classification
+asking about it (submit, pay) is indistinguishable from asking about an id that never existed

@@ -1291,6 +1291,67 @@ _(no description)_
 | `payload` | jsonb | yes | '{}'::jsonb |  |
 | `actor_staff_id` | uuid | no |  |  |
 
+## `expense_categories`
+
+**Purpose:** the reviewed list of expense categories used to group costs in reports. Changed only through expense_category_set (finance.configure). [class: internal]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | uuid | yes | gen_random_uuid() |  |
+| `key` | text | yes |  |  |
+| `name` | text | yes |  |  |
+| `is_active` | boolean | yes | true |  |
+| `sort_order` | integer | yes | 100 |  |
+
+## `expense_events`
+
+**Purpose:** the append-only story of an expense: who did what, when, with what note. Visible exactly where the expense is. [class: confidential]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | bigint | yes |  |  |
+| `expense_id` | uuid | yes |  | `expenses` |
+| `kind` | text | yes |  |  |
+| `from_status` | expense_status | no |  |  |
+| `to_status` | expense_status | no |  |  |
+| `note` | text | no |  |  |
+| `actor_id` | uuid | no |  | `staff` |
+| `at` | timestamp with time zone | yes | now() |  |
+
+## `expenses`
+
+**Purpose:** one cost ADA incurred: supplier, project, division and category by reference; net amount, tax and the derived total; a controlled lifecycle (draft -> pending_approval -> approved -> paid). The client is derived from the project; classification is inherited from the project / client. Nothing derived (project cost, payables) is stored here. Written only by the expense_* functions. [class: confidential]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | uuid | yes | gen_random_uuid() |  |
+| `ada_id` | text | yes |  |  |
+| `division_id` | uuid | yes |  | `divisions` |
+| `supplier_id` | uuid | no |  | `suppliers` |
+| `project_id` | uuid | no |  | `projects` |
+| `client_id` | uuid | no |  | `clients` |
+| `category_id` | uuid | yes |  | `expense_categories` |
+| `description` | text | yes |  |  |
+| `supplier_reference` | text | no |  |  |
+| `expense_date` | date | yes | CURRENT_DATE |  |
+| `currency` | character(3) | yes |  |  |
+| `amount_net` | numeric(14,2) | yes |  |  |
+| `tax_amount` | numeric(14,2) | yes | 0 |  |
+| `total` | numeric(14,2) | no | (amount_net + tax_amount) |  |
+| `status` | expense_status | yes | 'draft'::expense_status |  |
+| `requested_by` | uuid | no |  | `staff` |
+| `approved_by` | uuid | no |  | `staff` |
+| `approved_at` | timestamp with time zone | no |  |  |
+| `paid_on` | date | no |  |  |
+| `paid_from_account_id` | uuid | no |  | `bank_accounts` |
+| `payment_reference` | text | no |  |  |
+| `status_reason` | text | no |  |  |
+| `effective_classification` | data_classification | yes | 'internal'::data_classification |  |
+| `client_deleted` | boolean | yes | false |  |
+| `created_by` | uuid | no |  | `staff` |
+| `created_at` | timestamp with time zone | yes | now() |  |
+| `updated_at` | timestamp with time zone | yes | now() |  |
+
 ## `finance_settings`
 
 **Purpose:** the single row of organisation-wide finance settings. Invoices COPY the VAT rate and terms they were issued under (snapshot), so changing this never alters an issued invoice. [class: confidential]
