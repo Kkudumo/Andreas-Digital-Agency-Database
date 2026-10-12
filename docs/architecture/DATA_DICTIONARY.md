@@ -793,6 +793,81 @@ Row-level security is enabled on every table; the policies are in the migrations
 | `created_at` | timestamp with time zone | yes | now() |  |
 | `updated_at` | timestamp with time zone | yes | now() |  |
 
+## `credit_note_allocations`
+
+**Purpose:** how much of which issued credit note settles which invoice. Never beyond the credit left on the note or the amount still owed on the invoice (enforced under row locks). Released, not deleted. [class: confidential]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | uuid | yes | gen_random_uuid() |  |
+| `credit_note_id` | uuid | yes |  | `credit_notes` |
+| `invoice_id` | uuid | yes |  | `invoices` |
+| `amount` | numeric(14,2) | yes |  |  |
+| `status` | text | yes | 'active'::text |  |
+| `allocated_by` | uuid | no |  | `staff` |
+| `allocated_at` | timestamp with time zone | yes | now() |  |
+| `released_by` | uuid | no |  | `staff` |
+| `released_at` | timestamp with time zone | no |  |  |
+| `release_reason` | text | no |  |  |
+
+## `credit_note_lines`
+
+**Purpose:** the credit note's line snapshots (quantity, price, discount, tax rate). Taken from an invoice line (so a price change elsewhere never moves them) or free-form. Locked once the credit note leaves draft. [class: confidential]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | uuid | yes | gen_random_uuid() |  |
+| `credit_note_id` | uuid | yes |  | `credit_notes` |
+| `invoice_line_id` | uuid | no |  | `invoice_lines` |
+| `position` | integer | yes | 100 |  |
+| `description` | text | yes |  |  |
+| `quantity` | numeric(12,2) | yes |  |  |
+| `unit_price` | numeric(14,2) | yes |  |  |
+| `discount_amount` | numeric(14,2) | yes | 0 |  |
+| `tax_rate` | numeric(5,2) | yes | 0 |  |
+| `net_amount` | numeric(14,2) | no | round(((quantity * unit_price) - discount_amount), 2) |  |
+| `tax_amount` | numeric(14,2) | no | round(((round(((quantity * unit_price) - discount_amount), 2) * tax_rate) / (100)::numeric), 2) |  |
+| `line_total` | numeric(14,2) | no | (round(((quantity * unit_price) - discount_amount), 2) + round(((round(((quantity * unit_price) - discount_amount), 2) * tax_rate) / (100)::numeric), 2)) |  |
+| `created_at` | timestamp with time zone | yes | now() |  |
+
+## `credit_notes`
+
+**Purpose:** one credit note against one issued invoice. Client, division and currency come from the invoice; lines are snapshots; totals derive from the lines while draft; an issued credit note is a legal record (identity snapshot taken once at issue). What is applied / left unapplied is derived from credit_note_allocations. Written only by the credit_note_* functions. [class: confidential]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | uuid | yes | gen_random_uuid() |  |
+| `ada_id` | text | yes |  |  |
+| `invoice_id` | uuid | yes |  | `invoices` |
+| `client_id` | uuid | yes |  | `clients` |
+| `division_id` | uuid | yes |  | `divisions` |
+| `currency` | character(3) | yes |  |  |
+| `reason_code` | text | yes |  |  |
+| `reason_note` | text | no |  |  |
+| `status` | credit_note_status | yes | 'draft'::credit_note_status |  |
+| `subtotal` | numeric(14,2) | yes | 0 |  |
+| `discount_total` | numeric(14,2) | yes | 0 |  |
+| `tax_total` | numeric(14,2) | yes | 0 |  |
+| `total` | numeric(14,2) | yes | 0 |  |
+| `requested_by` | uuid | no |  | `staff` |
+| `approved_by` | uuid | no |  | `staff` |
+| `approved_at` | timestamp with time zone | no |  |  |
+| `issued_by` | uuid | no |  | `staff` |
+| `issued_at` | timestamp with time zone | no |  |  |
+| `issue_date` | date | no |  |  |
+| `cancelled_at` | timestamp with time zone | no |  |  |
+| `status_reason` | text | no |  |  |
+| `client_name_snapshot` | text | no |  |  |
+| `client_address_snapshot` | text | no |  |  |
+| `client_registration_snapshot` | text | no |  |  |
+| `seller_legal_name_snapshot` | text | no |  |  |
+| `seller_vat_number_snapshot` | text | no |  |  |
+| `effective_classification` | data_classification | yes | 'internal'::data_classification |  |
+| `client_deleted` | boolean | yes | false |  |
+| `created_by` | uuid | no |  | `staff` |
+| `created_at` | timestamp with time zone | yes | now() |  |
+| `updated_at` | timestamp with time zone | yes | now() |  |
+
 ## `divisions`
 
 **Purpose:** ADA divisions and departments; the unit of permission scope. New divisions are rows, not schema changes. [class: internal]

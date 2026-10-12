@@ -513,3 +513,12 @@ a paid expense records date, account and reference, and is final
 project cost is derived: paid 1,825 + approved 4,000 = cost 5,825
 an expense of a confidential client's project inherits the classification
 asking about it (submit, pay) is indistinguishable from asking about an id that never existed
+
+# Credit notes
+the same invoice line cannot be credited twice beyond its quantity
+a credit note over the invoice total is refused at submission
+an issued credit note is a legal record: lines locked
+credit on an invoice that is already fully paid is not applied to it
+a payment can no longer be allocated beyond what is still owed after credit
+credit is never applied to another client's invoice
+restricting the client hides its credit note
