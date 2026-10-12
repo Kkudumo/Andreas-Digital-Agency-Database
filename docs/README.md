@@ -42,13 +42,15 @@ functions), so no client — IRM, a website, or a person with API access — can
 | Assets | `assets`, `asset_assignments`, `asset_history`, `asset_retirements`, `asset_maintenance`, `asset_warranties`, `asset_documents` (interim), `asset_finance_links`, `asset_duplicate_flags`, `suppliers` | built, tested |
 | Tickets | `tickets`, `ticket_categories`, `ticket_sla_policies`, `ticket_comments`, `ticket_events`, `ticket_sla_status` | built, tested |
 | Organizations | `organizations`, `partners`, `organization_reviews`, `organization_distinct_pairs` (+ clients / suppliers as roles) | built, tested |
-| Expenses, credit notes | — | not started |
+| Expenses | `expenses`, `expense_categories`, `expense_events`, `project_costs`, `expense_payables` | built, tested ([Expenses](workflows/EXPENSES.md)) |
+| Credit notes | `credit_notes`, `credit_note_lines`, `credit_note_allocations`, `credit_note_balances` | built, tested ([Credit notes](workflows/CREDIT_NOTES.md)) |
+| Recurring invoicing | `billing_schedules`, `billing_schedule_runs`, `billing_schedule_progress` | built, tested ([Recurring invoicing](workflows/RECURRING_INVOICING.md)) |
 | Documents | `documents`, `document_versions`, `document_links`, `document_access`, `document_holds`, `document_comments`, `document_events`, `document_integrity_checks`, `document_disposals`, `document_publications`, `document_types`, `retention_classes`, `document_retention_status` | built, tested |
 | Domains | `domains`, `domain_relations`, `domain_registrations`, `domain_transfers`, `domain_events`, `domain_reviews`, `domain_expiry_status`, `website_hostname_domains` | built, tested |
 | Communications | `communication_threads`, `communication_messages`, `communication_participants`, `communication_links`, `communication_attachments`, `communication_access`, `communication_holds`, `communication_comments`, `communication_disposals`, `communication_events`, `communication_types`, `communication_retention_status` | built, tested (records only: no sending or synchronisation) |
 | Search | `search_index` (derived), `search_sources`, `search_refresh_queue`; `search`, `search_execute`, `search_suggest`, `search_parse` | built, tested (staff only; derived, rebuildable, authorization-first) |
 | Dashboard | `dashboard_summary()` (derived, read-only, invoker) | built, tested ([Dashboard](workflows/DASHBOARD.md)) |
-| Reports | — | not started |
+| Reports | `report_receivables_aging`, `report_revenue`, `report_expenses`, `report_project_profitability`, `report_pipeline` (derived, read-only, invoker) | built, tested ([Reports](workflows/REPORTS.md)); no reports page yet |
 
 Documents: [Module checklist](MODULE_CHECKLIST.md) · [Institutional skeleton](architecture/INSTITUTIONAL_SKELETON.md) · [Entity graph](architecture/ENTITY_GRAPH.md) · [Data dictionary](architecture/DATA_DICTIONARY.md) · [ERD](architecture/ERD.md) ·
 [Permission matrix](architecture/PERMISSION_MATRIX.md) · [Security](SECURITY.md) · [Public API](api/PUBLIC_API.md) ·
@@ -91,11 +93,11 @@ allocations. Rules were validated with mutation tests (deliberately breaking a r
 
 ## Known limitations
 
-- Client **merge** is not built: a review marked "same entity" is recorded, but combining two client records (re-pointing all references) is a future, carefully-tested operation.
+- Client **merge** is a database operation (`organization_merge`, with a tombstone so every old ID stays valid); there is no merge screen yet.
 - Timing side channels are not equalised; the similarity threshold for "possible duplicate" (0.55) is a constant in `client_candidates`.
 - The approval gate covers prices, quotes, contracts, invoices, reversals/refunds and discounts; other kinds (vacancies, profiles, expenses, hiring) adopt it as their modules need thresholds.
 - Enquiries carry no registration number, so an exact normalised-name match to an existing client is treated as the same organization (a person who is a contact elsewhere is only ever a candidate).
-- Expenses, credit notes and recurring invoicing are not built; communications are a records layer only (nothing is sent, received or synchronised); tickets have no e-mail/web intake, customer portal, business-hours SLA calendars or linked tickets; `asset_documents` is an interim link kept for compatibility (the Documents module supersedes it; `asset_360` shows both). The 360° views list them under `pending`. `project_financials.revenue_to_date` was removed (revenue is derived from invoices/payments); `cost_to_date` stays an interim planning field until expenses exist.
+- Expenses, credit notes, recurring invoicing and reports have no screens yet (database and tests only); a billing run is a command, there is no automatic scheduler; communications are a records layer only (nothing is sent, received or synchronised); tickets have no e-mail/web intake, customer portal, business-hours SLA calendars or linked tickets; `asset_documents` is an interim link kept for compatibility (the Documents module supersedes it; `asset_360` shows both). The 360° views list them under `pending`. `project_financials.revenue_to_date` was removed (revenue is derived from invoices/payments); `cost_to_date` stays an interim planning field until expenses exist.
 - Historical `audit_log` rows keep the old `ADA-CON-…` text for contacts renamed to `ADA-CTC-…` in migration 0026 (the audit log is immutable); the registry and tables were rewritten.
 - Contracts keep a `document_ref` text until the documents module links real files; contract renewals are created explicitly, never automatically.
 

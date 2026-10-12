@@ -385,6 +385,41 @@ Row-level security is enabled on every table; the policies are in the migrations
 | `created_at` | timestamp with time zone | yes | now() |  |
 | `updated_at` | timestamp with time zone | yes | now() |  |
 
+## `billing_schedule_runs`
+
+**Purpose:** the append-only log of billed periods; the unique (schedule, period start) is what makes a period impossible to bill twice. Never updated or deleted. [class: confidential]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | uuid | yes | gen_random_uuid() |  |
+| `schedule_id` | uuid | yes |  | `billing_schedules` |
+| `period_start` | date | yes |  |  |
+| `billable_item_id` | uuid | yes |  | `billable_items` |
+| `invoice_id` | uuid | no |  | `invoices` |
+| `quantity` | numeric(12,2) | yes |  |  |
+| `run_by` | uuid | no |  | `staff` |
+| `run_at` | timestamp with time zone | yes | now() |  |
+
+## `billing_schedules`
+
+**Purpose:** recurring billing of one contract line (quantity per period, every 1/3/6/12 months, billed in advance on the period start). Written only by the billing_schedule_* functions; every period goes through billable_from_contract so the contract caps apply. Progress is derived (billing_schedule_progress). [class: confidential]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | uuid | yes | gen_random_uuid() |  |
+| `contract_id` | uuid | yes |  | `contracts` |
+| `origin_line_id` | uuid | yes |  | `contract_lines` |
+| `interval_months` | integer | yes |  |  |
+| `quantity_per_period` | numeric(12,2) | yes | 1 |  |
+| `first_period_start` | date | yes |  |  |
+| `next_bill_on` | date | yes |  |  |
+| `end_on` | date | no |  |  |
+| `status` | billing_schedule_status | yes | 'active'::billing_schedule_status |  |
+| `status_reason` | text | no |  |  |
+| `created_by` | uuid | no |  | `staff` |
+| `created_at` | timestamp with time zone | yes | now() |  |
+| `updated_at` | timestamp with time zone | yes | now() |  |
+
 ## `client_contacts`
 
 **Purpose:** a person's role at a client (one row per client+person). Projects reference this row, so the same contact serves every project. Identity (name, email, phone) lives in people. [class: internal]

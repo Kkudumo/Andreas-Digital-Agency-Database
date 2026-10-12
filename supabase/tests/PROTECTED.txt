@@ -522,3 +522,18 @@ credit on an invoice that is already fully paid is not applied to it
 a payment can no longer be allocated beyond what is still owed after credit
 credit is never applied to another client's invoice
 restricting the client hides its credit note
+
+# Recurring invoicing
+a run bills the period that came due once
+running again for the same date bills nothing more (no period is billed twice)
+the run log refuses a second row for the same period
+ordinary billing shares the cap
+when the contract no longer allows billing, a run parks the schedule
+a restricted client's schedules and runs vanish for everyone without access
+
+# Reports
+aging buckets the open balance by how late it is, net of payments AND credit notes
+project profitability: revenue is net of issued credit notes
+expenses by month and category count approved and paid bills only
+a restricted client's figures leave every report for everyone without access
+reports run as the caller (SECURITY INVOKER)

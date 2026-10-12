@@ -24,4 +24,4 @@ draft → internal_review → approved → sent → signed → active → expire
 `contracts.view` in the contract's division **and** the client's classification (inherited into `effective_classification`, plus `client_deleted`). A restricted client's contracts are indistinguishable from non-existent ones — errors, counts, helper functions and notifications included (`92_finance_restricted_clients.sql`, permanent). Approval requests carry the classification too, so the queue cannot reveal a restricted record.
 
 ## Not built
-Document storage (a `document_ref` is held until the documents module), e-signature, automatic renewal creation, recurring billing schedules.
+Document storage (a `document_ref` is held until the documents module), e-signature, automatic renewal creation. (Recurring billing schedules: see [RECURRING_INVOICING.md](RECURRING_INVOICING.md).)
