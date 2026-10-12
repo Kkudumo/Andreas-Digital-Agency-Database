@@ -25,8 +25,17 @@ export async function middleware(request: NextRequest) {
   if (!data.user && path !== '/login') {
     return NextResponse.redirect(new URL('/login', request.url));
   }
-  if (data.user && (path === '/login' || path === '/')) {
-    return NextResponse.redirect(new URL('/search', request.url));
+  if (data.user) {
+    // Second factor required: until the session is aal2, the only places a signed-in user may go are the
+    // authenticator step and sign-out (the login page's sign-out action posts to /login).
+    const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+    const twoStep = aal?.currentLevel === 'aal2';
+    if (!twoStep && path !== '/mfa' && path !== '/login') {
+      return NextResponse.redirect(new URL('/mfa', request.url));
+    }
+    if (twoStep && (path === '/login' || path === '/' || path === '/mfa')) {
+      return NextResponse.redirect(new URL('/search', request.url));
+    }
   }
   return response;
 }

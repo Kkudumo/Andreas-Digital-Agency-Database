@@ -8,8 +8,9 @@ const b64 = (x) => Buffer.from(x).toString('base64url');
 const sign = (p) => { const h = b64(JSON.stringify({ alg: 'HS256', typ: 'JWT' })), b = b64(JSON.stringify(p)); return `${h}.${b}.${crypto.createHmac('sha256', SECRET).update(`${h}.${b}`).digest('base64url')}`; };
 const userByEmail = (e) => { const r = execFileSync('psql', ['-X', '-At', '-F', '|', DB, '-c', `select id, email from auth.users where email = '${e.replace(/'/g, '')}'`], { encoding: 'utf8' }).trim(); if (!r) return null; const [id, email] = r.split('|'); return { id, email }; };
 const userById = (i) => { const r = execFileSync('psql', ['-X', '-At', '-F', '|', DB, '-c', `select id, email from auth.users where id = '${i.replace(/[^0-9a-f-]/g, '')}'`], { encoding: 'utf8' }).trim(); if (!r) return null; const [id, email] = r.split('|'); return { id, email }; };
-const userJson = (u) => ({ id: u.id, aud: 'authenticated', role: 'authenticated', email: u.email, app_metadata: {}, user_metadata: {}, created_at: new Date().toISOString() });
-const session = (u) => { const exp = Math.floor(Date.now() / 1000) + 3600; return { access_token: sign({ sub: u.id, role: 'authenticated', aud: 'authenticated', exp }), token_type: 'bearer', expires_in: 3600, expires_at: exp, refresh_token: 'r-' + u.id, user: userJson(u) }; };
+// The stand-in models a user who has already passed the authenticator step (ADA Hub requires aal2): a verified TOTP factor and an aal2 token.
+const userJson = (u) => ({ id: u.id, aud: 'authenticated', role: 'authenticated', email: u.email, app_metadata: {}, user_metadata: {}, factors: [{ id: 'f-' + u.id, factor_type: 'totp', status: 'verified', friendly_name: 'stand-in', created_at: new Date().toISOString(), updated_at: new Date().toISOString() }], created_at: new Date().toISOString() });
+const session = (u) => { const exp = Math.floor(Date.now() / 1000) + 3600; return { access_token: sign({ sub: u.id, role: 'authenticated', aud: 'authenticated', aal: 'aal2', amr: [{ method: 'totp', timestamp: Math.floor(Date.now() / 1000) }], exp }), token_type: 'bearer', expires_in: 3600, expires_at: exp, refresh_token: 'r-' + u.id, user: userJson(u) }; };
 const body = (req) => new Promise((ok) => { let d = ''; req.on('data', (c) => (d += c)); req.on('end', () => ok(d)); });
 
 http.createServer(async (req, res) => {
