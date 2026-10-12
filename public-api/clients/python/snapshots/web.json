@@ -1,0 +1,85 @@
+{
+ "division": "web",
+ "source": "supabase/seed_data/catalogue.csv",
+ "services": [
+  {
+   "name": "ADA Partner",
+   "category": "Care plans",
+   "pricing_model": "quote_based",
+   "billing_unit": "month"
+  },
+  {
+   "name": "Booking and web systems",
+   "category": "Websites",
+   "pricing_model": "quote_based",
+   "billing_unit": "project"
+  },
+  {
+   "name": "Business website",
+   "category": "Websites",
+   "pricing_model": "fixed",
+   "billing_unit": "project",
+   "price": {
+    "amount": 2629.99,
+    "currency": "NAD",
+    "starting_price": true
+   }
+  },
+  {
+   "name": "Care Essential",
+   "category": "Care plans",
+   "pricing_model": "monthly",
+   "billing_unit": "month",
+   "price": {
+    "amount": 349.99,
+    "currency": "NAD",
+    "starting_price": true
+   }
+  },
+  {
+   "name": "Care Growth",
+   "category": "Care plans",
+   "pricing_model": "quote_based",
+   "billing_unit": "month"
+  },
+  {
+   "name": "Growth website or online store",
+   "category": "Websites",
+   "pricing_model": "fixed",
+   "billing_unit": "project",
+   "price": {
+    "amount": 4669.99,
+    "currency": "NAD",
+    "starting_price": true
+   }
+  },
+  {
+   "name": "One-page website",
+   "category": "Websites",
+   "pricing_model": "fixed",
+   "billing_unit": "project",
+   "price": {
+    "amount": 1199.99,
+    "currency": "NAD",
+    "starting_price": true
+   }
+  },
+  {
+   "name": "Search visibility (SEO)",
+   "category": "Search visibility",
+   "pricing_model": "quote_based",
+   "billing_unit": "project"
+  },
+  {
+   "name": "Website redesign",
+   "category": "Websites",
+   "pricing_model": "fixed",
+   "billing_unit": "project",
+   "price": {
+    "amount": 2629.99,
+    "currency": "NAD",
+    "starting_price": true
+   }
+  }
+ ]
+}

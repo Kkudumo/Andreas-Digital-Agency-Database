@@ -1,0 +1,273 @@
+{
+ "division": "tech",
+ "source": "supabase/seed_data/catalogue.csv",
+ "services": [
+  {
+   "name": "BIOS or UEFI update",
+   "category": "BIOS and firmware",
+   "pricing_model": "fixed",
+   "billing_unit": "job",
+   "price": {
+    "amount": 249,
+    "currency": "NAD",
+    "starting_price": true
+   }
+  },
+  {
+   "name": "BIOS recovery or boot fault",
+   "category": "BIOS and firmware",
+   "pricing_model": "fixed",
+   "billing_unit": "job",
+   "price": {
+    "amount": 449,
+    "currency": "NAD",
+    "starting_price": true
+   }
+  },
+  {
+   "name": "Business Care",
+   "category": "Monthly care plans",
+   "pricing_model": "monthly",
+   "billing_unit": "month",
+   "price": {
+    "amount": 2449,
+    "currency": "NAD",
+    "starting_price": false
+   }
+  },
+  {
+   "name": "Business IT setup",
+   "category": "Business IT setup",
+   "pricing_model": "quote_based",
+   "billing_unit": "project"
+  },
+  {
+   "name": "CCTV installation",
+   "category": "CCTV",
+   "pricing_model": "quote_based",
+   "billing_unit": "project"
+  },
+  {
+   "name": "Complete Device Refresh",
+   "category": "Windows installation packages",
+   "pricing_model": "fixed",
+   "billing_unit": "job",
+   "price": {
+    "amount": 1049,
+    "currency": "NAD",
+    "starting_price": false
+   }
+  },
+  {
+   "name": "Computer and laptop repair",
+   "category": "Computer and laptop repair",
+   "pricing_model": "quote_based",
+   "billing_unit": "project"
+  },
+  {
+   "name": "Data backup or transfer",
+   "category": "Windows and software setup",
+   "pricing_model": "fixed",
+   "billing_unit": "job",
+   "price": {
+    "amount": 249,
+    "currency": "NAD",
+    "starting_price": true
+   }
+  },
+  {
+   "name": "Driver or software fault",
+   "category": "Windows and software setup",
+   "pricing_model": "fixed",
+   "billing_unit": "job",
+   "price": {
+    "amount": 179,
+    "currency": "NAD",
+    "starting_price": true
+   }
+  },
+  {
+   "name": "First Aid Essential",
+   "category": "Monthly care plans",
+   "pricing_model": "monthly",
+   "billing_unit": "month",
+   "price": {
+    "amount": 249,
+    "currency": "NAD",
+    "starting_price": false
+   }
+  },
+  {
+   "name": "First Aid Family",
+   "category": "Monthly care plans",
+   "pricing_model": "monthly",
+   "billing_unit": "month",
+   "price": {
+    "amount": 699,
+    "currency": "NAD",
+    "starting_price": false
+   }
+  },
+  {
+   "name": "First Aid Plus",
+   "category": "Monthly care plans",
+   "pricing_model": "monthly",
+   "billing_unit": "month",
+   "price": {
+    "amount": 399,
+    "currency": "NAD",
+    "starting_price": false
+   }
+  },
+  {
+   "name": "Managed IT",
+   "category": "Monthly care plans",
+   "pricing_model": "monthly",
+   "billing_unit": "month",
+   "price": {
+    "amount": 3949,
+    "currency": "NAD",
+    "starting_price": true
+   }
+  },
+  {
+   "name": "Micro Business Care",
+   "category": "Monthly care plans",
+   "pricing_model": "monthly",
+   "billing_unit": "month",
+   "price": {
+    "amount": 1249,
+    "currency": "NAD",
+    "starting_price": false
+   }
+  },
+  {
+   "name": "Microsoft Office setup",
+   "category": "Windows and software setup",
+   "pricing_model": "fixed",
+   "billing_unit": "job",
+   "price": {
+    "amount": 249,
+    "currency": "NAD",
+    "starting_price": true
+   }
+  },
+  {
+   "name": "Office networks and cabling",
+   "category": "Wi-Fi and networking",
+   "pricing_model": "quote_based",
+   "billing_unit": "project"
+  },
+  {
+   "name": "PC tune-up and optimisation",
+   "category": "Windows and software setup",
+   "pricing_model": "fixed",
+   "billing_unit": "job",
+   "price": {
+    "amount": 249,
+    "currency": "NAD",
+    "starting_price": false
+   }
+  },
+  {
+   "name": "Printer setup",
+   "category": "Windows and software setup",
+   "pricing_model": "fixed",
+   "billing_unit": "job",
+   "price": {
+    "amount": 179,
+    "currency": "NAD",
+    "starting_price": true
+   }
+  },
+  {
+   "name": "RAM or SSD fitting (labour)",
+   "category": "Computer and laptop repair",
+   "pricing_model": "fixed",
+   "billing_unit": "job",
+   "price": {
+    "amount": 179,
+    "currency": "NAD",
+    "starting_price": true
+   }
+  },
+  {
+   "name": "Remote quick support",
+   "category": "Remote support",
+   "pricing_model": "fixed",
+   "billing_unit": "job",
+   "price": {
+    "amount": 149,
+    "currency": "NAD",
+    "starting_price": true
+   }
+  },
+  {
+   "name": "Router and Wi-Fi setup",
+   "category": "Wi-Fi and networking",
+   "pricing_model": "fixed",
+   "billing_unit": "job",
+   "price": {
+    "amount": 349,
+    "currency": "NAD",
+    "starting_price": true
+   }
+  },
+  {
+   "name": "Security and backups",
+   "category": "Security and backups",
+   "pricing_model": "quote_based",
+   "billing_unit": "project"
+  },
+  {
+   "name": "Servers and infrastructure",
+   "category": "Servers and infrastructure",
+   "pricing_model": "quote_based",
+   "billing_unit": "project"
+  },
+  {
+   "name": "Standard device diagnostic",
+   "category": "Computer and laptop repair",
+   "pricing_model": "fixed",
+   "billing_unit": "job",
+   "price": {
+    "amount": 99,
+    "currency": "NAD",
+    "starting_price": false
+   }
+  },
+  {
+   "name": "Windows + Office Complete",
+   "category": "Windows installation packages",
+   "pricing_model": "fixed",
+   "billing_unit": "job",
+   "price": {
+    "amount": 849,
+    "currency": "NAD",
+    "starting_price": false
+   }
+  },
+  {
+   "name": "Windows Ready",
+   "category": "Windows installation packages",
+   "pricing_model": "fixed",
+   "billing_unit": "job",
+   "price": {
+    "amount": 649,
+    "currency": "NAD",
+    "starting_price": false
+   }
+  },
+  {
+   "name": "Windows Update repair",
+   "category": "Windows and software setup",
+   "pricing_model": "fixed",
+   "billing_unit": "job",
+   "price": {
+    "amount": 249,
+    "currency": "NAD",
+    "starting_price": true
+   }
+  }
+ ]
+}

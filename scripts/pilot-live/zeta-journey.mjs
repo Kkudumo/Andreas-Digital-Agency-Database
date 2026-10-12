@@ -1,4 +1,5 @@
 import { chromium } from 'playwright-core';
+import { execFileSync } from 'node:child_process';
 const BASE = 'http://localhost:3100';
 const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH || undefined, args: ['--no-sandbox'] });
 const steps = []; let fails = 0;
@@ -187,6 +188,25 @@ await ctxC.close();
 let { ctx: ctxW2, page: W2 } = await session('web_staff@ada.test');
 await W2.goto(BASE + '/websites'); await settle(W2); ok('staff without websites.view see no registry and no register form', !/Journey test site/.test(await text(W2)) && !/Register a website/.test(await text(W2)), await text(W2));
 await ctxW2.close();
+
+// ---------- the price logic: change a price in Hub, publish, and the public API (what the websites build from) follows
+// the real catalogue is loaded here, exactly as the owner will load it (after the Zeta steps, which pick their own services)
+execFileSync('psql', ['-X', '-q', '-v', 'ON_ERROR_STOP=1', process.env.ADA_LIVE_DB_URL, '-f', 'supabase/seed_data/catalogue.sql'], { stdio: 'ignore' });
+({ ctx: ctxC, page: C } = await session('ceo@ada.test'));
+await C.goto(BASE + '/services?q=check-up'); await settle(C);
+ok('Services & prices lists the catalogue with the price now', /Business Check-up/.test(await text(C)) && /N?A?D? ?199\.00/.test(await text(C)), await text(C));
+await C.click('a:has-text("Business Check-up")'); await C.waitForURL(/\/services\/[0-9a-f-]{36}/);
+ok('the service page shows its price and that it is not on the websites yet', /199\.00/.test(await text(C)) && /on the websites: no/i.test(await text(C)), await text(C));
+await C.click('button:has-text("Publish to the websites")'); await settle(C);
+ok('publishing takes it live (the CEO may approve and publish)', /on the websites: yes/i.test(await text(C)), await flash(C));
+const api = async () => (await (await fetch('http://127.0.0.1:8787/api/public/services?division=consulting', { headers: { authorization: `Bearer ${keyText}` } })).json());
+let svcs = await api(); ok('the public API now returns it at 199', svcs.length === 1 && svcs[0].price.amount === 199 && svcs[0].price.starting_price === false, JSON.stringify(svcs));
+await C.fill('input[name=amount]', '249'); await C.fill('input[name=reason]', 'journey: price rise'); await C.click('button:has-text("Save price")'); await settle(C);
+ok('saving a new price shows it, with the old one kept in the history', /249\.00/.test(await text(C)) && /199\.00/.test(await text(C)) && /Price saved and approved/.test(await flash(C)), await flash(C) + (await text(C)).slice(0, 300));
+svcs = await api(); ok('...and the public API answers 249 on the next request, with no other step', svcs[0].price.amount === 249, JSON.stringify(svcs));
+await C.click('button:has-text("Take off the websites")'); await settle(C);
+svcs = await api(); ok('taking it off the websites removes it from the API', svcs.length === 0, JSON.stringify(svcs));
+await ctxC.close();
 
 // ---------- outsiders see nothing
 let { ctx: ctxW, page: W } = await session('web_staff@ada.test');

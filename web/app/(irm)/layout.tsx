@@ -12,6 +12,7 @@ export default async function IrmLayout({ children }: { children: React.ReactNod
     { href: '/staff', label: 'Staff', show: true, group: 'Organization' },
     { href: '/organization/reviews', label: 'Duplicates', show: canAnywhere(access, 'matching.review'), group: 'Organization' },
     { href: '/clients', label: 'Clients', show: canAnywhere(access, 'clients.view'), group: 'Operations' },
+    { href: '/services', label: 'Services & prices', show: true, group: 'Operations' },
     { href: '/projects', label: 'Projects', show: canAnywhere(access, 'projects.view'), group: 'Operations' },
     { href: '/expenses', label: 'Expenses', show: canAnywhere(access, 'expenses.view'), group: 'Finance' },
     { href: '/credit-notes', label: 'Credit notes', show: canAnywhere(access, 'credit_notes.view'), group: 'Finance' },

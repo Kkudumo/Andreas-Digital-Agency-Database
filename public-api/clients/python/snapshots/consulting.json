@@ -1,0 +1,160 @@
+{
+ "division": "consulting",
+ "source": "supabase/seed_data/catalogue.csv",
+ "services": [
+  {
+   "name": "Business Check-up",
+   "category": "Consulting",
+   "pricing_model": "fixed",
+   "billing_unit": "session",
+   "price": {
+    "amount": 199,
+    "currency": "NAD",
+    "starting_price": false
+   }
+  },
+  {
+   "name": "Business Plan",
+   "category": "Consulting",
+   "pricing_model": "fixed",
+   "billing_unit": "plan",
+   "price": {
+    "amount": 2499,
+    "currency": "NAD",
+    "starting_price": true
+   }
+  },
+  {
+   "name": "Business Plan (extended)",
+   "category": "Consulting",
+   "pricing_model": "fixed",
+   "billing_unit": "plan",
+   "price": {
+    "amount": 4499,
+    "currency": "NAD",
+    "starting_price": true
+   }
+  },
+  {
+   "name": "Costing and Pricing",
+   "category": "Consulting",
+   "pricing_model": "fixed",
+   "billing_unit": "session",
+   "price": {
+    "amount": 699,
+    "currency": "NAD",
+    "starting_price": false
+   }
+  },
+  {
+   "name": "Customer and Competitor Study",
+   "category": "Consulting",
+   "pricing_model": "fixed",
+   "billing_unit": "study",
+   "price": {
+    "amount": 1499,
+    "currency": "NAD",
+    "starting_price": true
+   }
+  },
+  {
+   "name": "Funding Pack",
+   "category": "Packs",
+   "pricing_model": "fixed",
+   "billing_unit": "pack",
+   "price": {
+    "amount": 4199,
+    "currency": "NAD",
+    "starting_price": false
+   }
+  },
+  {
+   "name": "Monthly Review",
+   "category": "Consulting",
+   "pricing_model": "monthly",
+   "billing_unit": "month",
+   "price": {
+    "amount": 349,
+    "currency": "NAD",
+    "starting_price": false
+   }
+  },
+  {
+   "name": "One-Year Plan",
+   "category": "Consulting",
+   "pricing_model": "fixed",
+   "billing_unit": "plan",
+   "price": {
+    "amount": 899,
+    "currency": "NAD",
+    "starting_price": false
+   }
+  },
+  {
+   "name": "One-Year Plan (team session)",
+   "category": "Consulting",
+   "pricing_model": "fixed",
+   "billing_unit": "session",
+   "price": {
+    "amount": 1999,
+    "currency": "NAD",
+    "starting_price": true
+   }
+  },
+  {
+   "name": "Process Review",
+   "category": "Consulting",
+   "pricing_model": "fixed",
+   "billing_unit": "review",
+   "price": {
+    "amount": 1299,
+    "currency": "NAD",
+    "starting_price": true
+   }
+  },
+  {
+   "name": "Records Setup",
+   "category": "Consulting",
+   "pricing_model": "fixed",
+   "billing_unit": "visit",
+   "price": {
+    "amount": 599,
+    "currency": "NAD",
+    "starting_price": false
+   }
+  },
+  {
+   "name": "Start-up Pack",
+   "category": "Packs",
+   "pricing_model": "fixed",
+   "billing_unit": "pack",
+   "price": {
+    "amount": 2899,
+    "currency": "NAD",
+    "starting_price": false
+   }
+  },
+  {
+   "name": "Steady Growth Pack",
+   "category": "Packs",
+   "pricing_model": "fixed",
+   "billing_unit": "pack",
+   "price": {
+    "amount": 2999,
+    "currency": "NAD",
+    "starting_price": false
+   }
+  },
+  {
+   "name": "Technology Plan",
+   "category": "Consulting",
+   "pricing_model": "fixed",
+   "billing_unit": "plan",
+   "price": {
+    "amount": 1299,
+    "currency": "NAD",
+    "starting_price": true
+   }
+  }
+ ]
+}

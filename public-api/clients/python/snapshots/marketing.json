@@ -1,0 +1,42 @@
+{
+ "division": "marketing",
+ "source": "supabase/seed_data/catalogue.csv",
+ "services": [
+  {
+   "name": "Advertising campaigns",
+   "category": "Advertising",
+   "pricing_model": "quote_based",
+   "billing_unit": "campaign"
+  },
+  {
+   "name": "Branding and design",
+   "category": "Marketing",
+   "pricing_model": "quote_based",
+   "billing_unit": "project"
+  },
+  {
+   "name": "Content creation",
+   "category": "Marketing",
+   "pricing_model": "quote_based",
+   "billing_unit": "project"
+  },
+  {
+   "name": "Marketing systems",
+   "category": "Marketing",
+   "pricing_model": "quote_based",
+   "billing_unit": "project"
+  },
+  {
+   "name": "Search visibility",
+   "category": "Marketing",
+   "pricing_model": "quote_based",
+   "billing_unit": "project"
+  },
+  {
+   "name": "Social media management",
+   "category": "Marketing",
+   "pricing_model": "quote_based",
+   "billing_unit": "project"
+  }
+ ]
+}

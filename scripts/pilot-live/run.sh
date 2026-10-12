@@ -22,4 +22,5 @@ ADA_PUBLIC_API_SSL=off ADA_PUBLIC_API_DATABASE_URL="postgresql://ada_public_api:
 (cd web && NEXT_PUBLIC_SUPABASE_URL=http://localhost:54321 NEXT_PUBLIC_SUPABASE_ANON_KEY=anon-key npx next dev -p 3100 >/tmp/ada-next.log 2>&1) & NX=$!
 trap 'kill $PG $GW $NX $PA 2>/dev/null; psql -X -q "$B" -c "alter role ada_public_api nologin password null" >/dev/null 2>&1; pkill -f "next dev -p 3100" 2>/dev/null || true' EXIT
 for i in $(seq 1 60); do curl -s -o /dev/null localhost:3100/login && break; sleep 1; done
+export ADA_LIVE_DB_URL="$U"   # the journey loads the real catalogue itself, at the step that needs it
 node $HERE/zeta-journey.mjs
