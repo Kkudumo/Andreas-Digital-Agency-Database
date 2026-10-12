@@ -278,6 +278,16 @@ if [ "$res" = "1,1,1,1,1,1,1,1,1" ]; then echo "  8 racing creations of one orga
 # The interface may only reference database functions, arguments, tables and columns that exist in the migrated schema.
 echo "== web_db_references"
 node scripts/check-web-db.mjs "$URL" || status=1
+# The real catalogue (build step 2): the generated SQL is current, loads cleanly into a migrated database, is safe to run twice, never publishes anything, and the
+# website's own pack arithmetic holds. Runs last: it adds services, which the transaction-wrapped suites above must not see.
+echo "== catalogue_seed"
+node scripts/gen-catalogue-sql.mjs --check || status=1
+psql_ "$URL" -q -f supabase/seed_data/catalogue.sql >/dev/null
+psql_ "$URL" -q -f supabase/seed_data/catalogue.sql >/dev/null
+cat_res=$(psql_ "$URL" -At -c "select (select count(*) from services where status = 'approved' and status_reason = 'initial catalogue load') || ',' || (select count(*) from service_prices where decision_note = 'initial catalogue load by the owner' and status = 'approved' and version = 1) || ',' || (select count(*) from services where status_reason = 'initial catalogue load' and status = 'published') || ',' || (select count(*) from services s where s.status_reason = 'initial catalogue load' and s.pricing_model = 'quote_based' and exists (select 1 from service_prices p where p.service_id = s.id)) || ',' || (select count(*) from services s where s.status_reason = 'initial catalogue load' and s.pricing_model <> 'quote_based' and (price_on(s.id)).id is null) || ',' || (select (price_on(s.id)).amount from services s where s.name = 'Start-up Pack') || ',' || (select sum((price_on(s.id)).amount) from services s where s.name in ('Business Check-up', 'Customer and Competitor Study', 'Costing and Pricing', 'One-Year Plan') and s.status_reason = 'initial catalogue load')")
+if [ "$cat_res" = "56,40,0,0,0,2899.00,3296.00" ]; then echo "  56 services and 40 prices from the published price lists; loaded twice with no duplicates; none published; quote-based services carry no price; every priced service has a price in force; Start-up Pack N\$2,899 against N\$3,296 booked separately"; else echo "  FAIL catalogue seed: got $cat_res expected 56,40,0,0,0,2899.00,3296.00"; status=1; fi
+
+
 
 [ "$status" -eq 0 ] && echo "ALL TESTS PASSED" || echo "TESTS FAILED"
 exit $status
