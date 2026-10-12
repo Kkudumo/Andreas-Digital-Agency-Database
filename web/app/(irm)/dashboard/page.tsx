@@ -58,6 +58,23 @@ export default async function Dashboard() {
       <PageHead title={`Welcome, ${access.staff.full_name.split(' ')[0]}`}
         sub={`${access.staff.position ?? 'ADA'}${access.staff.division_name ? ' · ' + access.staff.division_name : ''}`} />
 
+      <section className="hub-executive-hero">
+       <div><p className="hub-hero-eyebrow">YOUR ADA WORKSPACE</p><h2>Keep the whole agency moving.</h2>
+        <p>Start with what needs your attention, then move straight into your teams, client work and financial records.</p>
+       </div><div className="hub-hero-side"><span>ADA CORE</span><strong>Connected operations</strong><small>Live data · Role-based visibility</small></div>
+      </section>
+      <section className="hub-quick-section" aria-label="Quick access">
+       <div className="hub-section-heading"><h2>Quick access</h2><span>Frequently used workspaces</span></div>
+       <div className="hub-quick-links">
+        <Link href="/search"><span className="hub-quick-icon">⌕</span><span><strong>Find a record</strong><small>Search across ADA Hub</small></span><b>→</b></Link>
+        {showClients&&<Link href="/clients"><span className="hub-quick-icon">◈</span><span><strong>Client directory</strong><small>Customers and contacts</small></span><b>→</b></Link>}
+        {showProjects&&<Link href="/projects"><span className="hub-quick-icon">▣</span><span><strong>Projects</strong><small>Delivery and assignments</small></span><b>→</b></Link>}
+        {canAnywhere(access,'expenses.view')&&<Link href="/expenses"><span className="hub-quick-icon">◉</span><span><strong>Expenses</strong><small>Spending and approval</small></span><b>→</b></Link>}
+        {can(access,'roles.view')&&<Link href="/access"><span className="hub-quick-icon">◇</span><span><strong>Access control</strong><small>People and permissions</small></span><b>→</b></Link>}
+       </div>
+      </section>
+      <div className="hub-section-heading hub-overview-heading"><h2>Operational overview</h2><span>Live information from ADA Core</span></div>
+
 
       {/* ---------- Operational picture: derived live from the authoritative records, restricted to what you may see ---------- */}
       {(() => {
