@@ -9,8 +9,8 @@
 --  * Services are created with status 'approved' - NOT published. Publishing is a separate, deliberate act (build step 4, when the public API exists).
 --  * Prices are loaded as version 1, approved, effective today. This is the bootstrap load by the owner: ADA Core has one staff member, and the pricing
 --    rule "you cannot approve your own request" would otherwise make the first catalogue impossible. The audit trail records the reason below.
---  * "price_kind" is kept in the price's reason text: 'from' = the website shows it as "From N$x" (a starting price; real quotes may be higher),
---    'exact' = a fixed published price. The schema has no separate flag for this yet.
+--  * "price_kind": 'from' = the website shows "From N$x" (a starting price; larger work is quoted), loaded with is_starting_price = true (migration 0053);
+--    'exact' = a fixed published price. APPLY MIGRATION 0053 BEFORE THIS SCRIPT (it stops with a clear message if it has not been applied).
 --  * Quote-based services (no published price) get no price row; they can be put on a quote with a custom price.
 begin;
 select set_config('ada.reason', 'Initial catalogue load (build step 2): published price lists of 5-6 October 2026, loaded by the owner', true);
@@ -19,6 +19,9 @@ do $load$
 declare
   r record; v_div uuid; v_svc uuid; v_new int := 0; v_priced int := 0;
 begin
+  if not exists (select 1 from information_schema.columns where table_name = 'service_prices' and column_name = 'is_starting_price') then
+    raise exception 'apply migration 0053_starting_prices first, then run this script again';
+  end if;
   for r in select * from (values
     ('tech', 'Windows installation packages', 'Windows Ready', 'Windows 10 or 11 installed properly on a healthy computer: drivers, updates, BIOS check, essential utilities, activation with your own valid licence, restore point and final test.', 'fixed', 'job', 649.00, 'exact', 'https://tech.andreasdigitalagency.com/pricing (reviewed 5 Oct 2026)'),
     ('tech', 'Windows installation packages', 'Windows + Office Complete', 'Everything in Windows Ready plus Microsoft Office or 365 installed and activated with a valid licence, browser and PDF reader, printer check and a final health check.', 'fixed', 'job', 849.00, 'exact', 'https://tech.andreasdigitalagency.com/pricing (reviewed 5 Oct 2026)'),
@@ -90,10 +93,10 @@ begin
     end if;
 
     if r.amount is not null and not exists (select 1 from service_prices where service_id = v_svc) then
-      insert into service_prices (service_id, version, amount, currency, effective_from, status, reason, approved_at, decision_note)
+      insert into service_prices (service_id, version, amount, currency, effective_from, status, reason, approved_at, decision_note, is_starting_price)
       values (v_svc, 1, r.amount, 'NAD', current_date, 'approved',
               case r.kind when 'from' then 'Published starting price ("from") - ' else 'Published fixed price - ' end || r.source,
-              now(), 'initial catalogue load by the owner');
+              now(), 'initial catalogue load by the owner', r.kind = 'from');
       v_priced := v_priced + 1;
     end if;
   end loop;

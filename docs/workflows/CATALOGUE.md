@@ -4,14 +4,14 @@ The real services and prices of the four divisions, taken from the price lists t
 
 * **Source of truth:** `supabase/seed_data/catalogue.csv` (open it in a spreadsheet; one row per sellable service).
 * **Generated load script:** `supabase/seed_data/catalogue.sql`, made by `node scripts/gen-catalogue-sql.mjs`. Never edit the SQL; edit the CSV and regenerate. A test fails if the two disagree.
-* **Run it:** Supabase SQL editor of the ADA Core project (`uyhwcbjfvfkqsixthxkn`), as the project owner, one run. It is safe to run twice: it only adds what is missing and never changes an existing service or price.
+* **Run it:** Supabase SQL editor of the ADA Core project (`uyhwcbjfvfkqsixthxkn`), as the project owner, one run. **First apply migration `0053_starting_prices.sql`** (the script stops with a clear message if you forget). It is safe to run twice: it only adds what is missing and never changes an existing service or price.
 
 ## What the load does (and does not do)
 
 * Creates the services with status **approved**. **Nothing is published**: publishing is a separate act (build step 4, when the public API exists), so nothing reaches a website by this load.
 * Loads each price as version 1, approved, effective the day it runs. This is the owner's bootstrap load. ADA Core has one staff member, and the pricing rule "you cannot approve your own request" would otherwise make a first catalogue impossible. The audit trail records the reason. From now on every price change goes through ADA Hub (`price_propose` then `price_decide`) with its history.
 * Quote-based services get no price; they can still go on a quote with a custom price.
-* Keeps "from" in the price's reason text ("Published starting price (\"from\") - ..."). The schema has no separate flag for a starting price yet (see the questions below).
+* Marks the 22 prices the websites show as "From N$x" as **starting prices** (`service_prices.is_starting_price`, migration 0053). The public catalogue returns `"starting_price": true` for them so a website can print "from". The flag belongs to the price version and is immutable once approved.
 * Currency NAD. No VAT: ADA is not VAT registered, and the sites say so.
 
 ## The catalogue
@@ -101,7 +101,7 @@ The real services and prices of the four divisions, taken from the price lists t
 ## Please check (these are decisions for the owner)
 
 1. **The audit of 8 October.** The handover says it holds the canonical price table; it is not in any repository I can reach. These prices come from the published pages. Compare the two before running the load; if they differ, change the CSV.
-2. **"From" prices.** Many prices are published as "From N$x". They are loaded as the starting price and noted in the price's reason, but the database cannot yet tell a starting price from a fixed one (a quote line can use a different price with a reason). A small migration adding that flag would let the public API show "from" correctly; say if you want it.
+2. **"From" prices.** Done: migration 0053 adds the flag and the load sets it for the 22 "From" prices. When you propose a price in future, say whether it is a starting price (`price_propose(..., p_starting)`; default is a fixed price).
 3. **Self-approval.** The load bypasses the four-eyes rule once, as the owner. If you would rather have a second person approve, create the first division lead or finance officer first and approve the prices through ADA Hub.
 4. **Care Essential** (ADA Web) is "N$349.99 a month" in the table and "start at" in the summary; it is loaded as a starting price.
 5. **Pack arithmetic** matches the website (Start-up Pack N$2,899 against N$3,296 booked separately; Steady Growth N$2,999 against N$3,443; Funding N$4,199 against N$4,697). The packs are loaded as their own services; they do not yet link to the services inside them.

@@ -11,6 +11,7 @@ propose (pricing.propose, effective today or later) ─► pending_approval ─�
                                                          │                        └─ previous version's effective_to := new effective_from − 1
                                                          └─► rejected (note required) / withdrawn
 ```
+- a price can be a **starting price** ("from N$x"; `p_starting`, migration 0053): the flag is part of the immutable version and is passed to the public catalogue (`price.starting_price`); quotes still use the amount in force;
 - one pending proposal per service; a new version must start after the latest approved one; no back-dating;
 - **an approved version is immutable** (the database refuses edits and deletes even by the owner); only `effective_to` is set when the next version takes over;
 - `price_on(service, date)` answers "what was the price on that day?" — the basis for quotes today and invoices later;

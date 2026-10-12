@@ -2261,6 +2261,7 @@ _(no description)_
 | `approved_at` | timestamp with time zone | no |  |  |
 | `decision_note` | text | no |  |  |
 | `created_at` | timestamp with time zone | yes | now() |  |
+| `is_starting_price` | boolean | yes | false |  |
 
 ## `services`
 

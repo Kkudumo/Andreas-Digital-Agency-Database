@@ -76,6 +76,7 @@ Updated 13 October 2026. Repos: `Kkudumo/Andreas-Digital-Agency-Database` (ADA C
 1. **ADA Hub online with the CEO login.** Done 12–13 October 2026, apart from merging pull request #4 and the owner's first sign-in (QR code). Still to do: an invite / set-password page so new staff can be invited (today a login is made in Supabase with "Create new user"), rename the screens from "ADA IRM" to "ADA Hub", add the first real staff and division details.
 2. **Real catalogue.** *Prepared 13 October 2026, not yet run on the live project.*
    - `supabase/seed_data/catalogue.csv` (56 services, 40 priced) and the generated `catalogue.sql`, built from the price lists the websites publish. Read `docs/workflows/CATALOGUE.md` first: it has the full table and the questions for the owner.
+   - **Apply migration `0053_starting_prices.sql` to the live project first** (it adds the "from" flag; the load script needs it).
    - To finish: the owner checks the prices (against the audit of 8 October, which is not in the repo), then runs `catalogue.sql` in the Supabase SQL editor. Services load as approved, **not published**.
 3. **Public API service.** Build it and register the six websites with keys.
 4. **Prices and services on the websites come from ADA Core.**
