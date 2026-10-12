@@ -1,0 +1,33 @@
+name: ADA Hub UI verification
+on:
+  push:
+    branches:
+      - design/hub-mobile-ceo-redesign
+  pull_request:
+    paths:
+      - 'web/**'
+      - '.github/workflows/hub-ui-verify.yml'
+permissions:
+  contents: read
+jobs:
+  verify-ui:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Production build
+        run: npm run build
+        env:
+          NEXT_TELEMETRY_DISABLED: '1'
+          NEXT_PUBLIC_SUPABASE_URL: 'https://uyhwcbjfvfkqsixthxkn.supabase.co'
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: 'placeholder-for-build-only'
