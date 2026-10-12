@@ -1,292 +1,151 @@
-# ADA Hub Pilot — Overview & Operational Workflow (Phase 1 / V0.1)
+# ADA Hub Pilot V0.1 — Operational Map
 
-> **Naming.** *ADA Hub* is the platform as a whole; *ADA Core Architecture* is the identity, registry, data, rules, authorization, audit, routing and integration layer beneath it; *ADA IRM* is the internal management interface; *ADA Website / public websites* are controlled public interfaces over approved projections. ADA Organization → ADA Hub → ADA Core Architecture → Domain Modules → Controlled Interfaces.
+> **Status:** deliverable 1 (operational map). Written from the migrations (0001–0041), the test suites and the `web/` scaffold as they stand. No pilot code has been written yet.
+> **Scope rule:** completed modules (Documents, Organizations, Domains, Communications, Search, Assets, Finance, Tickets) are closed. This map records what they already offer so the pilot *calls* them; it does not propose changing them.
 
----
+## 0. Headline finding
 
-## 1. High-level codebase overview
+**The backend can already run the whole engagement.** Every step of Workflow A has a controlled, authorized, audited database function, and `client_360` / `project_360` / `organization_360` already return the cross-module slices (contracts, invoices, payments, assets, tickets, documents, domains, communications).
+`91_enquiry_to_quote_scenario.sql` and `93_finance_scenario.sql` already drive enquiry → quote → approval → accept → project → contract → invoice → partial payment → paid.
 
-ADA Core is the company's digital brain, ADA IRM is the control room, public websites are windows onto approved parts of the organization. **The database is the source of truth; permissions are the security boundary; the audit log is the memory; workflows are the business rules; public data is a controlled projection of internal data.**
+What does **not** exist:
 
-### Shape
+1. **Any usable interface.** `web/` has login, a dashboard, an organization page and a staff list. There is no search box, no client/project/quote/invoice/payment screen and no 360 page. "Without touching SQL" is currently impossible.
+2. **One scenario that joins everything.** No test runs organization → client → contact → project → quote → contract → invoice → payment → document → communication → ticket → asset → domain → 360 → search in a single chain, with restricted-user probes across all of it.
+3. **A few controlled write paths** for steps the UI will need (see §B, "Required for pilot"): standalone project creation, adding project contacts/divisions/members/tasks, and a few thin entry points the UI would otherwise implement as direct table writes.
 
-```
- Public websites ──► Public API (own route handlers, to be built) ──► role ada_public_api ──► public_api.* functions ┐
-                                                                                                                  ├─► PostgreSQL
- ADA IRM (paused) ─► signed-in user's own session ─────────────────► tables, RLS, workflow functions ────────────────┘
-```
+So Pilot V0.1 is mostly **interface + one integration test suite + a small number of thin wrappers**, not new modules.
 
-A modular monolith. All business rules live in the database (constraints, triggers, `SECURITY DEFINER` workflow functions), so no client — IRM, a website, or a person with API access — can bypass them.
-
-### Top-level layout
-
-```
-supabase/    the database: schema, tests, permission matrix
-scripts/     test runner, backup/restore, migration rehearsal, doc generators
-docs/        architecture, security, API, workflows, operations
-web/         ADA IRM — the Next.js internal interface (PAUSED, scaffold stage)
-```
-
-### Layout detail
-
-**`supabase/migrations/`** — 41 ordered SQL files; the schema, in order, and the *only* way the schema changes. Migrate in sequence: foundation → organization → RBAC → clients & projects → recruitment → services/pricing/quotes → approvals → contracts → invoices → payments → finance graph → assets → tickets → asset integration → institutional skeleton → academy identity → tickets module → documents → organization unification → domains → communications → search.
-
-**`supabase/seed_data/permission_matrix.csv`** — the reviewed permission matrix. Tests require the database to grant exactly what the CSV says (`matrix == CSV`).
-
-**`supabase/tests/`** — authorization, integrity, public-exposure and scenario tests, plus a `00_supabase_shim.sql` that stands in for Supabase's auth schema/roles so everything runs on plain PostgreSQL 16. Structure: helpers, integrity, authorization, structure, bootstrap, then test suites covering recruitment, public API, scenario hiring, central clients, services/pricing, project graph & quotes, approval policies, leads & enquiries, existence leakage, contracts, invoices, payments, financial approvals, graph scenario, enquiry-to-quote, finance-restricted clients, finance scenario, assets, asset integration, asset-restricted, asset scenario, institutional identity, people/academy/staff. A `concurrency/` subdirectory holds parallel-load scenarios (ID insertion, asset registration, allocation races). `PROTECTED.txt` flags regression checks CI will not silently delete.
-
-**`scripts/`** — `test-db.sh` (main test runner, needs local PostgreSQL 16 + Node; see `docs/operations/DEVELOPMENT.md`), `backup.sh`/`restore.sh` (backup & restore), `rehearse-migration.sh` (rehearse a server move: dump → restore → identical security posture → working system), `check-migrations.mjs`, `check-protected-tests.mjs`, `build-rbac-delta.mjs`, `security-fingerprint.sql`, `gen-docs.sh`.
-
-**`docs/`** — architecture, API, workflows, operations docs; see below for the file map.
-
-**`web/`** — ADA IRM scaffold (PAUSED until backend modules finish). Next.js 15 + React 19 + TypeScript, `@supabase/ssr` + `@supabase/supabase-js`, `middleware.ts` for session/route protection, `lib/supabase/` server-side Supabase client, `lib/access.ts` (permission checks), `lib/format.ts`, `lib/flash.ts`, `app/(irm)/` authenticated routes (dashboard / organization / staff), `app/login/`, `app/no-access/`.
+Baseline before any pilot work: `./scripts/test-db.sh` on PostgreSQL 16 — 2,760 checks, 0 failed across the numbered suites. One concurrency check (`concurrent_search`) failed in the first run and passed in the second; see §B.4.
 
 ---
 
-### Module map (built / tested / not started)
+## A. Existing authoritative modules
 
-| Module | Tables / functions | Status |
-|---|---|---|
-| Institutional skeleton | `id_codebook`, `ada_mint_id` (9-char opaque IDs), `entity_registry`, `entity_location_history`, `entity_resolve` / `entity_get` / `search_route`, `search_index` (derived), `security_events` / `security_cases` | built, tested |
-| Foundation | legacy ADA IDs (`next_ada_id`, now aliases), `audit_log`, `events`, `notifications` | built, tested |
-| Academy identity | `programmes`, `cohorts`, `students`, `student_enrolments` (identity core only) | built, tested |
-| Organization | `organization`, `divisions`, `positions` (+ headcount) | built, tested |
-| Identity & access | `staff`, `roles`, `permissions`, `role_permissions`, `staff_roles`, `staff_assignments` | built, tested |
-| Recruitment | `vacancies`, `people`, `applications`, `application_*`, `onboarding_tasks`, `staff_profiles` | built, tested |
-| Websites & public API | `websites`, `event_subscriptions`, `public_api.*` | built, tested (HTTP layer not yet) |
-| People & clients | `people`, `clients` (full profile), `client_contacts`, `client_divisions`, `client_staff`, duplicate prevention | built, tested |
-| Services & pricing | `services`, `service_prices` (immutable versions), approvals queue | built, tested |
-| Quotes | `quotes`, `quote_lines` (price snapshots), conversion to project | built, tested |
-| Projects | `projects`, `project_services`, `project_contacts`, `project_divisions`, `project_members`, `milestones`, `tasks`, `portfolio_entries` | built, tested |
-| 360° views | `client_360`, `project_360`, `staff_360`, `asset_360`, `document_360` | built, tested (sections for unbuilt modules declared `pending`) |
-| Enquiries & leads | `enquiries`, `leads`, `enquiry_candidates`, `matching_reviews`, `client_create` / `client_lookup` / `claim_client_for_division`, `public_api.submit_enquiry` | built, tested |
-| Approvals | `approval_requests`, `approval_policies`, `approval_decisions`, `approval_gate` (with discount policies) | built, tested (prices, quotes, contracts, invoices, reversals/refunds) |
-| Contracts | `contracts`, `contract_versions`, `contract_lines`, `contract_projects`, `contract_status_history` | built, tested |
-| Invoices | `billable_items`, `invoices`, `invoice_lines`, `finance_settings` | built, tested |
-| Payments | `payments`, `payment_allocations`, `payment_reversals`, `bank_accounts`, `invoice_balances`, `payment_balances` | built, tested |
-| Assets | `assets`, `asset_assignments`, `asset_history`, `asset_retirements`, `asset_maintenance`, `asset_warranties`, `asset_documents` (interim), `asset_finance_links`, `asset_duplicate_flags`, `suppliers` | built, tested |
-| Tickets | `tickets`, `ticket_categories`, `ticket_sla_policies`, `ticket_comments`, `ticket_events`, `ticket_sla_status` | built, tested |
-| Organizations | `organizations`, `partners`, `organization_reviews`, `organization_distinct_pairs` (+ clients / suppliers as roles) | built, tested |
-| Expenses, credit notes | — | not started |
-| Documents | `documents`, `document_versions`, `document_links`, `document_access`, `document_holds`, `document_comments`, `document_events`, `document_integrity_checks`, `document_disposals`, `document_publications`, `document_types`, `retention_classes`, `document_retention_status` | built, tested |
-| Domains | `domains`, `domain_relations`, `domain_registrations`, `domain_transfers`, `domain_events`, `domain_reviews`, `domain_expiry_status`, `website_hostname_domains` | built, tested |
-| Communications | `communication_threads`, `communication_messages`, `communication_participants`, `communication_links`, `communication_attachments`, `communication_access`, `communication_holds`, `communication_comments`, `communication_disposals`, `communication_events`, `communication_types`, `communication_retention_status` | built, tested (records only: no sending or synchronisation) |
-| Search | `search_index` (derived), `search_sources`, `search_refresh_queue`; `search`, `search_execute`, `search_suggest`, `search_parse` | built, tested (staff only; derived, rebuildable, authorization-first) |
-| Reports, dashboards | — | not started |
+Conventions that hold for every row below:
 
----
+- **Institutional ID** = 9-char opaque ID minted by `ada_mint_id` and held in `entity_registry` (`institutional_id`, `table_name`, `entity_id`). Legacy `ada_id` (e.g. `ADA-CLI-…`) is an alias kept on most tables.
+- **Authorization** = RLS on the table plus a `can_view_*` / `can_edit_*` helper plus a `has_permission(key, division)` check inside every `SECURITY DEFINER` workflow function. Restricted rows look like missing rows (`85_existence_leakage.sql` and the per-module `*_restricted` suites).
+- **Audit** = `audit_log` via `audit_row()` triggers (immutable), plus per-module event tables (`ticket_events`, `asset_history`, `document_events`, `domain_events`, `communication_events`, `contract_status_history`).
 
-### Recorded decisions
+| # | Module | Authoritative table(s) | Registry type | Controlled write functions (use these, never the table) | Read / 360 | Lifecycle |
+|---|---|---|---|---|---|---|
+| 1 | **Organization** (identity of any company) | `organizations` (+ `partners`; role rows `clients`, `suppliers`) | organization | `organization_create`, `organization_add_role`, `organization_update`, `organization_set_classification`, `org_match` (matching), `organization_merge`, `organization_review_resolve` | `organization_360`, `can_view_organization` | status derived from roles (`org_derived_status`); reviews for ambiguous matches |
+| 2 | **Client** (role of an organization) | `clients`, `client_divisions`, `client_staff`, `client_contacts` | client | `client_lookup`, `client_create` (searches first, routes ambiguity to `matching_reviews`), `claim_client_for_division`, `set_client_owner`, `matching_resolve` | `client_360` | active/inactive; never duplicated across divisions |
+| 3 | **Person / contact** | `people`; relationship rows `client_contacts`, `project_contacts`, `applications`, `leads` | person | `add_client_contact` (creates or reuses the `people` row), `lead_set_person`; `can_view_person` / `can_edit_person` | inside `client_360.contacts` | one `people` row per human; relationships are separate rows |
+| 4 | **Division / staff / roles** | `divisions`, `staff`, `roles`, `permissions`, `role_permissions`, `staff_roles`, `staff_assignments` | staff, division | `link_staff_account`, onboarding functions | `staff_360`, `my_access()` | staff status incl. suspended (no access) |
+| 5 | **Services & prices** | `services`, `service_prices` (immutable versions) | service | `price_propose`, `price_decide`, `price_withdraw`, `service_transition`, `price_on(service, date)` | `can_view_service` | prices are append-only versions; approval queue |
+| 6 | **Enquiries & leads** | `enquiries`, `leads`, `enquiry_candidates`, `matching_reviews` | lead | `enquiry_process`, `enquiry_resolve_candidate`, `lead_assign`, `lead_transition`, `quote_create_from_lead` | inside `client_360.leads` | enquiry → lead → qualified → quote |
+| 7 | **Quotes** | `quotes`, `quote_lines` (price snapshot: `unit_price`, `price_id`) | quote | `quote_create`, `quote_add_line` (resolves current approved price from the catalogue), `quote_remove_line`, `quote_transition` (draft → pending_approval → approved → sent → accepted/rejected/expired; calls `approval_gate`), `quote_convert_to_project` (idempotent, creates `project_services` carrying the quote line + price id) | `can_view_quote`, inside `client_360.quotes` / `project_360.quotes` | transition table; lines lock after submission |
+| 8 | **Approvals** | `approval_requests`, `approval_policies`, `approval_decisions` | — | `approval_gate`, `approval_open`, `approval_close`, `approval_policy`, `qualified_approver_count` (self-approval only when the requester is the sole qualified approver) | one approvals queue | pending → approved/rejected |
+| 9 | **Projects** | `projects`, `project_services`, `project_divisions`, `project_members`, `project_contacts`, `milestones`, `tasks`, `portfolio_entries`, `project_financials` | project | `project_transition`, `project_add_service`, `project_lead_division`, `quote_convert_to_project`; **no create / add-contact / add-member / add-task function** (direct inserts under RLS + `projects_guard` — see §B) | `project_360`, `can_view_project`, `has_project_permission` | proposed → approved → active → … (guard rejects direct status change) |
+| 10 | **Contracts** | `contracts`, `contract_versions`, `contract_lines`, `contract_projects`, `contract_status_history` | contract | `contract_create`, `contract_create_from_quote`, `contract_set_terms`, `contract_link_project`, `contract_transition`, `contract_amend`, `contract_renew`, `contract_terms` | `contract_load`, inside `client_360.contracts` | draft → … → active → expired/renewed; versions immutable once signed |
+| 11 | **Invoices** | `billable_items`, `invoices`, `invoice_lines` (snapshots), `finance_settings` | invoice | `billable_from_contract`, `billable_from_project`, `billable_void`, `invoice_create`, `invoice_add_lines`, `invoice_set_terms`, `invoice_transition` (approval gate), `invoice_void`; `invoice_balance` / `invoice_paid` are derived functions | `invoice_load` | draft → issued → partially_paid/paid; immutable after issue |
+| 12 | **Payments** | `payments`, `payment_allocations`, `payment_reversals`, `bank_accounts` | payment | `payment_record`, `payment_allocate`, `payment_unallocate`, `payment_request_reversal`, `payment_reversal_decide`, `payment_reconcile`; views `invoice_balances`, `payment_balances` | `payment_load` | received → allocated; reversals via approval |
+| 13 | **Documents** | `documents`, `document_versions`, `document_links`, `document_access`, `document_holds` … | document | `document_register`, `document_add_version`, `document_version_transition`, `document_link_add(doc, entity)`, `document_open`, `document_share`, `document_hold_place`, `document_archive` … | `document_360`, `documents_of(ids)`, `documents_for_entity` | version states; retention classes; legal holds; publication gate |
+| 14 | **Communications** | `communication_threads`, `communication_messages`, `communication_participants`, `communication_links`, `communication_attachments`, `communication_access` … | communication | `communication_start`, `communication_message_record`, `communication_link_add(thread, entity)`, `communication_read` (body access, separate permission), `communication_attach_document` … | `communication_360`, `communications_of(ids)` (**metadata only**) | open/closed/archived; holds; disposal |
+| 15 | **Domains** | `domains`, `domain_relations`, `domain_registrations`, `domain_transfers` … | domain | `domain_create`, `domain_activate`, `domain_renew`, `domain_relation_apply(domain, relation, entity)`, `domain_transfer_*` | `domain_360`, `domains_of(ids)` | registered → active → expired/transferred |
+| 16 | **Assets** | `assets`, `asset_assignments`, `asset_history`, `asset_maintenance`, `asset_warranties`, `asset_finance_links` … | asset | `asset_create(…, p_client, p_project)`, `asset_assign(…, p_project)`, `asset_update`, `asset_transition`, `asset_link_finance`, `maintenance_*`, `asset_retire` | `asset_360`, `asset_current_assignments` | proposed → in stock → assigned → … → retired → disposed; ID permanent |
+| 17 | **Tickets** | `tickets`, `ticket_categories`, `ticket_sla_policies`, `ticket_comments`, `ticket_events` | ticket | `ticket_create(…, p_asset, p_client, p_project, p_contact, …)` (inherits client/project from the asset), `ticket_assign`, `ticket_transition`, `ticket_comment_add`, `ticket_set_priority`, `ticket_transfer` | `ticket_load`, view `ticket_sla_status` | open → … → closed; SLA clock |
+| 18 | **Search** | `search_index` (derived), `search_sources`, `search_refresh_queue` | — | `search(query, limit, offset, facets)`, `search_suggest(prefix, types, limit)`, `search_parse`, `search_capabilities`; filters `type:` `status:` `division:` `related:ID` `asof:` `limit:`; bare institutional / legacy ID is an exact lookup. Derived and rebuildable (`search_rebuild`) | staff only | stale rows re-checked against live authorization |
+| 19 | **Registry resolution** | `entity_registry` | all | `entity_resolve(id)`, `entity_get(id)`, `search_route(query)` | — | IDs never reused or re-encoded |
 
-| Decision | Why |
-|---|---|
-| One organization, many divisions — not multi-tenant | ADA is one company; the earlier tenant model (`ada-core-foundation`) solved a different problem. |
-| Nine divisions: six public service divisions + Management, Administration, Finance | Internal units hold staff and permissions but are never published (`divisions.public_state`). |
-| Position ≠ Vacancy | A position has a `headcount`; vacancies are openings over time. Filled/vacant is derived (`position_availability`), never stored. |
-| Permissions are `module.action`, assigned by role, org-wide or scoped to a division | No role-name checks anywhere; new positions need no code. |
-| Workflows are database functions with explicit transition tables | `vacancy_transition`, `application_transition`, `make_offer`, `accept_application`, `profile_transition`, `terminate_staff`. Direct status updates are rejected even for the CEO. |
-| Public API = our own route handlers over `public_api` functions, called as a database role with no table access | Smaller blast radius than exposing the auto-generated REST API; also portable. |
-| The API server hashes website keys; the database stores and sees only hashes | Keys never appear in query logs or backups. |
-| Events are an outbox of identifiers and states only | Websites revalidate caches without redeploying, and events can never leak personal data (tested). |
-| ONE client, ONE person, ONE catalogue | Contacts are relationships to a shared `people` record; clients are claimed by divisions, never re-created; every module references existing records. Enforced by tests that fail on new identity columns or unregistered IDs. |
-| Prices are immutable versions; documents of commerce copy the version used | History is true by construction; changing a price never changes a quote, project or (later) invoice. |
-| Restricted records look like missing records | Existence is not leaked through errors, lookups, counts, helper functions or API answers; dependents inherit the classification. A permanent probe suite compares a restricted id with a random id. |
-| Self-approval is a configurable, recorded policy | Allowed only while the requester is the sole qualified approver (default), never hardcoded for a role; separation of duties then applies automatically. |
-| Identity is generated, opaque and permanent | One central service mints 9-character IDs that encode only immutable facts; the registry maps IDs to their authoritative records and mirrors (never owns) division, location, status and classification; legacy identifiers remain as aliases. Search goes registry-first. |
-| Regression checks are protected | `PROTECTED.txt` + a CI guard prevent silently deleting the checks that guard leakage, privacy, prices, approvals and restore integrity. |
-| One approvals queue | Every pending approval is visible to the right approvers in one place, with history. |
-| 360° views are SECURITY INVOKER | They inherit row-level security; nothing to keep in sync. |
-| Supabase is today's host, not the architecture | The only provider-specific dependencies are `auth.users` / `auth.uid()` and (later) Storage. |
+### A.1 What the 360 views already return
+
+`client_360(client)` → organization (+ roles), overview, contacts, relationship (divisions, services purchased), projects, quotes, leads, quote_summary, activity (last 25 audit rows for the client, contacts and divisions), contracts, invoices (with derived `paid` / `balance`), payments, finance_summary (invoiced / paid / outstanding / overdue / unallocated credit), assets, tickets, documents, domains, communications, `pending`.
+
+`project_360(project)` → overview, client, contacts, divisions, services, quotes, staff, milestones, tasks, budget, portfolio, activity, contracts, invoices, assets, tickets, documents, domains, communications, `pending`.
+
+Both are `SECURITY INVOKER` and return `null` for a row the caller cannot see. Documents / domains / communications slices go through `documents_of` / `domains_of` / `communications_of`, which apply each module's own authorization (communications give **metadata only**).
+
+Observations to check during the pilot (do not "fix" in advance):
+- `project_360` lists `'staff'` but I did not confirm in this pass that it includes payments. `client_360` carries payments; whether `project_360` should is a pilot-time question, since payments are linked to invoices rather than projects.
+- `client_360.activity` covers `clients`, `client_contacts`, `client_divisions` audit rows only. "Complete institutional history" for the pilot means this plus the per-module event tables, and the pilot should say so on screen rather than imply one merged log.
+
+### A.2 How a client of the database authenticates today
+
+`web/` uses `@supabase/ssr`; `lib/access.ts` calls `rpc('my_access')`; `middleware.ts` guards routes. Every database call in the pilot UI should be a `supabase.rpc(<controlled function>)` or a `select` on a view / table under the signed-in user's own session. No service-role key in the browser or in server actions.
 
 ---
 
-## 2. Phase 1 (ADA HUB PILOT V0.1) — what exists and what is ready
+## B. Existing gaps
 
-Phase 1 (V0.1 pilot) operates **over the already-built Core**. Nothing in the module list above must be implemented for the pilot to run. The pilot's job is to connect the ready modules to the right people, lock the security boundary, and run end-to-end scenarios before any public website or the IRM goes live.
+### B.1 REQUIRED FOR PILOT
 
-**Ready-to-use modules for the pilot:**
+| # | Gap | Why it blocks the workflow | Proposed minimal fix |
+|---|---|---|---|
+| R1 | **No UI beyond login / dashboard / organization / staff** | Nothing in the journey can be done without SQL | Minimal internal screens: search (entry point), organization/client create-or-reuse, client 360, project 360, quote, invoice, payment, and "attach / record / raise" forms for document, communication, ticket, asset |
+| R2 | **No end-to-end test** joining all modules, and no restricted-access suite across the whole chain | The definition of done requires the Zeta scenario and leakage proofs across Client 360, Project 360, search, facets, suggest and traversal | `110_ada_hub_pilot.sql`, `111_ada_hub_pilot_access_restricted.sql`, plus a pilot concurrency script |
+| R3 | **Projects have no controlled create path.** Standalone projects are direct `INSERT`s under RLS; `quote_convert_to_project` is the only function that creates one. `project_contacts`, `project_divisions`, `project_members`, `tasks`, `milestones` are also direct-write (granted to `authenticated`) | Section 23 says the UI must not mutate protected tables. Journey step 4 ("create website project") may start before a quote | Thin `SECURITY DEFINER` wrappers over the existing guards: `project_create`, `project_add_contact`, `project_add_division`, `project_add_member`, `task_create`. They add no tables. They call the same permission checks the guards use and write the same audit rows |
+| R4 | **Organization → client "create or reuse" is split across `org_match`, `organization_create`, `client_create`, `organization_add_role`** | The UI must make "ABC — Web" and "ABC — Tech" impossible. `client_create` already searches first and routes ambiguity to review, so the UI can call it directly. Confirm in the pilot suite that one call covers organization + client role + originating division, and wrap only if it does not | Prefer calling `client_create` as is. Add a wrapper only if the suite shows a gap |
+| R5 | **Search → record navigation.** `search()` returns results; the UI needs a stable result → page mapping by entity type | Search must be the entry point | Pure UI routing table keyed on result `entity_type` and institutional ID. No database change |
+| R6 | **A single "who am I / what can I do" call per screen** to hide actions the user can't perform | UI must show authorization state without inventing a second authorization system | Reuse `my_access()`. Actions still fail closed in the database |
+| R7 | **A pilot seed / fixture** for the Zeta scenario: users A, B, C and a suspended user, with roles and division assignments, plus a service with an approved price | Needed to demonstrate the journey and for the tests | Test-only fixture in the pilot suites. A documented, repeatable dev seed for the manual demo, kept out of `migrations/` |
 
-- **Institutional skeleton** — opaque 9-char IDs, `entity_registry`, `entity_resolve`/`entity_get`/`search_route`, `search_index` (derived).
-- **Foundation** — `audit_log`, `events`, `notifications`.
-- **Organization** — `organization`, `divisions`, `positions`.
-- **Identity & access** — `staff`, `roles`, `permissions`, `role_permissions`, `staff_roles`, `staff_assignments`.
-- **Recruitment** — `vacancies`, `people`, `applications`, `application_*`, `onboarding_tasks`, `staff_profiles`.
-- **People & clients** — `people`, `clients`, `client_contacts`, `client_divisions`, `client_staff`, client duplicate prevention.
-- **Services & pricing** — `services`, `service_prices` (immutable versions), approvals queue.
-- **Quotes** — `quotes`, `quote_lines`, conversion to project.
-- **Projects** — `projects`, `project_services`, `project_contacts`, `project_divisions`, `project_members`, `milestones`, `tasks`, `portfolio_entries`.
-- **Enquiries & leads** — `enquiries`, `leads`, `enquiry_candidates`, `matching_reviews`, `client_create` / `client_lookup` / `claim_client_for_division`, `public_api.submit_enquiry`.
-- **Approvals** — `approval_requests`, `approval_policies`, `approval_decisions`, `approval_gate` (prices, quotes, contracts, invoices, reversals/refunds, discounts).
-- **Contracts** — `contracts`, `contract_versions`, `contract_lines`, `contract_projects`, `contract_status_history`.
-- **Invoices** — `billable_items`, `invoices`, `invoice_lines`, `finance_settings`.
-- **Payments** — `payments`, `payment_allocations`, `payment_reversals`, `bank_accounts`, `invoice_balances`, `payment_balances`.
-- **Assets** — `assets`, `asset_assignments`, `asset_history`, `asset_retirements`, `asset_maintenance`, `asset_warranties`, `asset_documents` (interim), `asset_finance_links`, `asset_duplicate_flags`, `suppliers`.
-- **Docs**, **Domains**, **Communications** (records only), **Search** (staff only), and **360° views**.
+### B.2 NICE TO HAVE (only if cheap once R1–R7 are done)
 
-**Not yet part of the pilot:**
-- HTTP public API (not written — `public_api.*` functions exist but there are no route handlers yet).
-- Expenses, credit notes, recurring invoicing, reports/dashboards.
-- Client merge, MFA, rate limiting, real Supabase staging run (recommended first staging step).
-- IRM fully built (paused scaffold) — pilot operations will use the database directly or a thin admin until the IRM is finished.
+- Show `approval_requests` state inline on quote / invoice pages (the queue exists).
+- `related:` search shortcut button on every 360 page.
+- Merged chronological timeline per client from `audit_log` plus module event tables (read-only view or UI composition).
+- A payments slice in `project_360`, if the pilot shows people expect it.
 
----
+### B.3 FUTURE (do not build in this phase)
 
-## 3. Operational workflow — Phase 1 (ADA HUB PILOT V0.1)
+Dashboards and reporting; public API HTTP layer; public search; publication layer; expenses and credit notes; recurring invoicing; client merge UI; email / WhatsApp / SMS; external document sharing; saved searches and search analytics; AI interpreter, semantic or vector search; MFA and rate limiting; staging run on a real Supabase project (recommended but separate).
 
-This is the operational sequence for standing up the pilot, readying the security boundary, validating scenarios, and deciding the hand-off to a real Supabase staging environment.
+### B.4 Baseline defect to investigate first
 
-### 3.1 Pre-flight — environment and credentials
-
-**Preconditions.**
-
-1. Local PostgreSQL 16 is available (the test runners use plain PostgreSQL, not a live Supabase project).
-2. Node is available (the concurrency scenarios and helpers run under Node).
-3. Read `docs/operations/DEVELOPMENT.md` for the local setup steps.
-4. `supabase/seed_data/permission_matrix.csv` reflects the role/permission grant intent for the pilot. Confirm with the stakeholders that the CSV is the reviewed source of truth before running tests.
-
-**Entry point.** `docs/README.md` is the canonical entry point; `docs/workflows/*.md` hold per-module operational detail. The file map:
-- Architecture: `architecture/INSTITUTIONAL_SKELETON.md`, `architecture/ENTITY_GRAPH.md`, `architecture/DATA_DICTIONARY.md`, `architecture/ERD.md`, `architecture/PERMISSION_MATRIX.md`, `architecture/ARCHITECTURE_REPORT.md`, `architecture/PUBLICATION_LAYER.md`.
-- Workflows: `workflows/RECRUITMENT.md`, `workflows/QUOTES_PRICING.md`, `workflows/LEADS_ENQUIRIES.md`, `workflows/CONTRACTS.md`, `workflows/INVOICES_PAYMENTS.md`, `workflows/ASSETS.md`, `workflows/TICKETS.md`, `workflows/DOCUMENTS.md`, `workflows/ORGANIZATIONS.md`, `workflows/APPROVALS.md`.
-- API / operations: `api/PUBLIC_API.md`, `operations/DEVELOPMENT.md`, `operations/BACKUP_RESTORE_MIGRATION.md`, `operations/DEPLOYMENT.md`.
-- Security: `SECURITY.md`.
-- Module checklist: `MODULE_CHECKLIST.md`.
-
-### 3.2 Run the core test suite
-
-**Command.** `./scripts/test-db.sh`
-
-**What it validates (1,806 checks):**
-- Authorization — every role sees only what it is allowed to see.
-- Integrity — constraints, triggers, and workflow transitions hold.
-- Audit immutability — `audit_log` cannot be altered by any client.
-- Public/private exposure — restricted records look like missing records; a permanent probe suite compares a restricted id with a random id.
-- Scenario coverage — full hire-to-departure, enquiry-to-quote, finance, and asset scenarios.
-- Structural guarantees — RLS everywhere, least-privilege grants, `matrix == CSV` (permission matrix equals the seed CSV).
-- Concurrency — 320 parallel ID inserts, 320 parallel asset registrations, a mixed-family parallel ID run, and a 22-session allocation race.
-
-**Rule validation.** The suite was validated with mutation tests: deliberately breaking a rule must make the suite fail. If a test passes after an intentional break, the rule test is insufficient — raise it before proceeding.
-
-**Exit criterion.** All checks pass on plain PostgreSQL 16 with the Supabase auth shim. If anything fails, the pilot does not advance to staging.
-
-### 3.3 Verify the permission matrix
-
-**Mechanism.** The seed CSV at `supabase/seed_data/permission_matrix.csv` is the reviewed permission matrix. The test suite asserts `matrix == CSV`: every grant the database makes is accounted for in the CSV, and vice versa.
-
-**Operational rule.** Any change to roles or permissions must:
-1. Be reflected in the CSV first (review the change).
-2. Then be reflected in the migration that applies the change.
-3. Then pass the `matrix == CSV` check.
-
-No role-name checks appear anywhere in client code — positions need no new code when permissions change.
-
-### 3.4 Rehearse a server move (migration integrity)
-
-**Command.** `./scripts/rehearse-migration.sh`
-
-**What it proves.** Dump → restore → identical security posture → working system. Use this before any staging migration, and any time the migration set changes materially. The rehearsal gives confidence that the dump/restore path preserves the security boundary and that the restored system passes the same checks.
-
-**Timing.** Run it after the migration set changes and before promoting a dump to staging.
-
-### 3.5 Prepare the staging Supabase project
-
-**Status.** Nothing is yet verified against a real Supabase project (do this first in staging).
-
-**Steps.**
-1. Create a (non-production) Supabase project in staging.
-2. Apply the migration set in order, exactly as it runs locally.
-3. Seed the permission matrix.
-4. Run the test suite against the staging project (with the Supabase auth schema real, not shimmed).
-5. Confirm that `auth.users` / `auth.uid()` behave as the shim modelled.
-
-**Known provider-specific dependency.** Only `auth.users` / `auth.uid()` (and later Storage) are provider-specific. Everything else is portable PostgreSQL.
-
-### 3.6 Author the pilot's role & permission baseline
-
-**Goal.** Define, in the CSV, the exact grant set the pilot will operate with. The pilot is a single organization with nine divisions (six public service divisions + Management, Administration, Finance). Internal units hold staff and permissions but are never published (`divisions.public_state`).
-
-**Guidance from recorded decisions:**
-- Permissions are `module.action`, assigned by role, org-wide or scoped to a division.
-- Workflows are database functions with explicit transition tables — direct status updates are rejected even for the CEO. Pilot operators use the workflow functions, not direct `UPDATE`s.
-- Self-approval is a configurable, recorded policy — allowed only while the requester is the sole qualified approver (default), never hardcoded for a role.
-- One approvals queue — every pending approval is visible to the right approvers in one place, with history.
-
-**Pilot baseline suggestion (to be reviewed against the CSV):**
-- A pilot-admin role with read across ready modules + write in the modules needed for the pilot scenarios (enquiries, leads, clients, quotes, projects, service/pricing, approvals, contracts, invoices, payments, assets, docs, domains, tickets).
-- Division-scoped roles where the pilot exercises division-level claims (`claim_client_for_division`) and division-scoped permission grants.
-
-### 3.7 Run the pilot scenarios (end-to-end)
-
-The pilot validates the system end-to-end through representative flows. Use the workflow functions in the database, not direct table writes. Approvals, prices (immutable versions), audit entries, and events are produced by the same functions live clients will use.
-
-**Recommended pilot flows:**
-
-1. **Lead / enquiry flow.** `public_api.submit_enquiry` equivalent (today: call the underlying functions with a signed-in session), `client_create` / `client_lookup` / `claim_client_for_division`, enquiry-to-quote scenario. Verify that an exact normalized-name match to an existing client is treated as the same organization and that a person who is a contact elsewhere is only ever a candidate.
-
-2. **Quote / pricing / service flow.** Create a service, create an immutable price version, quote against it (price snapshots in `quote_lines`), convert a quote to a project. Verify that changing a price never changes an existing quote, project, or (later) invoice.
-
-3. **Approvals flow.** Trigger approvals via the approval gate (prices, quotes, contracts, invoices, reversals/refunds, discounts). Verify separation of duties and that self-approval is only allowed when the requester is the sole qualified approver.
-
-4. **Contracts / invoices / payments flow.** Create a contract, invoice billable items, allocate payments, handle reversals/refunds. Verify `invoice_balances` / `payment_balances` and that revenue is derived from invoices/payments (no separate revenue field).
-
-5. **Assets flow.** Register assets, assign them, retire, maintain, warranty. Verify duplicate flags and `asset_360`.
-
-6. **Recruitment flow.** Vacancy → application → offer (`make_offer`) → accept → onboarding. Verify `vacancy_transition`, `application_transition`, and that direct status updates are rejected.
-
-7. **Restricted / existence-leakage probe.** Confirm restricted records look like missing records across errors, lookups, counts, helpers, and API answers. Confirm the permanent probe suite (restricted id vs random id) still passes.
-
-### 3.8 Audit & observation during the pilot
-
-- **Audit log is immutable.** All mutations the pilot makes should appear in `audit_log` via the workflow functions. Read it to confirm the trail; do not attempt to alter it.
-- **Events are an outbox of identifiers and states only.** They carry no personal data. They exist so websites can revalidate caches without redeploying. Confirm the event stream matches the pilot's mutations.
-- **Search (staff only).** `search_index` is derived and rebuildable, authorization-first. If the pilot needs search, confirm the index refresh and that results respect RLS.
-
-### 3.9 Not in scope for the pilot (document the gap)
-
-Explicitly note during the pilot that the following are **not** being built or validated yet, so nothing is claimed about them:
-
-- HTTP public API (route handlers not written — `public_api.*` functions exist but are not exposed yet).
-- Expenses, credit notes, recurring invoicing.
-- Reports & dashboards.
-- Client merge (a "same entity" review is recorded, but combining two client records is not built — references are not re-pointed).
-- MFA, rate limiting.
-- Real Supabase staging run (do this first in staging).
-- Communications sending / receiving / synchronisation (records layer only).
-- Tickets email/web intake, customer portal, business-hours SLA calendars, linked tickets.
-- Approvals for kinds other than prices, quotes, contracts, invoices, reversals/refunds, discounts (vacancies, profiles, expenses, hiring adopt the gate as their modules need thresholds).
-- Auth users are not created from SQL — a login is invited at the identity provider, then linked with `link_staff_account()`.
-
-### 3.10 Hand-off criteria from pilot to staging/next phase
-
-The pilot advances when **all** of the following hold:
-
-1. `./scripts/test-db.sh` passes on plain PostgreSQL 16 (1,806 checks).
-2. The permission matrix CSV is reviewed, committed, and the `matrix == CSV` check passes.
-3. `./scripts/rehearse-migration.sh` passes (dump → restore → identical security posture → working system).
-4. The pilot scenarios above run to completion using the database workflow functions, producing approvals, audit entries, immutable price snapshots, and events consistent with the rules.
-5. The `docs/MODULE_CHECKLIST.md` reflects the pilot's read.
-6. Any module still marked "not started" or "not yet verified" is explicitly documented as out of scope for the pilot.
-
-Once the above hold, the next step is the real Supabase staging run. The HTTP public API and the IRM are separate work items that come after the backend modules are finalized and the security boundary is confirmed on staging.
+`./scripts/test-db.sh` first run: all numbered suites passed (2,760 checks, 0 failed) but the final `concurrent_search` script printed `got 160,0,true,0 with 1 failed statements`. The data assertions all held (160 clients indexed, 0 drift, contested row correct, 0 orphans). Exactly one of the many parallel statements errored. A second full run passed everything, including `concurrent_search` ("ALL TESTS PASSED"). So the failure is **intermittent and not yet explained**: one statement errored under 8× parallel rename + search + 2 concurrent rebuilds on a loaded machine. It could be a real race in Search (for example a deadlock or serialization error between `search_rebuild` and the refresh trigger) or a test-harness timing artefact; the script discards the error text, so the cause is unknown. Next step: loop that script with stderr captured to find the message. Search stays closed unless that shows a genuine defect, which would be documented separately before any change.
 
 ---
 
-## 4. How the pieces map to the pilot
+## C. Workflow map — Workflow A "New client engagement"
 
-| Pilot need | Where it lives |
-|---|---|
-| Source of truth | PostgreSQL (the database) — no client keeps its own copy |
-| Security boundary | RLS + `module.action` permissions assigned by role + least-privilege grants (`matrix == CSV`) |
-| Business rules | `SECURITY DEFINER` workflow functions + explicit transition tables |
-| Memory | `audit_log` (immutable) |
-| Notification / cache invalidation | `events` outbox (identifiers and states only) |
-| Identity | `ada_mint_id` (9-char opaque IDs) + `entity_registry` (registry-first search) |
-| Reviews & approvals | `approval_*` + `approval_gate` (prices, quotes, contracts, invoices, reversals/refunds, discounts) |
-| Commerce history | Immutable price versions copied into `quote_lines` / contracts / invoices |
-| Restricted data | Classified records look like missing records; dependents inherit classification; probe suite guards leakage |
-| 360° views | SECURITY INVOKER views that inherit RLS |
-| Public projection (future) | Own route handlers → `ada_public_api` role → `public_api.*` functions (not yet exposed) |
-| Internal interface (paused) | `web/` IRM scaffold, Next.js + Supabase SSR, permission checks in `lib/access.ts` |
+Each step names the **controlled operation** the interface calls. "Needs" = permission checked inside the function. Everything after "Audit" is written by the database, not the UI.
 
----
+| # | Step | UI action | Controlled operation | Needs | Reuses / guarantees | Audit / history |
+|---|---|---|---|---|---|---|
+| 1 | Authenticate | Sign in | Supabase Auth → `my_access()` | active staff | suspended staff get no access | session |
+| 2 | Search | Type `Zeta`, `type:client Zeta`, `related:<id>`, or a bare ID | `search()`, `search_suggest()`, `search_route()` | staff | results re-checked against live authorization; restricted rows absent from results, counts and facets | none (search is not logged in V0.1) |
+| 3 | Find or create organization | "New client" form first calls the match; shows candidates; offers *use this one* | `client_lookup` / `org_match`; then `client_create` | `clients.create` in the originating division | exact / strong match reuses the record; ambiguous → `matching_reviews`; restricted matches behave as "no match" without leaking | `audit_log`, registry row, review row if ambiguous |
+| 4 | Client relationship | Implicit in step 3, or *claim for my division* on an existing client | `client_create` (originating division) / `claim_client_for_division` | division permission | one `clients` row, many `client_divisions` | `audit_log` |
+| 5 | Client contact | "Add contact" | `add_client_contact` | `can_edit_client` | reuses an existing `people` row on match; contact is a relationship row | `audit_log` |
+| 6 | Project | "New project" under the client | `project_create` (**new thin wrapper, R3**) | `projects.create` in division | `projects_guard` rules; starts as `proposed` | `audit_log`, registry |
+| 7 | Division + service | Pick lead division; pick service | `project_lead_division`, `project_add_service` (price from `price_on`) | `projects.update` | price version recorded on the line | `audit_log` |
+| 8 | Quote | "New quote", add lines from catalogue | `quote_create`, `quote_add_line` | `quotes.create` | unit price snapshotted with `price_id`; later price changes do not touch it | `audit_log` |
+| 9 | Approval | Submit; approver decides | `quote_transition(→pending_approval)`, then `→approved` | quote approve permission; separation of duties via `approval_gate` | self-approval only if sole qualified approver | `approval_requests` / `approval_decisions` |
+| 10 | Accept | Mark sent, then accepted | `quote_transition(→sent)`, `→accepted` | quotes permission | accepted quote locked | `audit_log` |
+| 11 | Project / contract link | "Convert" and "Create contract" | `quote_convert_to_project` (or link to the project from step 6), `contract_create_from_quote`, `contract_link_project`, `contract_transition` | `projects.create/update`, `contracts.*` | idempotent conversion; contract lines copy the quote snapshot | `contract_status_history`, `audit_log` |
+| 12 | Invoice | Pick billable items → create → issue | `billable_from_contract` / `billable_from_project`, `invoice_create`, `invoice_transition(→issued)` | `invoices.*`, approval gate | line and client snapshots; immutable after issue | `audit_log`, approvals |
+| 13 | Payment | Record, allocate (partial) | `payment_record`, `payment_allocate` | `payments.*` | balance is derived (`invoice_balance`); no stored balance | `audit_log` |
+| 14 | Document | Upload / register and link to client or project | `document_register`, `document_add_version`, `document_link_add` | `documents.*` | classification, retention, holds apply | `document_events` |
+| 15 | Communication | Record a thread/message and link | `communication_start`, `communication_message_record`, `communication_link_add` | `communications.*` | 360 shows metadata only; body needs `communications.read` | `communication_events` |
+| 16 | Ticket | Raise from client or project | `ticket_create(p_client, p_project, p_asset…)` | `tickets.create` | no copied identity; inherits from asset | `ticket_events` |
+| 17 | Asset | Register / assign to the project | `asset_create` or `asset_assign(p_project)` | `assets.*` | permanent institutional ID survives moves | `asset_history` |
+| 18 | Domain (optional) | Register / link | `domain_create`, `domain_relation_apply` | `domains.*` | | `domain_events` |
+| 19 | Inspect | Open Client 360 / Project 360 | `client_360`, `project_360` | view permissions | `null` for rows the caller cannot see | `activity` slice plus module event tables |
+| 20 | Re-find | Search `Zeta`, ID, `related:<id>` | `search()` | staff | every created record present | — |
 
-*This document is the Phase 1 (ADA HUB PILOT V0.1) overview and operational workflow. It references — and does not replace — the detailed per-module documents in `docs/architecture/`, `docs/workflows/`, `docs/api/`, and `docs/operations/`.*
+### C.1 Pilot test identities
+
+| Identity | Scope | Must be able to | Must not be able to |
+|---|---|---|---|
+| **User A** | manages the Zeta client and project (Web division) | complete steps 1–20 | — |
+| **User B** | another division, no access to the restricted records | search and view own division; see Zeta only where legitimately shared | see restricted clients / projects / documents / communications, or learn they exist (search, facets, suggest, 360, errors, traversal) |
+| **User C** | insufficient permissions | sign in, view what is granted | any create / approve / issue / pay action |
+| **Suspended / anonymous** | none | nothing | everything |
+
+### C.2 Test plan (summary; full suites come with the build)
+
+- `110_ada_hub_pilot.sql` — identity (no duplicate organization / person / client role), the full chain with relationship checks to every module, immutability (historical price, issued invoice), stable IDs, search finds each created record and `related:` traverses.
+- `111_ada_hub_pilot_access_restricted.sql` — probes comparing a restricted id with a random id for Client 360, Project 360, search, suggest, facets, counts and `related:`, as Users B, C and suspended.
+- `concurrency/pilot_setup.sql` + a block in `test-db.sh` — racing `client_create` of one name, racing project/contract creation from one accepted quote, racing `invoice_create` over the same billable items, racing `payment_allocate`.
+
+### C.3 Order of work after this map is accepted
+
+1. Root-cause the `concurrent_search` failure (B.4).
+2. Write `110` against the existing functions and see what breaks. That will confirm or shrink R3/R4 before any migration is written.
+3. Add only the migration (`0042_pilot_workflow.sql`) that the failing steps prove necessary.
+4. Write `111` and the concurrency block.
+5. Build the minimal interface (search first, then the 360 pages, then the forms).
+6. Run the full suite and `rehearse-migration.sh`; write the final report; stop and wait for approval.
