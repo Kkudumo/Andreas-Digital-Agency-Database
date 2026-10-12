@@ -41,3 +41,10 @@ Apply the migrations to a fresh Supabase project, run the structure checks, crea
 **Tools ready for that check (not yet run against a real project):**
 - `SUPABASE_ACCESS_TOKEN=... node scripts/supabase-apply.mjs <project-ref> [--dry-run]` applies every migration to a hosted project through the Management API (no database password), recording each in `supabase_migrations.schema_migrations` like the Supabase CLI does.
 - `scripts/pilot-live/run.sh` runs the Zeta engagement through the real interface against a real migrated database, with a local stand-in for Supabase Auth (see the header of that script). Against a real project, point `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` at it, link real staff with `link_staff_account()`, and walk through section F of `docs/workflows/ADA_HUB_PILOT_V0_1.md` by hand.
+
+
+## Applying new migrations to the live project (checklist)
+1. **Rehearse first:** `./scripts/rehearse-upgrade.sh` builds a database at the live state (migrations up to 0052, first admin created), applies the newer migrations the same way the live apply does (one transaction per file), loads the catalogue twice and checks the live posture (row-level security everywhere, nothing for `anon`, the API and dispatcher roles reach only their functions). It must print `UPGRADE REHEARSAL PASSED`.
+2. **Apply:** `SUPABASE_ACCESS_TOKEN=<a personal access token you create and revoke afterwards> node scripts/supabase-apply.mjs uyhwcbjfvfkqsixthxkn --dry-run`, then without `--dry-run`. It skips what is already recorded and applies the rest, one transaction per file.
+3. **Load the catalogue** (after checking the prices): paste `supabase/seed_data/catalogue.sql` in the SQL editor.
+4. **Re-check the posture** with the queries in the table above.
