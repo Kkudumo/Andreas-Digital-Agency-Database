@@ -105,7 +105,9 @@ select tests.check('authenticated can execute only the reviewed functions',
        'communication_hold_release', 'communication_request_disposal', 'communication_disposal_decide', 'communications_of', 'communications_for_entity', 'communication_lookup',
        'communication_participant_hits', 'communication_disposal_blockers', 'communication_360',
        -- search (a retrieval layer: invoker functions; the helpers only ever see what the caller may see)
-       'search', 'search_execute', 'search_parse', 'search_request_validate', 'search_suggest', 'search_capabilities', 'search_live', 'search_norm', 'search_sim', 'search_ctx_match', 'search_flag_stale')), 'none');
+       'search', 'search_execute', 'search_parse', 'search_request_validate', 'search_suggest', 'search_capabilities', 'search_live', 'search_norm', 'search_sim', 'search_ctx_match', 'search_flag_stale',
+       -- pilot (controlled project/task operations and the catalogue read: invoker functions under the existing policies)
+       'project_create', 'project_add_division', 'project_add_member', 'project_add_contact', 'task_create', 'pilot_catalogue', 'pilot_record', 'domain_relation_add')), 'none');
 -- "Does this information already exist in ADA Core? Then REFERENCE it." Identity/contact columns may live only in
 -- these reviewed places; a new module that adds its own name/email/phone column fails here and must reference
 -- people / clients / staff instead.

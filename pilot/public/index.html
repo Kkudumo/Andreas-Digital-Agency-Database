@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ADA Hub - Pilot console</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header id="top">
+  <a href="#/" class="brand">ADA Hub <small>pilot V0.1</small></a>
+  <form id="searchform" autocomplete="off"><input id="q" type="search" placeholder="Search: Zeta  |  type:client Zeta  |  related:&lt;id&gt;  |  an ID" aria-label="Search" list="suggestions"><datalist id="suggestions"></datalist><button type="submit">Search</button></form>
+  <div id="who"></div>
+</header>
+<div id="notice" role="status" aria-live="polite"></div>
+<main id="main"><p>Loading...</p></main>
+<footer>Development console. It calls only the controlled database operations; authorization is decided by the database for every call. The sign-in is a development stand-in.</footer>
+<script src="/app.js" type="module"></script>
+</body>
+</html>

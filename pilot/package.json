@@ -1,0 +1,17 @@
+{
+  "name": "ada-hub-pilot-console",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Minimal operating console for ADA Hub Pilot V0.1. Calls only the controlled database functions (POST /rpc/<fn>, PostgREST-compatible).",
+  "type": "module",
+  "scripts": {
+    "start": "node server.mjs",
+    "e2e": "node e2e.mjs"
+  },
+  "dependencies": {
+    "pg": "^8.13.0"
+  },
+  "devDependencies": {
+    "playwright-core": "^1.56.1"
+  }
+}

@@ -7,3 +7,4 @@ node_modules/
 next-env.d.ts
 supabase/.temp/
 backups/
+pilot/data/
