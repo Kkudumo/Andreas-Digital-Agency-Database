@@ -88,7 +88,7 @@ select tests.check('authenticated can execute only the reviewed functions',
        'document_can_row', 'document_can', 'document_on_hold', 'document_note_denied', 'audit_document_visible', 'document_register', 'document_add_version', 'document_version_transition',
        'document_open', 'document_update', 'document_set_classification', 'document_set_retention', 'document_transfer', 'document_archive', 'document_restore', 'document_link_add',
        'document_link_remove', 'document_share', 'document_unshare', 'document_comment_add', 'document_hold_place', 'document_hold_release', 'document_record_integrity_check',
-       'document_relocate_content', 'document_request_disposal', 'document_disposal_decide', 'document_publication_request', 'document_publication_decide', 'document_publish',
+       'document_storage_can', 'document_relocate_content', 'document_request_disposal', 'document_disposal_decide', 'document_publication_request', 'document_publication_decide', 'document_publish',
        'document_unpublish', 'document_version_as_of', 'documents_of', 'document_family_ids', 'documents_for_entity', 'period_resolve', 'document_360',
        -- organizations (one identity, many roles)
        'can_view_organization_row', 'can_view_organization', 'partner_visible', 'organization_note_denied', 'organization_create', 'organization_update', 'organization_add_role',
