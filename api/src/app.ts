@@ -44,7 +44,12 @@ export async function handle(req: http.IncomingMessage, res: http.ServerResponse
   try {
     const u = new URL(req.url ?? '/', 'http://x');
     const ip = (req.headers['x-forwarded-for'] as string | undefined)?.split(',')[0].trim() || req.socket.remoteAddress || 'unknown';
-    if (u.pathname === '/health' || u.pathname === '/api/health') return send(res, 200, { ok: true });
+    if (u.pathname === '/health' || u.pathname === '/api/health') {
+      if (!u.searchParams.has('db')) return send(res, 200, { ok: true });
+      // Database check: reports only the kind of failure (an error code), never the address, user or message.
+      try { await sql`select 1`; return send(res, 200, { ok: true, db: 'ok' }); }
+      catch (e: any) { return send(res, 503, { ok: false, db: 'error', code: String(e?.code ?? 'unknown').slice(0, 40) }, { 'cache-control': 'no-store' }); }
+    }
     const m = u.pathname.match(/^\/api\/public\/([a-z]+)(?:\/([^/]+))?$/);
     if (!m) return send(res, 404, { error: 'not_found' });
     const key = req.headers['x-api-key'];
