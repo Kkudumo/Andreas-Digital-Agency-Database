@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - design/hub-mobile-ceo-redesign
+      - design/hub-mobile-bottom-navigation
   pull_request:
     paths:
       - 'web/**'
