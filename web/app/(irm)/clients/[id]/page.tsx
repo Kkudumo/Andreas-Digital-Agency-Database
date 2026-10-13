@@ -90,12 +90,18 @@ export default async function ClientPage({ params, searchParams }: { params: Pro
               <label>Start date<input name="start_date" type="date" /></label>
               <label>Due date<input name="due_date" type="date" /></label>
             </div>
-            <div className="row">
-              <label>Agreed / quoted amount (NAD)<input name="quoted_amount" type="number" step="0.01" min="0" placeholder="10000.00" /></label>
-              <label>Internal delivery budget (NAD)<input name="budget" type="number" step="0.01" min="0" /></label>
-            </div>
-            <label>Finance note (confidential)<textarea name="finance_notes" rows={2} placeholder="Commercial notes visible only to staff with finance access." /></label>
-            <p className="muted small">Financial fields are stored separately from the project and remain protected by finance permissions.</p>
+            <fieldset>
+              <legend>Participating divisions</legend>
+              <div className="row">
+                {divisions.filter((d) => d.id !== me?.owner_division_id).map((d) => (
+                  <label key={d.id} style={{ display: 'flex', gap: '.45rem', alignItems: 'center' }}>
+                    <input type="checkbox" name="participating_divisions" value={d.id} style={{ width: 'auto' }} />
+                    <span>{d.name}</span>
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+            <p className="muted small">Create the operational project first. Finance adds the agreed amount, budget and finance notes from Project 360 using finance permissions.</p>
             <button className="primary" type="submit">Create project</button>
           </form>
         </details>
