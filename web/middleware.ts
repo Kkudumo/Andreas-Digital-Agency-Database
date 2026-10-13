@@ -29,14 +29,22 @@ export async function middleware(request: NextRequest) {
   if (!data.user && !isLoginPath) {
     return NextResponse.redirect(new URL(LOGIN_PATH, request.url));
   }
-
   // Keep the legacy path working while making /IMR/login the canonical entry point.
   if (!data.user && path === '/login') {
     return NextResponse.redirect(new URL(LOGIN_PATH, request.url));
   }
 
-  if (data.user && (isLoginPath || path === '/')) {
-    return NextResponse.redirect(new URL('/search', request.url));
+  if (data.user) {
+    // Second factor required: until the session is aal2, the only places a signed-in user may go are the
+    // authenticator step and sign-out (the login page's sign-out action posts to a login path).
+    const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+    const twoStep = aal?.currentLevel === 'aal2';
+    if (!twoStep && path !== '/mfa' && !isLoginPath) {
+      return NextResponse.redirect(new URL('/mfa', request.url));
+    }
+    if (twoStep && (isLoginPath || path === '/' || path === '/mfa')) {
+      return NextResponse.redirect(new URL('/search', request.url));
+    }
   }
 
   return response;
