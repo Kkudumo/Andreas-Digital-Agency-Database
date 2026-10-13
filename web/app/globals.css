@@ -453,3 +453,60 @@ a{color:#1b63c6}
 }
 .hub-main .scroll>table{display:table;width:100%}
 .hub-main td.mono{white-space:nowrap}
+
+/* Dashboard (Administrator style): priorities first */
+.dash-head{margin:0 0 30px}
+.dash-head p,.dash-title p{margin:0 0 7px;color:#1b63c6;font-size:.65rem;font-weight:900;letter-spacing:.09em;text-transform:uppercase}
+.dash-head h1{margin:0;color:#07193f;font-size:clamp(2rem,4vw,3.25rem);letter-spacing:-.035em;line-height:1.1}
+.dash-head span{display:block;margin-top:9px;color:#748094;font-size:.84rem}
+.dash-section{margin:0 0 38px}
+.dash-title{margin:0 0 15px}
+.dash-title h2{margin:0;color:#07193f;font-size:1.25rem}
+
+.dash-attn{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));gap:14px}
+.dash-attn-group{background:#fff;border:1px solid #dce3ed}
+.dash-attn-group h3{margin:0;padding:12px 18px;background:#f6f8fb;border-bottom:1px solid #e4e9f0;color:#556176;font-size:.68rem;font-weight:900;letter-spacing:.08em;text-transform:uppercase}
+.dash-attn-row{display:flex;align-items:center;gap:12px;padding:14px 18px;border-bottom:1px solid #eef1f6;color:#1f2c46;text-decoration:none}
+.dash-attn-row:last-child{border-bottom:0}
+.dash-attn-row:hover{background:#f9fbfd;text-decoration:none}
+.dash-attn-row .dot{flex:none;width:9px;height:9px;border-radius:50%;background:#9c4a00}
+.dash-attn-row.bad .dot{background:#b0181e}
+.dash-attn-row .t{flex:1;min-width:0;font-size:.84rem;font-weight:650}
+.dash-attn-row strong{font-size:1.05rem;color:#07193f;text-align:right}
+.dash-attn-row.bad strong{color:#b0181e}
+.dash-attn-row b{color:#1b63c6}
+.dash-clear{display:flex;align-items:center;gap:16px;padding:22px;background:#fff;border:1px solid #dce3ed;border-left:4px solid #116329}
+.dash-clear b{display:grid;place-items:center;flex:none;width:34px;height:34px;background:#effaf2;color:#116329;font-size:1.1rem}
+.dash-clear strong{display:block;color:#07193f;font-size:.95rem}
+.dash-clear span{display:block;margin-top:3px;color:#748094;font-size:.78rem}
+
+.dash-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.dash-stat{min-height:165px;display:flex;flex-direction:column;padding:22px;border:1px solid #dce3ed;border-top:3px solid #1b63c6;background:#fff;color:inherit;text-decoration:none}
+.dash-stat:hover{border-color:#7ea9e5;text-decoration:none}
+.dash-stat>span{color:#728096;font-size:.68rem;font-weight:800;text-transform:uppercase;letter-spacing:.05em}
+.dash-stat>strong{margin-top:14px;color:#07193f;font-size:2.2rem;line-height:1.1;overflow-wrap:anywhere}
+.dash-stat>small{margin-top:10px;color:#8994a6;font-size:.72rem}
+.dash-stat>b{margin-top:auto;padding-top:15px;color:#1b63c6;font-size:.7rem}
+
+.dash-quick{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.dash-quick a{min-height:110px;display:grid;grid-template-columns:1fr auto;gap:8px 18px;padding:19px;border:1px solid #dce3ed;background:#fff;color:inherit;text-decoration:none}
+.dash-quick a:hover{border-color:#7ea9e5;text-decoration:none}
+.dash-quick strong{display:block;color:#0a1a38;font-size:.85rem}
+.dash-quick span{display:block;margin-top:6px;color:#7c8799;font-size:.7rem;line-height:1.55}
+.dash-quick b{color:#1b63c6}
+
+.dash-areas{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.dash-area{min-height:130px;display:flex;align-items:flex-start;justify-content:space-between;gap:22px;padding:22px;border:1px solid #dce3ed;background:#fff;color:inherit;text-decoration:none}
+.dash-area:hover{border-color:#7ea9e5;text-decoration:none}
+.dash-area span{display:inline-block;margin-bottom:11px;padding:4px 8px;background:#eef4fd;color:#1b63c6;font-size:.58rem;font-weight:900;letter-spacing:.05em;text-transform:uppercase}
+.dash-area h3{margin:0 0 8px;color:#07193f;font-size:1rem}
+.dash-area p{margin:0;color:#7b8799;font-size:.74rem;line-height:1.6}
+.dash-area>b{color:#1b63c6}
+
+@media(max-width:1100px){.dash-quick{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:820px){
+ .dash-stats,.dash-areas{grid-template-columns:1fr}
+ .dash-stat{min-height:0}
+ .dash-section{margin-bottom:30px}
+}
+@media(max-width:520px){.dash-quick{grid-template-columns:1fr}}
