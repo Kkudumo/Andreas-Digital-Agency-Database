@@ -91,10 +91,8 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
 
   // ---------- what needs attention ----------
   const attnAll: Attn[] = [
-    { group: 'Decisions', text: 'Approvals waiting for your decision', value: n(A.awaiting_decision), href: '/search', tone: 'warn' },
-    { group: 'Decisions', text: 'Price changes awaiting approval', value: pricesPending, href: '/services', tone: 'warn' },
+    { group: 'Decisions', text: 'Approvals waiting for your decision (prices, quotes, invoices, contracts…)', value: n(A.awaiting_decision), href: '/approvals', tone: 'warn' },
     { group: 'Decisions', text: 'Services awaiting approval to publish', value: servicesPending, href: '/services', tone: 'warn' },
-    { group: 'Decisions', text: 'Invoices awaiting approval', value: showFin ? n(R.invoices_awaiting_approval) : 0, href: '/invoices', tone: 'warn' },
     { group: 'Decisions', text: 'Credit notes awaiting approval', value: showFin ? n(R.credit_notes_awaiting_approval) : 0, href: '/credit-notes', tone: 'warn' },
     { group: 'Decisions', text: 'Expenses awaiting approval', value: showExpenses ? expAwaitCount : 0, href: '/expenses', tone: 'warn' },
     { group: 'Money', text: 'Overdue invoices', value: showFin && overdueMoney.length ? <Money rows={overdueMoney} /> : 0, href: '/invoices', tone: 'bad' },
