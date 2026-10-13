@@ -12,8 +12,8 @@ const Money = ({ rows }: { rows?: MoneyRow[] }) => (!rows || rows.length === 0)
   ? <>—</> : <>{rows.map((r, i) => <span key={r.currency} style={{ display: 'block' }}>{money(r.value, r.currency)}{r.count !== undefined && <span className="muted small"> · {r.count}</span>}</span>)}</>;
 const sum = (o?: Record<string, number>) => Object.values(o ?? {}).reduce((a, b) => a + Number(b), 0);
 const Tile = ({ n, l, href, tone }: { n: React.ReactNode; l: string; href?: string; tone?: 'bad' | 'warn' }) => {
-  const body = <><div className="n" style={{ color: tone === 'bad' ? 'var(--danger)' : tone === 'warn' ? 'var(--warn)' : undefined }}>{n}</div><div className="l">{l}</div></>;
-  return href ? <Link className="stat" href={href} style={{ color: 'inherit', textDecoration: 'none', display: 'block' }}>{body}</Link> : <div className="stat">{body}</div>;
+  const body = <><div className="l">{l}</div><div className="n" style={{ color: tone === 'bad' ? 'var(--danger)' : tone === 'warn' ? 'var(--warn)' : undefined }}>{n}</div>{href && <div className="open">Open →</div>}</>;
+  return href ? <Link className="stat" href={href}>{body}</Link> : <div className="stat">{body}</div>;
 };
 const Bar = ({ pct }: { pct: number }) => (
   <div aria-hidden="true" style={{ background: 'var(--line)', borderRadius: 4, height: 6, minWidth: 80 }}><div style={{ width: `${Math.max(2, Math.min(100, pct))}%`, background: 'var(--accent)', borderRadius: 4, height: 6 }} /></div>
@@ -56,17 +56,11 @@ export default async function Dashboard() {
 
   return (
     <>
-      <PageHead title={isExecutive ? `Executive overview · ${access.staff.full_name.split(' ')[0]}` : `Welcome, ${access.staff.full_name.split(' ')[0]}`}
-        sub={isExecutive ? 'Organization-wide command view · ADA Core' : `${access.staff.position ?? 'ADA'}${access.staff.division_name ? ' · ' + access.staff.division_name : ''}`} />
+      <PageHead title={isExecutive ? 'Dashboard' : `Welcome, ${access.staff.full_name.split(' ')[0]}`}
+        sub={isExecutive ? 'Central operational control for Andreas Digital Agency — organization-wide.' : `${access.staff.position ?? 'ADA'}${access.staff.division_name ? ' · ' + access.staff.division_name : ''}`} eyebrow={isExecutive ? 'ADA Hub / ADA Core · Chief Executive' : 'ADA Hub / ADA Core'} />
 
-      <section className="hub-executive-hero">
-       <div><p className="hub-hero-eyebrow">{isExecutive ? 'CHIEF EXECUTIVE · ORGANIZATION-WIDE' : 'YOUR ADA WORKSPACE'}</p>
-        <h2>{isExecutive ? 'See the whole agency. Act where attention is needed.' : 'Keep the whole agency moving.'}</h2>
-        <p>{isExecutive ? 'Clients, cross-division delivery, finance, approvals and operational risk are connected here without duplicating records.' : 'Start with what needs your attention, then move straight into your teams, client work and financial records.'}</p>
-       </div><div className="hub-hero-side"><span>ADA CORE</span><strong>Connected operations</strong><small>Live data · Role-based visibility</small></div>
-      </section>
       <section className="hub-quick-section" aria-label="Quick access">
-       <div className="hub-section-heading"><h2>Quick access</h2><span>Frequently used workspaces</span></div>
+       <div className="hub-section-heading"><h2>Start work</h2><span>Quick actions</span></div>
        <div className="hub-quick-links">
         <Link href="/search"><span className="hub-quick-icon">⌕</span><span><strong>Find a record</strong><small>Search across ADA Hub</small></span><b>→</b></Link>
         {showClients&&<Link href="/clients"><span className="hub-quick-icon">◈</span><span><strong>Client directory</strong><small>Customers and contacts</small></span><b>→</b></Link>}
@@ -77,7 +71,7 @@ export default async function Dashboard() {
         {can(access,'roles.view')&&<Link href="/access"><span className="hub-quick-icon">◇</span><span><strong>Access control</strong><small>People and permissions</small></span><b>→</b></Link>}
        </div>
       </section>
-      <div className="hub-section-heading hub-overview-heading"><h2>Operational overview</h2><span>Live information from ADA Core</span></div>
+      <div className="hub-section-heading hub-overview-heading"><h2>Operational overview</h2><span>Live from ADA Core</span></div>
 
 
       {/* ---------- Operational picture: derived live from the authoritative records, restricted to what you may see ---------- */}

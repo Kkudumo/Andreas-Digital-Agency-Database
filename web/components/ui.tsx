@@ -17,14 +17,15 @@ export function Badge({ v }: { v?: string | null }) {
   return <span className={`badge ${TONE[v] ?? ''}`}>{v.replace(/_/g, ' ')}</span>;
 }
 
-export function PageHead({ title, sub, action }: { title: string; sub?: string; action?: { href: string; label: string } | null }) {
+export function PageHead({ title, sub, action, eyebrow }: { title: string; sub?: string; action?: { href: string; label: string } | null; eyebrow?: string }) {
   return (
     <div className="head">
       <div>
+        <p className="eyebrow">{eyebrow ?? 'ADA Hub / ADA Core'}</p>
         <h1>{title}</h1>
         {sub && <div className="muted">{sub}</div>}
       </div>
-      {action && <Link className="primary" href={action.href}>{action.label}</Link>}
+      {action && <Link className="head-action" href={action.href}>{action.label} <span aria-hidden="true">+</span></Link>}
     </div>
   );
 }

@@ -19,7 +19,7 @@ async function session(email) {
   await page.waitForURL('**/dashboard**'); return { ctx, page };
 }
 const main = (page) => page.locator('main').innerText();
-const seen = async (page, s, ms = 20000) => { try { await page.waitForFunction((t) => document.querySelector('main').innerText.includes(t), s, { timeout: ms }); return true; } catch { return false; } };
+const seen = async (page, s, ms = 20000) => { try { await page.waitForFunction((t) => document.querySelector('main').innerText.toLowerCase().includes(t.toLowerCase()), s, { timeout: ms }); return true; } catch { return false; } };
 const tmp = (n, data) => { const f = path.join(os.tmpdir(), n); fs.writeFileSync(f, data); return f; };
 async function newDoc(page, { how, title, type = 'report', file }) {
   await page.goto(BASE + '/documents/new'); await page.waitForSelector('form[data-ready=true]');
@@ -36,7 +36,7 @@ const download = async (page) => { const [dl] = await Promise.all([page.waitForE
 
 try {
   const { ctx: cCeo, page: P } = await session('ceo@ada.test');
-  ok('sign-in lands on the executive overview', P.url().includes('/dashboard') && /Executive overview/.test(await main(P)), await main(P));
+  ok('sign-in lands on the Dashboard (executive view for the CEO)', P.url().includes('/dashboard') && /Dashboard/.test(await main(P)), await main(P));
   ok('the CEO sees Documents in the menu', await P.locator('nav a[href="/documents"]').first().isVisible());
   await P.goto(BASE + '/documents'); ok('documents list starts empty', /No documents yet/.test(await main(P)), await main(P));
 

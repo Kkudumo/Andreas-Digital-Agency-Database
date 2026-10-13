@@ -9,7 +9,7 @@ async function session(email) {
   await page.waitForURL('**/dashboard**'); return { ctx, page };
 }
 const settle = async (page) => { await page.waitForTimeout(1200); await page.waitForLoadState('networkidle'); await page.waitForTimeout(400); };
-const seen = async (page, s) => { try { await page.waitForFunction((t) => document.querySelector('main').innerText.includes(t), s, { timeout: 10000 }); return true; } catch { return false; } };
+const seen = async (page, s) => { try { await page.waitForFunction((t) => document.querySelector('main').innerText.toLowerCase().includes(t.toLowerCase()), s, { timeout: 10000 }); return true; } catch { return false; } };
 const text = async (page) => (await page.locator('main').innerText());
 const flash = async (page) => (await page.locator('.flash').first().innerText().catch(() => ''));
 
@@ -46,7 +46,7 @@ const projectUrl = A.url().split('?')[0];
 await A.goto(clientUrl); await A.click('summary:has-text("New quote")'); await A.fill('details:has(summary:has-text("New quote")) input[name=title]', 'Zeta website');
 const proj = await A.locator('details:has(summary:has-text("New quote")) select[name=project] option').allInnerTexts(); await A.selectOption('details:has(summary:has-text("New quote")) select[name=project]', { label: 'Zeta Website' });
 await A.click('details:has(summary:has-text("New quote")) button[type=submit]'); await A.waitForURL('**/quotes/**');
-ok('quote created in draft', /draft/.test(await text(A)), await text(A));
+ok('quote created in draft', /draft/i.test(await text(A)), await text(A));
 const quoteUrl = A.url().split('?')[0];
 await A.selectOption('select[name=service]', { index: 0 }); await A.click('button:has-text("Add line")'); await settle(A);
 ok('catalogue line added at 5,000 with price snapshot', /5,000\.00/.test(await text(A)) && /approved catalogue price/.test(await text(A)), await text(A));
@@ -62,7 +62,7 @@ await C.goto(quoteUrl); await move(C, 'approved'); ok('management approves', /ap
 await ctxC.close();
 
 // ---------- A continues: send, accept, convert, contract
-await A.goto(quoteUrl); await move(A, 'sent'); await move(A, 'accepted'); ok('quote accepted', /accepted/.test(await text(A)), await flash(A));
+await A.goto(quoteUrl); await move(A, 'sent'); await move(A, 'accepted'); ok('quote accepted', /accepted/i.test(await text(A)), await flash(A));
 await A.click('button:has-text("Link quote to its project")'); await A.waitForURL('**/projects/**');
 ok('project holds the priced service from the quote', /Zeta Website|Website Development/.test(await text(A)) && /5,000\.00/.test(await text(A)), await text(A));
 await A.goto(quoteUrl); await A.click('button:has-text("Create contract from this quote")'); await A.waitForURL('**/contracts/**'); const contractUrl = A.url().split('?')[0];
