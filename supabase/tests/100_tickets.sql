@@ -20,7 +20,7 @@ select tests.check('the ticket is a registered entity with a generated instituti
 select tests.check('tickets have no ID input and no generator of their own', (select coalesce(string_agg(column_name, ','), 'none') from information_schema.columns where table_name = 'tickets' and column_name ~ 'institutional|ticket_no|number'), 'none');
 select tests.check('the ticket type is in the codebook and is never publishable', (select (c.code = t.id_code and not t.publishable)::text from entity_types t join id_codebook c on c.kind = 'type' and c.meaning = t.key where t.key = 'ticket'), 'true');
 select tests.check('the publication flag exists and marks the types that may one day be public (and not finance, assets, tickets)',
-  (select string_agg(key, ',' order by key) from entity_types where publishable), 'cohort,course,division,document,module,portfolio,profile,programme,service,vacancy');
+  (select string_agg(key, ',' order by key) from entity_types where publishable), 'cohort,course,division,document,module,portfolio,post,profile,programme,service,vacancy');
 select tests.check('the ticket resolves through the registry for those who may see it',
   tests.scalar('web_staff', format($q$ select (entity_resolve(%L) ->> 'entity_type') $q$, (select institutional_id from entity_registry where entity_id = tests.id('t:1')))), 'ticket');
 select tests.check('...and not for another division', tests.scalar('tech_lead', format($q$ select coalesce(entity_resolve(%L)::text, 'null') $q$, (select institutional_id from entity_registry where entity_id = tests.id('t:1')))), 'null');

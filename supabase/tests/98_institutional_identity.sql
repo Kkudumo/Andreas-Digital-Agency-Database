@@ -128,7 +128,7 @@ select tests.check('a classification of Internal alone does not grant access: Te
 
 create function pg_temp.plan(p_sql text) returns text language plpgsql as $$
 declare l text; r text := '';
-begin for l in execute 'explain ' || p_sql loop r := r || l || E'\n'; end loop; return r; end $$;
+begin set local enable_seqscan = off; for l in execute 'explain ' || p_sql loop r := r || l || E'\n'; end loop; return r; end $$;
 select tests.check('registry-first retrieval: looking an ID up uses the registry primary key (an index probe), never a table scan',
   (select (p like '%entity_registry_pkey%' and p not like '%Seq Scan%')::text from (select pg_temp.plan($q$ select * from entity_registry where institutional_id = 'AAAAAAAAA' $q$) p) q), 'true');
 select tests.check('...and so does a lookup by legacy ID and by authoritative record key',

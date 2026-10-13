@@ -37,7 +37,7 @@ select tests.check('ada_public_api has no privileges on any table',
 select tests.check('ada_public_api can execute only the reviewed entry points',
   (select string_agg(proname, ',' order by proname) from pg_proc
    where pronamespace = 'public_api'::regnamespace and has_function_privilege('ada_public_api', oid, 'execute')),
-  'divisions,document,documents,portfolio,services,statistics,submit_application,submit_enquiry,team,vacancies,vacancy');
+  'divisions,document,documents,portfolio,post,posts,services,statistics,submit_application,submit_application_profile,submit_enquiry,team,vacancies,vacancy');
 select tests.check('ada_public_api cannot execute private helpers in public',
   (select coalesce(string_agg(proname, ','), 'none') from pg_proc
    where pronamespace = 'public'::regnamespace and prorettype <> 'trigger'::regtype
@@ -52,7 +52,7 @@ select tests.check('authenticated can execute only the reviewed functions',
        'current_staff_id', 'is_active_staff', 'is_untrusted_caller', 'has_permission', 'has_permission_anywhere', 'my_access',
        'can_view_client', 'can_edit_client', 'can_view_client_row', 'can_edit_client_row', 'can_view_person', 'can_edit_person',
        'can_view_project', 'can_edit_project', 'can_view_project_row', 'can_edit_project_row', 'has_project_permission', 'has_project_permission_row',
-       'can_view_vacancy_row', 'can_view_application_row', 'application_division', 'can_view_service', 'can_view_service_row', 'service_division',
+       'can_view_post', 'content_transition', 'can_view_vacancy_row', 'can_view_application_row', 'application_division', 'can_view_service', 'can_view_service_row', 'service_division',
        'position_open_capacity', 'client_duplicate_message', 'client_name_key', 'price_on',
        -- workflow / command functions (each checks its own permission inside)
        'link_staff_account', 'issue_website_key', 'vacancy_transition', 'staff_record_application', 'application_transition', 'make_offer',

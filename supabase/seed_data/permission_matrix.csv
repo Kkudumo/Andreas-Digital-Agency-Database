@@ -154,3 +154,8 @@ credit_notes.create,confidential,"Draft, edit, submit and cancel credit notes",x
 credit_notes.approve,confidential,Approve credit notes before they are issued,x,,x,,,,
 credit_notes.issue,confidential,Issue approved credit notes to the client,x,,x,,,,
 credit_notes.apply,confidential,Apply unapplied credit to invoices and release applications,x,,x,,,,
+content.view,internal,View content posts (own division and agency-wide),x,x,,x,x,x,
+content.create,internal,Create content posts (journal news announcements updates),x,x,,x,x,,
+content.update,internal,Edit content posts,x,x,,x,x,,
+content.publish,restricted,"Approve, publish and unpublish content posts on the websites",x,,,,,,
+content.archive,internal,Archive content posts,x,x,,x,,,

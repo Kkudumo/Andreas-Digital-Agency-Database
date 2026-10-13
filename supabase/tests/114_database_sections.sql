@@ -5,7 +5,7 @@ begin;
 select tests.setup();
 select tests.check('every table of the public schema belongs to a section', (select coalesce(string_agg(c.relname, ', ' order by c.relname), 'none') from pg_class c where c.relnamespace = 'public'::regnamespace and c.relkind = 'r' and not exists (select 1 from db_section_tables t where t.table_name = c.relname)), 'none');
 select tests.check('no section lists a table that does not exist', (select coalesce(string_agg(t.table_name, ', '), 'none') from db_section_tables t where to_regclass('public.' || t.table_name) is null), 'none');
-select tests.check('there are 13 sections, numbered 1 to 13, each with at least one table', (select count(*)::text || ':' || min(position)::text || '-' || max(position)::text || ':' || count(*) filter (where exists (select 1 from db_section_tables t where t.section_key = s.key))::text from db_sections s), '13:1-13:13');
+select tests.check('there are 14 sections, numbered 1 to 14, each with at least one table', (select count(*)::text || ':' || min(position)::text || '-' || max(position)::text || ':' || count(*) filter (where exists (select 1 from db_section_tables t where t.section_key = s.key))::text from db_sections s), '14:1-14:14');
 select tests.check('the services and prices section holds the catalogue, the people and careers section holds vacancies and applications',
   (select string_agg(section_key, ',' order by table_name) from db_section_tables where table_name in ('service_prices', 'services', 'vacancies', 'applications', 'invoices')), 'people_careers,finance,services_prices,services_prices,people_careers');
 select tests.check('signed-in staff can read the arrangement as one document; its table counts add up to the number of tables',

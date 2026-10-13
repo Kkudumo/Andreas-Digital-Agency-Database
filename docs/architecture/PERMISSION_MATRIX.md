@@ -161,3 +161,8 @@ A role assignment is organization-wide or scoped to one division. **Division Lea
 | `credit_notes.approve` — Approve credit notes before they are issued | confidential | x |  | x |  |  |  |  |
 | `credit_notes.issue` — Issue approved credit notes to the client | confidential | x |  | x |  |  |  |  |
 | `credit_notes.apply` — Apply unapplied credit to invoices and release applications | confidential | x |  | x |  |  |  |  |
+| `content.view` — View content posts (own division and agency-wide) | internal | x | x |  | x | x | x |  |
+| `content.create` — Create content posts (journal news announcements updates) | internal | x | x |  | x | x |  |  |
+| `content.update` — Edit content posts | internal | x | x |  | x | x |  |  |
+| `content.publish` — Approve, publish and unpublish content posts on the websites | restricted | x |  |  |  |  |  |  |
+| `content.archive` — Archive content posts | internal | x | x |  | x |  |  |  |
