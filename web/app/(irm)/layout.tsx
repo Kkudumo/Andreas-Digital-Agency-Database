@@ -13,6 +13,7 @@ export default async function IrmLayout({ children }: { children: React.ReactNod
     { href: '/organization/reviews', label: 'Duplicates', show: canAnywhere(access, 'matching.review'), group: 'Organization' },
     { href: '/clients', label: 'Clients', show: canAnywhere(access, 'clients.view'), group: 'Operations' },
     { href: '/projects', label: 'Projects', show: canAnywhere(access, 'projects.view'), group: 'Operations' },
+    { href: '/services', label: 'Services', show: canAnywhere(access, 'services.create') || canAnywhere(access, 'services.update') || canAnywhere(access, 'pricing.propose') || canAnywhere(access, 'quotes.view'), group: 'Commercial' },
     { href: '/quotes', label: 'Quotes', show: canAnywhere(access, 'quotes.view'), group: 'Commercial' },
     { href: '/contracts', label: 'Contracts', show: canAnywhere(access, 'contracts.view'), group: 'Commercial' },
     { href: '/invoices', label: 'Invoices', show: canAnywhere(access, 'invoices.view'), group: 'Finance' },
