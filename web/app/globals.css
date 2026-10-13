@@ -586,3 +586,9 @@ a{color:#1b63c6}
 .d1-task{padding:8px 16px}
 .d1-act{padding:8px 16px}
 .d1-quick{flex:1;grid-auto-rows:1fr}
+
+/* Websites screen: capability checkboxes and the one-time access key box */
+.checks { display: flex; flex-wrap: wrap; gap: .25rem .9rem; }
+.checks label { display: inline-flex; align-items: center; gap: .35rem; font-weight: 400; }
+.keybox { display: grid; gap: .5rem; padding: .75rem; border: 1px solid var(--line, #d6dbe4); background: var(--bg, #f4f7fb); max-width: 34rem; }
+.keyvalue { display: block; padding: .5rem; background: var(--card, #fff); border: 1px dashed var(--line, #c7cfdb); word-break: break-all; user-select: all; font-size: .9rem; }
