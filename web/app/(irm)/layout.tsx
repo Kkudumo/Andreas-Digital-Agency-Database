@@ -6,8 +6,8 @@ export default async function IrmLayout({ children }: { children: React.ReactNod
   const access = await requireAccess();
   // The menu only reflects what the database will allow; it is not what enforces it.
   const items = [
-    { href: '/search', label: 'Search ADA Hub', show: true, group: '' },
     { href: '/dashboard', label: 'Dashboard', show: true, group: '' },
+    { href: '/search', label: 'Search ADA Hub', show: true, group: '' },
     { href: '/organization', label: 'Organization', show: true, group: 'Organization' },
     { href: '/staff', label: 'Staff', show: true, group: 'Organization' },
     { href: '/organization/reviews', label: 'Duplicates', show: canAnywhere(access, 'matching.review'), group: 'Organization' },
