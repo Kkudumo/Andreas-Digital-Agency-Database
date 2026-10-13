@@ -101,13 +101,16 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
     { group: 'Delivery', text: 'Projects past their due date', value: showProjects ? n(PR.overdue) : 0, href: q('type:project'), tone: 'bad' },
     { group: 'Delivery', text: 'Your tasks overdue', value: myOverdue, href: '/projects', tone: 'bad' },
     { group: 'Delivery', text: 'Tickets past their response target', value: showTickets ? slaBreached : 0, href: q('type:ticket'), tone: 'bad' },
-    { group: 'Risk', text: 'Domains lapsed', value: showDomains ? n(W.domains_due?.lapsed) : 0, href: q('type:domain'), tone: 'bad' },
-    { group: 'Risk', text: 'Domains due for renewal', value: showDomains ? n(W.domains_due?.due_soon) : 0, href: q('type:domain'), tone: 'warn' },
     { group: 'Risk', text: 'Contracts ending in 60 days', value: showContracts ? n(C.ending_60d) : 0, href: q('type:contract status:active'), tone: 'warn' },
-    { group: 'Risk', text: 'Warranties ending in 30 days', value: showAssets ? n(W.warranties_ending_30d) : 0, href: q('type:asset'), tone: 'warn' },
   ];
   // late things first, then what waits on you; within a tone keep the group order above
   const attn = attnAll.filter((a) => (typeof a.value === 'number' ? a.value > 0 : true)).sort((a, b) => (a.tone === b.tone ? 0 : a.tone === 'bad' ? -1 : 1));
+
+  // watch figures are always shown, zero included, so an empty register is visible rather than hidden
+  const watchRows: { text: string; value: number; href: string }[] = [
+    ...(showDomains ? [{ text: 'Domains lapsed', value: n(W.domains_due?.lapsed), href: q('type:domain') }, { text: 'Domains due for renewal', value: n(W.domains_due?.due_soon), href: q('type:domain') }] : []),
+    ...(showAssets ? [{ text: 'Warranties ending in 30 days', value: n(W.warranties_ending_30d), href: q('type:asset') }] : []),
+  ];
 
   // ---------- compact key figures ----------
   const kpi = (l: string, v: React.ReactNode, s: string, href: string, bad?: boolean) => (
@@ -295,6 +298,11 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
             ) : attn.map((a) => (
               <Link className={`d1-row ${a.tone}`} key={a.text} href={a.href ?? '#'}>
                 <span className="dot" aria-hidden="true" /><span className="t">{a.text}</span><em>{a.group}</em><strong>{a.value}</strong>
+              </Link>
+            ))}
+            {watchRows.map((w) => (
+              <Link className="d1-row" key={w.text} href={w.href} style={{ opacity: w.value ? 1 : .7 }}>
+                <span className="dot" aria-hidden="true" /><span className="t">{w.text}</span><em>Watch</em><strong>{w.value}</strong>
               </Link>
             ))}
           </div>
