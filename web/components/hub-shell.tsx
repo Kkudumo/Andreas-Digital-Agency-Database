@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Nav } from './nav';
 
 type Item={href:string;label:string;group:string};
+const officialWhiteLogo=process.env.NEXT_PUBLIC_ADA_PRIMARY_WHITE_LOGO_URL;
 export function HubShell({items,person,staffId,position,division,signout,children}:{
  items:Item[];person:string;staffId:string;position:string;division?:string|null;
  signout:React.ReactNode;children:React.ReactNode;
@@ -37,7 +38,7 @@ export function HubShell({items,person,staffId,position,division,signout,childre
  return <div className="hub-app">
   <button aria-label="Close navigation" className={'hub-scrim'+(open?' is-visible':'')} onClick={()=>setOpen(false)} tabIndex={open?0:-1}/>
   <aside ref={sidebarRef} id="hub-sidebar" className={'hub-sidebar'+(open?' is-open':'')} aria-label="Primary navigation">
-   <div className="hub-brand"><span className="hub-mark" aria-hidden="true">A</span><span><strong>ADA Hub</strong><small>Institutional workspace</small></span><button ref={closeRef} className="hub-close" aria-label="Close menu" onClick={()=>setOpen(false)}>×</button></div>
+   <div className="hub-brand">{officialWhiteLogo ? <img className="hub-official-logo" src={officialWhiteLogo} alt="Andreas Digital Agency official logo" /> : <span className="hub-mark" aria-hidden="true">A</span>}<span><strong>ADA Hub</strong><small>Institutional workspace</small></span><button ref={closeRef} className="hub-close" aria-label="Close menu" onClick={()=>setOpen(false)}>×</button></div>
    <div className="hub-side-caption">WORKSPACE</div>
    <Nav items={items}/>
    <div className="hub-side-footer"><div className="hub-avatar">{person.trim().charAt(0).toUpperCase()||'A'}</div><div className="hub-side-person"><strong>{person}</strong><span>{position}{division?' · '+division:''}</span><small>{staffId}</small></div><div className="hub-signout">{signout}</div></div>
