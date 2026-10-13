@@ -1,7 +1,9 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
-// Refreshes the Supabase session and keeps signed-out visitors on /login.
+const LOGIN_PATH = '/IMR/login';
+
+// Refreshes the Supabase session and keeps signed-out visitors on the ADA IRM login.
 // This is a convenience redirect, not the security boundary: the database enforces access.
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request });
@@ -22,12 +24,21 @@ export async function middleware(request: NextRequest) {
 
   const { data } = await supabase.auth.getUser();
   const path = request.nextUrl.pathname;
-  if (!data.user && path !== '/login') {
-    return NextResponse.redirect(new URL('/login', request.url));
+  const isLoginPath = path === LOGIN_PATH || path === '/login';
+
+  if (!data.user && !isLoginPath) {
+    return NextResponse.redirect(new URL(LOGIN_PATH, request.url));
   }
-  if (data.user && (path === '/login' || path === '/')) {
+
+  // Keep the legacy path working while making /IMR/login the canonical entry point.
+  if (!data.user && path === '/login') {
+    return NextResponse.redirect(new URL(LOGIN_PATH, request.url));
+  }
+
+  if (data.user && (isLoginPath || path === '/')) {
     return NextResponse.redirect(new URL('/search', request.url));
   }
+
   return response;
 }
 
