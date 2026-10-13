@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { Nav } from './nav';
 
 type Item={href:string;label:string;group:string};
-const officialWhiteLogo=process.env.NEXT_PUBLIC_ADA_PRIMARY_WHITE_LOGO_URL;
 export function HubShell({items,person,staffId,position,division,signout,children}:{
  items:Item[];person:string;staffId:string;position:string;division?:string|null;
  signout:React.ReactNode;children:React.ReactNode;
@@ -38,16 +37,15 @@ export function HubShell({items,person,staffId,position,division,signout,childre
  return <div className="hub-app">
   <button aria-label="Close navigation" className={'hub-scrim'+(open?' is-visible':'')} onClick={()=>setOpen(false)} tabIndex={open?0:-1}/>
   <aside ref={sidebarRef} id="hub-sidebar" className={'hub-sidebar'+(open?' is-open':'')} aria-label="Primary navigation">
-   <div className="hub-brand">{officialWhiteLogo ? <img className="hub-official-logo" src={officialWhiteLogo} alt="Andreas Digital Agency official logo" /> : <span className="hub-mark" aria-hidden="true">A</span>}<span><strong>ADA Hub</strong><small>Institutional workspace</small></span><button ref={closeRef} className="hub-close" aria-label="Close menu" onClick={()=>setOpen(false)}>×</button></div>
-   <div className="hub-side-caption">WORKSPACE</div>
+   <div className="hub-brand"><div className="hub-brand-text"><Link href="/dashboard" className="hub-brand-link"><span>ADA</span><strong>Hub / Core</strong></Link><small>Technology. Systems. Growth.</small></div><button ref={closeRef} className="hub-close" aria-label="Close menu" onClick={()=>setOpen(false)}>×</button></div>
    <Nav items={items}/>
    <div className="hub-side-footer"><div className="hub-avatar">{person.trim().charAt(0).toUpperCase()||'A'}</div><div className="hub-side-person"><strong>{person}</strong><span>{position}{division?' · '+division:''}</span><small>{staffId}</small></div><div className="hub-signout">{signout}</div></div>
   </aside>
   <div className="hub-workspace">
    <a href="#main-content" className="hub-skip-link">Skip to main content</a>
    <header className="hub-topbar">
-    <div className="hub-topbar-left"><button aria-label="Open navigation" aria-controls="hub-sidebar" aria-expanded={open} ref={menuRef} className="hub-menu" onClick={()=>setOpen(true)}><span>☰</span></button><Link href="/dashboard" className="hub-mobile-wordmark">ADA <b>Hub</b></Link><div className="hub-breadcrumb"><span>ADA / Workspace</span><strong>{items.find(i=>pathname===i.href||pathname.startsWith(i.href+'/'))?.label||'Overview'}</strong></div></div>
-    <div className="hub-topbar-actions"><Link href="/search" aria-label="Search ADA Hub" className="hub-search-link"><span aria-hidden="true">⌕</span> <span>Search everything</span><kbd>ADA</kbd></Link><span className="hub-top-avatar" aria-label={'Signed in as '+person}>{person.trim().charAt(0).toUpperCase()||'A'}</span></div>
+    <div className="hub-topbar-left"><button aria-label="Open navigation" aria-controls="hub-sidebar" aria-expanded={open} ref={menuRef} className="hub-menu" onClick={()=>setOpen(true)}><span>☰</span></button><Link href="/dashboard" className="hub-mobile-wordmark">ADA <b>Hub</b></Link><div className="hub-breadcrumb"><span>Andreas Digital Agency</span><strong>Administrative Control Centre</strong></div></div>
+    <div className="hub-topbar-actions"><div className="hub-admin-user"><span>{person}</span><small>{position}{division?' · '+division:''}</small></div><Link href="/search" aria-label="Search ADA Hub" className="hub-search-link"><span aria-hidden="true">⌕</span> <span>Search everything</span><kbd>ADA</kbd></Link><span className="hub-top-avatar" aria-label={'Signed in as '+person}>{person.trim().charAt(0).toUpperCase()||'A'}</span></div>
    </header>
    <main className="hub-main" id="main-content"><div className="hub-main-inner">{children}</div></main>
    <nav className="hub-bottom-nav" aria-label="Mobile quick navigation">

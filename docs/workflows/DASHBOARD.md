@@ -41,3 +41,24 @@ Trend lines or history (the figures are "now"), exports, scheduled or e-mailed r
 * **Recurring billing** card (only when something needs attention): schedules due for a run and paused schedules, linking to Billing runs.
 
 All derived at read time under the caller's own row-level security, exactly like the rest of the dashboard.
+
+## Hub dashboard: where every figure comes from
+
+Nothing on the dashboard is typed in or hard-coded. Every figure is read at page load under the signed-in person's own permissions (RLS). An empty database shows zeros and "nothing here", never sample numbers.
+
+| Tile / list | Source | Shown when | Who enters the data |
+|---|---|---|---|
+| Open quotes (value) | `dashboard_summary().pipeline` | quotes.view | Sales, via Quotes |
+| Receivables / overdue | `dashboard_summary().receivables` | invoices.view | Finance, via Invoices and payments |
+| Live projects, overdue projects, per-division live count | `dashboard_summary().projects` | projects.view | Division leads, via Projects |
+| Open tickets, past response target | `dashboard_summary().tickets` | tickets.view | Support |
+| Active contracts, ending in 60 days | `dashboard_summary().contracts` | contracts.view | Via Contracts |
+| Clients | `clients` (not archived) | clients.view | Via Clients |
+| Services per division, awaiting publish | `services`, `divisions` | any signed-in staff | Division leads, via Services |
+| Approvals waiting for your decision | `approval_requests` (pending, not requested by you) via `dashboard_summary().approvals`; list at `/approvals` | any | Raised by the approval engine (prices, quotes, invoices, contracts…) |
+| Credit notes / expenses awaiting approval | `dashboard_summary()` receivables / spend | invoices.view / expenses.view | Finance |
+| Domains, warranties | `dashboard_summary().watch` | domains.view / assets.view | Not yet entered anywhere in the Hub (no screen yet) |
+| Your tasks | `tasks` assigned to you | projects.view | Project members |
+| Recent activity | `audit_log` | audit.view | Written automatically by the database |
+
+Price-change and invoice approvals are counted once, inside "Approvals waiting for your decision". They are not repeated as separate rows.
