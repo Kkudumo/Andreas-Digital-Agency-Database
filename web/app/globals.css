@@ -296,3 +296,39 @@ button,a,input,select,textarea { -webkit-tap-highlight-color:transparent }
  .hub-bottom-icon{font-size:23px;line-height:25px}
  .hub-main{padding-bottom:calc(95px + env(safe-area-inset-bottom))}
 }
+
+/* ADA Hub record discovery — purposeful search, not a form-heavy admin page */
+.ada-search-intro {padding:0 0 19px}
+.ada-search-kicker {font-size:10px;font-weight:800;letter-spacing:.16em;color:var(--accent);margin:0 0 9px}
+.ada-search-intro h1 {font-size:clamp(28px,3vw,38px);letter-spacing:-.055em;font-weight:760;margin:0 0 7px}
+.ada-search-intro>p:last-child {font-size:14px;line-height:1.6;color:var(--muted);margin:0}
+.ada-search-panel {background:var(--card);border:1px solid var(--line);border-radius:16px;padding:clamp(16px,2.4vw,26px);box-shadow:0 4px 18px #10284708;margin-bottom:20px}
+.ada-search-panel label {font-size:12px;color:var(--text);font-weight:730;margin-bottom:9px}
+.ada-search-input-row {display:flex;gap:10px}
+.ada-search-input-row input {height:50px;background:var(--bg);padding:12px 14px;border:1px solid var(--line);border-radius:10px;min-width:0;flex:1;font-size:14px}
+.ada-search-input-row button {padding:0 21px;min-width:108px;background:var(--accent);border:0;border-radius:10px;color:var(--accent-ink);font-weight:750;font-size:13px;cursor:pointer}
+.ada-search-input-row button:hover {filter:brightness(1.08)}
+.ada-search-input-row button span {margin-left:6px}
+.ada-search-chips {display:flex;align-items:center;flex-wrap:wrap;gap:9px;margin-top:14px;font-size:11px}
+.ada-search-chips>span {color:var(--muted);font-weight:650}
+.ada-search-chips a {border:1px solid var(--line);background:var(--bg);color:var(--text);padding:5px 10px;border-radius:999px;font-size:11px;font-weight:640}
+.ada-search-chips a:hover {text-decoration:none;border-color:var(--accent)}
+.ada-search-guide {background:var(--card);border:1px solid var(--line);border-radius:16px;padding:clamp(16px,2.4vw,25px)}
+.ada-search-guide-heading {display:flex;justify-content:space-between;align-items:center;gap:12px;padding-bottom:15px;border-bottom:1px solid var(--line)}
+.ada-search-guide-heading h2 {font-size:15px;margin:0}
+.ada-search-guide-heading p {font-size:12px;color:var(--muted);margin:0}
+.ada-search-guide-list {display:grid;gap:0}
+.ada-search-guide-row {display:grid;grid-template-columns:minmax(150px,220px) minmax(0,1fr);gap:16px;padding:14px 2px;border-bottom:1px solid var(--line);align-items:start}
+.ada-search-guide-row:last-child {border-bottom:0;padding-bottom:0}
+.ada-search-guide-row code {font-size:11px;color:var(--accent);overflow-wrap:anywhere}
+.ada-search-guide-row span {font-size:12px;color:var(--muted);line-height:1.6}
+.ada-search-results {margin-top:16px}
+@media(max-width:650px) {
+ .ada-search-intro {padding-bottom:16px}
+ .ada-search-panel {padding:16px}
+ .ada-search-input-row {flex-direction:column}
+ .ada-search-input-row button {min-height:46px}
+ .ada-search-guide-heading {display:block}
+ .ada-search-guide-heading p {margin-top:5px}
+ .ada-search-guide-row {grid-template-columns:1fr;gap:4px;padding:13px 0}
+}
