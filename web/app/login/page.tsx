@@ -1,8 +1,9 @@
-const officialWhiteLogo=process.env.NEXT_PUBLIC_ADA_PRIMARY_WHITE_LOGO_URL;
-const officialBlueLogo=process.env.NEXT_PUBLIC_ADA_PRIMARY_BLUE_LOGO_URL;
 import Link from 'next/link';
 import { signIn } from './actions';
 import { Flash } from '@/components/ui';
+
+const officialWhiteLogo=process.env.NEXT_PUBLIC_ADA_PRIMARY_WHITE_LOGO_URL;
+const officialBlueLogo=process.env.NEXT_PUBLIC_ADA_PRIMARY_BLUE_LOGO_URL;
 
 export default async function LoginPage({searchParams}:{searchParams:Promise<{error?:string}>}) {
  const {error}=await searchParams;
