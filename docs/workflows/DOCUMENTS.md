@@ -60,3 +60,29 @@ Every change is in `audit_log` (with actor and institutional ID) and in the docu
 
 ## Not built
 No upload/preview service (the storage layer supplies provider, key and hash), no OCR/full-text content search, no e-signature capture (a signed version records who and when), no per-document retention-review reminders, no document templates or generation, no external sharing links. Organization Unification will let `document_links` point at the unified organization entity.
+
+## Working with files in ADA Hub (Word, Excel, PDF)
+
+ADA Hub has a **Documents** area (menu: Operations → Documents; a shortcut on the home screen). It is a screen over the module above; it adds no table and no rule.
+
+| You want to | What happens |
+|---|---|
+| Write a Word document | *New document → Write a new Word document*. The record is registered (`document_register`), a blank `.docx` is stored as version 1, and the editor opens. |
+| Start an Excel spreadsheet | *New document → Start a new Excel spreadsheet*. Same, with a blank `.xlsx`. |
+| Upload an existing file | *Upload a file*: `.docx`, `.xlsx` or `.pdf`, up to 50 MB. Stored as version 1. |
+| Edit | Word and Excel files open in the browser editors. **Save as a new version** stores the edited file as the next version (`document_add_version`); earlier versions stay, and the version picker opens any of them read-only. An unchanged file is refused ("identical to version N"), so nothing is duplicated. |
+| Read a PDF | Opens in the browser's viewer. PDFs can be read, printed and downloaded, not edited. |
+| Download | Always the stored file, exactly as saved. |
+| Attach to a client / project / invoice | Type its ID when creating the document (`document_link_add`); the link shows on the document and on that record's own page. |
+
+**Where the files live.** In the private Supabase Storage bucket `documents` (migration `0055`). A file's name is `<document id>/<version id>.<docx|xlsx|pdf>`; the bucket policies ask the module (`document_can`) whether the caller may add (`upload`) or read (`read`) a file for that document, so division, classification, critical flag and archive state all apply. Files are write-once (no update, no delete policy). There are no public links: the interface asks the module to open the document (`document_open`, which logs the open or download against the staff member) and only then asks Storage for a link that expires after two minutes.
+
+**Editors.** Excel files use Univer (spreadsheet) with a converter (`web/lib/office/xlsx.ts`); Word files use TipTap with mammoth (read) and the `docx` library (write) (`web/lib/office/docx.ts`). Round-trip tests: `scripts/test-office-xlsx.mjs`, `scripts/test-office-docx.mjs`.
+
+**What is kept when a file is edited in the browser.**
+* Excel: values, formulas (with their last result), number / currency / date formats, bold / italic / underline / strikethrough, fonts, sizes, colours, fills, alignment and wrap, borders, merged cells, column widths, row heights, frozen panes, several sheets. **Not kept:** charts, images, pivot tables, conditional formatting, data validation, macros, theme-coloured styling.
+* Word: paragraphs, headings 1–3, bold / italic / underline / strikethrough, links, bulleted and numbered lists (nested), quotes, tables, line breaks. **Not kept:** page layout, headers and footers, images, text boxes, comments and tracked changes, fonts and colours.
+
+Because of that, a file with charts, images or macros should be downloaded and edited in Microsoft Office; the original version is never touched by browser editing (a save is a new version). Real-time co-editing is not provided.
+
+**Tests.** `supabase/tests/113_document_storage.sql` (who may add or read, write-once, path forgery, hidden = missing, logging) and the browser journey `scripts/pilot-live/documents-journey.mjs` (run with `JOURNEY=documents-journey scripts/pilot-live/run.sh`): write and save Word, edit and save Excel and read the file back, upload PDF / Word / Excel, versions, downloads, other division, anonymous and forged links.

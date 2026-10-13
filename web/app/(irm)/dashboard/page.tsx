@@ -72,6 +72,7 @@ export default async function Dashboard() {
         {showClients&&<Link href="/clients"><span className="hub-quick-icon">◈</span><span><strong>Client directory</strong><small>Customers and contacts</small></span><b>→</b></Link>}
         {canAnywhere(access,'clients.create')&&<Link href="/clients/new"><span className="hub-quick-icon">＋</span><span><strong>New client</strong><small>Create the authoritative client record</small></span><b>→</b></Link>}
         {showProjects&&<Link href="/projects"><span className="hub-quick-icon">▣</span><span><strong>Projects</strong><small>Delivery and assignments</small></span><b>→</b></Link>}
+        {canAnywhere(access,'documents.view')&&<Link href="/documents"><span className="hub-quick-icon">▤</span><span><strong>Documents</strong><small>Word, Excel and PDF — edit and keep versions</small></span><b>→</b></Link>}
         {canAnywhere(access,'expenses.view')&&<Link href="/expenses"><span className="hub-quick-icon">◉</span><span><strong>Expenses</strong><small>Spending and approval</small></span><b>→</b></Link>}
         {can(access,'roles.view')&&<Link href="/access"><span className="hub-quick-icon">◇</span><span><strong>Access control</strong><small>People and permissions</small></span><b>→</b></Link>}
        </div>

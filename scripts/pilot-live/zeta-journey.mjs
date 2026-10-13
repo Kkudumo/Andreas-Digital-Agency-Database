@@ -6,7 +6,7 @@ const ok = (name, cond, extra = '') => { steps.push(`${cond ? 'ok  ' : 'FAIL'} $
 async function session(email) {
   const ctx = await browser.newContext(); const page = await ctx.newPage(); page.setDefaultTimeout(30000);
   await page.goto(BASE + '/login'); await page.fill('input[name=email]', email); await page.fill('input[name=password]', 'x'); await page.click('button[type=submit]');
-  await page.waitForURL('**/search**'); return { ctx, page };
+  await page.waitForURL('**/dashboard**'); return { ctx, page };
 }
 const settle = async (page) => { await page.waitForTimeout(1200); await page.waitForLoadState('networkidle'); await page.waitForTimeout(400); };
 const seen = async (page, s) => { try { await page.waitForFunction((t) => document.querySelector('main').innerText.includes(t), s, { timeout: 10000 }); return true; } catch { return false; } };
@@ -17,7 +17,7 @@ let A;
 try {
 // ---------- A: web_lead
 let { ctx: ctxA, page: A0 } = await session('web_lead@ada.test'); A = A0;
-ok('login lands on Search', A.url().includes('/search'));
+ok('login lands on the dashboard (the executive overview for the CEO)', A.url().includes('/dashboard'));
 await A.goto(BASE + '/search?q=zeta'); ok('search before: nothing found', /0 results/.test(await text(A)), await text(A));
 await A.goto(BASE + '/clients/new?name=Zeta%20Test%20Company'); ok('new client: no existing match', /No existing client found/.test(await text(A)));
 await A.selectOption('select[name=division]', { label: 'ADA Web' }); await A.fill('input[name=registration]', 'ZTC-2026'); await A.click('button:has-text("Create")');
