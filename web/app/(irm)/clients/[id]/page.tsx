@@ -79,9 +79,23 @@ export default async function ClientPage({ params, searchParams }: { params: Pro
         <details style={{ marginTop: '.7rem' }}><summary>Create a project</summary>
           <form action={createProjectAction} className="stack" style={{ marginTop: '.6rem' }}>
             <Return to={here} /><input type="hidden" name="client" value={id} />
-            <label>Project name<input name="name" required /></label>
-            <label>Lead division<select name="division" defaultValue={me?.owner_division_id ?? undefined}>{divisions.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}</select></label>
-            <label>Description<input name="description" /></label>
+            <label>Project name<input name="name" required placeholder="e.g. Multi-business website development" /></label>
+            <div className="row">
+              <label>Lead division<select name="division" defaultValue={me?.owner_division_id ?? undefined}>{divisions.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}</select></label>
+              <label>Project type<input name="project_type" placeholder="Website development" /></label>
+            </div>
+            <label>Scope / description<textarea name="description" rows={4} placeholder="Describe the websites, deliverables, client requirements and boundaries of the work." /></label>
+            <div className="row">
+              <label>Priority<select name="priority" defaultValue="normal">{['low','normal','high','urgent'].map((p) => <option key={p} value={p}>{p}</option>)}</select></label>
+              <label>Start date<input name="start_date" type="date" /></label>
+              <label>Due date<input name="due_date" type="date" /></label>
+            </div>
+            <div className="row">
+              <label>Agreed / quoted amount (NAD)<input name="quoted_amount" type="number" step="0.01" min="0" placeholder="10000.00" /></label>
+              <label>Internal delivery budget (NAD)<input name="budget" type="number" step="0.01" min="0" /></label>
+            </div>
+            <label>Finance note (confidential)<textarea name="finance_notes" rows={2} placeholder="Commercial notes visible only to staff with finance access." /></label>
+            <p className="muted small">Financial fields are stored separately from the project and remain protected by finance permissions.</p>
             <button className="primary" type="submit">Create project</button>
           </form>
         </details>
