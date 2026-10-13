@@ -5,13 +5,12 @@ import { call, money, type Rec } from '@/lib/db';
 import { fmtDate, fmtDateTime, label } from '@/lib/format';
 import { Badge, Empty } from '@/components/ui';
 
-// The first screen after sign-in, organised by what needs doing:
-//   1. Needs your attention  - decisions, money, delivery and risk, only what is actually pending
-//   2. Key figures           - the handful of numbers that describe the agency right now
-//   3. Quick access          - where people go most
-//   4. Divisions             - each division at a glance
-//   5. Operational detail    - the full tables (pipeline, projects, receivables, spend, tickets, watch list)
-//   6. Your own work         - your tasks, what is due soon, your access, recent activity
+// The first screen after sign-in: one screen, no scrolling on a desktop.
+//   Top row     - the key figures
+//   Left card   - needs your attention (decisions, money, delivery, risk), most urgent first
+//   Middle      - each division at a glance, and your open tasks
+//   Right       - quick access, and recent activity
+// The full tables (pipeline, projects, receivables, spend, tickets, watch list) are one click away at /dashboard?view=overview.
 // Every figure is derived at read time by dashboard_summary() under the caller's own row-level security.
 
 type MoneyRow = { currency: string; value: number | string; count?: number; status?: string };
@@ -19,6 +18,7 @@ const Money = ({ rows }: { rows?: MoneyRow[] }) => (!rows || rows.length === 0)
   ? <>—</> : <>{rows.map((r) => <span key={r.currency} style={{ display: 'block' }}>{money(r.value, r.currency)}{r.count !== undefined && <span className="muted small"> · {r.count}</span>}</span>)}</>;
 const sum = (o?: Record<string, number>) => Object.values(o ?? {}).reduce((a, b) => a + Number(b), 0);
 const q = (s: string) => `/search?q=${encodeURIComponent(s)}`;
+const n = (v: unknown) => Number(v ?? 0);
 const Row = ({ k, children, to }: { k: string; children: React.ReactNode; to?: string }) => (
   <tr><td>{to ? <Link href={to}>{k}</Link> : k}</td><td style={{ textAlign: 'right' }}>{children}</td></tr>
 );
@@ -28,8 +28,9 @@ const Bar = ({ pct }: { pct: number }) => (
 
 type Attn = { group: 'Decisions' | 'Money' | 'Delivery' | 'Risk'; text: string; value: React.ReactNode; href?: string; tone: 'bad' | 'warn' };
 
-export default async function Dashboard() {
-  const access = await requireAccess();
+export default async function Dashboard({ searchParams }: { searchParams: Promise<{ view?: string }> }) {
+  const access = await requireAccess(); const sp = await searchParams;
+  const overview = sp.view === 'overview';
   const supabase = await createClient();
   const today = new Date().toISOString().slice(0, 10);
   const soon = new Date(Date.now() + 14 * 864e5).toISOString().slice(0, 10);
@@ -61,12 +62,12 @@ export default async function Dashboard() {
       ? supabase.from('tasks').select('id, ada_id, title, status, priority, due_date, project:projects(id, name)')
           .eq('assignee_id', access.staff.id).in('status', ['todo', 'in_progress', 'blocked']).order('due_date', { nullsFirst: false }).limit(8)
       : null,
-    showProjects
+    overview && showProjects
       ? supabase.from('projects').select('id, ada_id, name, status, due_date, client:clients(name)')
           .in('status', ['proposed', 'approved', 'active', 'on_hold']).lte('due_date', soon).order('due_date').limit(6)
       : null,
     can(access, 'audit.view')
-      ? supabase.from('audit_log').select('id, occurred_at, actor_ada_id, action, table_name, record_ada_id').order('id', { ascending: false }).limit(8)
+      ? supabase.from('audit_log').select('id, occurred_at, actor_ada_id, action, table_name, record_ada_id').order('id', { ascending: false }).limit(overview ? 8 : 5)
       : null,
     supabase.from('divisions').select('id, key, name, description').eq('is_active', true).eq('kind', 'service').order('sort_order'),
     supabase.from('services').select('division_id, status').is('deleted_at', null).limit(2000),
@@ -85,11 +86,10 @@ export default async function Dashboard() {
   const maxByCur = new Map<string, number>(); openQuotes.forEach((r) => maxByCur.set(r.currency, Math.max(maxByCur.get(r.currency) ?? 0, Number(r.value))));
   const outstanding: MoneyRow[] = R.outstanding ?? []; const overdueMoney: MoneyRow[] = R.overdue ?? [];
   const slaBreached = Number(T.sla_breached ?? 0);
-  const n = (v: unknown) => Number(v ?? 0);
   const expAwait: MoneyRow[] = S.awaiting_approval ?? [];
   const expAwaitCount = expAwait.reduce((a, r) => a + n(r.count), 0);
 
-  // ---------- 1. what needs attention ----------
+  // ---------- what needs attention ----------
   const attnAll: Attn[] = [
     { group: 'Decisions', text: 'Approvals waiting for your decision', value: n(A.awaiting_decision), href: '/search', tone: 'warn' },
     { group: 'Decisions', text: 'Price changes awaiting approval', value: pricesPending, href: '/services', tone: 'warn' },
@@ -97,7 +97,7 @@ export default async function Dashboard() {
     { group: 'Decisions', text: 'Invoices awaiting approval', value: showFin ? n(R.invoices_awaiting_approval) : 0, href: '/invoices', tone: 'warn' },
     { group: 'Decisions', text: 'Credit notes awaiting approval', value: showFin ? n(R.credit_notes_awaiting_approval) : 0, href: '/credit-notes', tone: 'warn' },
     { group: 'Decisions', text: 'Expenses awaiting approval', value: showExpenses ? expAwaitCount : 0, href: '/expenses', tone: 'warn' },
-    { group: 'Money', text: 'Overdue invoices (past due date)', value: showFin && overdueMoney.length ? <Money rows={overdueMoney} /> : 0, href: '/invoices', tone: 'bad' },
+    { group: 'Money', text: 'Overdue invoices', value: showFin && overdueMoney.length ? <Money rows={overdueMoney} /> : 0, href: '/invoices', tone: 'bad' },
     { group: 'Money', text: 'Recurring billing due for a run', value: showFin ? n(B.schedules_due) : 0, href: '/billing', tone: 'warn' },
     { group: 'Money', text: 'Sent quotes expiring in 14 days', value: showQuotes ? n(P.quotes_expiring_14d) : 0, href: '/quotes', tone: 'warn' },
     { group: 'Delivery', text: 'Projects past their due date', value: showProjects ? n(PR.overdue) : 0, href: q('type:project'), tone: 'bad' },
@@ -108,105 +108,41 @@ export default async function Dashboard() {
     { group: 'Risk', text: 'Contracts ending in 60 days', value: showContracts ? n(C.ending_60d) : 0, href: q('type:contract status:active'), tone: 'warn' },
     { group: 'Risk', text: 'Warranties ending in 30 days', value: showAssets ? n(W.warranties_ending_30d) : 0, href: q('type:asset'), tone: 'warn' },
   ];
-  const attn = attnAll.filter((a) => (typeof a.value === 'number' ? a.value > 0 : true));
-  const groups = (['Decisions', 'Money', 'Delivery', 'Risk'] as const).map((g) => ({ g, items: attn.filter((a) => a.group === g) })).filter((x) => x.items.length > 0);
+  // late things first, then what waits on you; within a tone keep the group order above
+  const attn = attnAll.filter((a) => (typeof a.value === 'number' ? a.value > 0 : true)).sort((a, b) => (a.tone === b.tone ? 0 : a.tone === 'bad' ? -1 : 1));
 
-  // ---------- 2. key figures ----------
-  const stat = (l: string, v: React.ReactNode, small: string, href?: string, tone?: 'bad') => (
-    <Link className="dash-stat" href={href ?? '#'} key={l} style={tone === 'bad' ? { borderTopColor: '#b0181e' } : undefined}>
-      <span>{l}</span><strong>{v}</strong><small>{small}</small><b>Open →</b>
-    </Link>
+  // ---------- compact key figures ----------
+  const kpi = (l: string, v: React.ReactNode, s: string, href: string, bad?: boolean) => (
+    <Link className={`d1-kpi${bad ? ' bad' : ''}`} href={href} key={l}><span>{l}</span><strong>{v}</strong><small>{s}</small></Link>
   );
-  const stackMoney = (rows: MoneyRow[], empty = '—') => rows.length === 0 ? empty : rows.map((r) => <span key={r.currency} style={{ display: 'block', fontSize: rows.length > 1 ? '1.3rem' : undefined }}>{money(r.value, r.currency)}</span>);
-
-  // ---------- 4. divisions ----------
+  const stackMoney = (rows: MoneyRow[]) => rows.length === 0 ? '—' : rows.map((r) => <span key={r.currency} style={{ display: 'block', fontSize: rows.length > 1 ? '.95rem' : '1.2rem' }}>{money(r.value, r.currency)}</span>);
   const divCount = (id: string, st?: string) => services.filter((s) => s.division_id === id && (!st || s.status === st)).length;
   const activeIn = (name: string) => ((PR.active_by_division ?? []) as any[]).find((d) => d.division === name)?.count ?? 0;
 
   const quick = [
-    { href: '/search', t: 'Find a record', d: 'Search clients, projects, invoices, documents and more', show: true },
-    { href: '/clients/new', t: 'New client', d: 'Check for an existing company, then create the client', show: canAnywhere(access, 'clients.create') },
-    { href: '/services', t: 'Services and prices', d: 'Edit what each division sells and its prices', show: true },
-    { href: '/quotes', t: 'Quotes', d: 'Priced proposals from the catalogue', show: showQuotes },
-    { href: '/projects', t: 'Projects', d: 'Delivery, tasks and assignments', show: showProjects },
-    { href: '/invoices', t: 'Invoices', d: 'Billing, payments and balances', show: showFin },
-    { href: '/expenses', t: 'Expenses', d: 'Spending, approval and payment', show: showExpenses },
-    { href: '/staff', t: 'Staff', d: 'People, roles and divisions', show: true },
+    { href: '/search', t: 'Find a record', show: true },
+    { href: '/clients/new', t: 'New client', show: canAnywhere(access, 'clients.create') },
+    { href: '/services', t: 'Services & prices', show: true },
+    { href: '/quotes', t: 'Quotes', show: showQuotes },
+    { href: '/projects', t: 'Projects', show: showProjects },
+    { href: '/invoices', t: 'Invoices', show: showFin },
+    { href: '/expenses', t: 'Expenses', show: showExpenses },
+    { href: '/staff', t: 'Staff', show: true },
   ].filter((x) => x.show);
 
-  return (
-    <>
-      {/* heading */}
-      <header className="dash-head">
-        <p>{isExecutive ? 'Chief Executive · Organization-wide' : `${access.staff.position ?? 'ADA'}${access.staff.division_name ? ' · ' + access.staff.division_name : ''}`}</p>
-        <h1>{greeting}, {first}</h1>
-        <span>{dateLine} · {isExecutive ? 'Everything across ADA, in one place' : 'Your workspace'}</span>
-      </header>
+  const who = isExecutive ? 'Chief Executive · Organization-wide' : `${access.staff.position ?? 'ADA'}${access.staff.division_name ? ' · ' + access.staff.division_name : ''}`;
 
-      {/* 1. needs attention */}
-      <section className="dash-section" aria-label="Needs your attention">
-        <div className="dash-title"><p>Priority</p><h2>Needs your attention</h2></div>
-        {groups.length === 0 ? (
-          <div className="dash-clear"><b>✓</b><div><strong>Nothing needs your attention right now.</strong><span>New approvals, overdue invoices, late projects and expiring items will appear here first.</span></div></div>
-        ) : (
-          <div className="dash-attn">
-            {groups.map(({ g, items }) => (
-              <div className="dash-attn-group" key={g}>
-                <h3>{g}</h3>
-                {items.map((a) => (
-                  <Link className={`dash-attn-row ${a.tone}`} key={a.text} href={a.href ?? '#'}>
-                    <span className="dot" aria-hidden="true" /><span className="t">{a.text}</span><strong>{a.value}</strong><b aria-hidden="true">→</b>
-                  </Link>
-                ))}
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
-
-      {/* 2. key figures */}
-      <section className="dash-section" aria-label="Key figures">
-        <div className="dash-title"><p>Right now</p><h2>Key figures</h2></div>
-        <div className="dash-stats">
-          {showQuotes && stat('Open quotes', stackMoney([...byCur].map(([currency, value]) => ({ currency, value }))), 'Value of quotes not yet decided', '/quotes')}
-          {showFin && stat('Outstanding receivables', stackMoney(outstanding), overdueMoney.length ? 'Some of it is overdue' : 'Nothing overdue', '/invoices', overdueMoney.length ? 'bad' : undefined)}
-          {showProjects && stat('Live projects', sum(PR.by_status), `${n(PR.overdue)} overdue · ${n(PR.due_14d)} due in 14 days`, '/projects', n(PR.overdue) ? 'bad' : undefined)}
-          {showTickets && stat('Open tickets', sum(T.open_by_priority), slaBreached ? `${slaBreached} past their target` : 'All within target', q('type:ticket'), slaBreached ? 'bad' : undefined)}
-          {showContracts && stat('Active contracts', n(C.active), `${n(C.ending_60d)} end in 60 days`, q('type:contract status:active'))}
-          {showClients && stat('Clients', clients?.count ?? 0, 'Clients you can see', '/clients')}
-        </div>
-      </section>
-
-      {/* 3. quick access */}
-      <section className="dash-section" aria-label="Quick access">
-        <div className="dash-title"><p>Shortcuts</p><h2>Quick access</h2></div>
-        <div className="dash-quick">
-          {quick.map((x) => <Link key={x.href} href={x.href}><div><strong>{x.t}</strong><span>{x.d}</span></div><b>→</b></Link>)}
-        </div>
-      </section>
-
-      {/* 4. divisions */}
-      {divisions.length > 0 && (
-        <section className="dash-section" aria-label="Divisions">
-          <div className="dash-title"><p>Divisions</p><h2>Each division at a glance</h2></div>
-          <div className="dash-areas">
-            {divisions.map((d) => (
-              <Link key={d.id} href={`/services/${d.key}`} className="dash-area">
-                <div>
-                  <span>{d.name}</span>
-                  <h3>{divCount(d.id)} services</h3>
-                  <p>{divCount(d.id, 'published')} published · {divCount(d.id, 'draft')} draft{showProjects ? ` · ${activeIn(d.name)} active projects` : ''}</p>
-                </div>
-                <b>→</b>
-              </Link>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* 5. operational detail */}
-      <section className="dash-section" aria-label="Operational detail">
-        <div className="dash-title"><p>Detail</p><h2>Operational overview</h2></div>
+  // =====================================================================================================================
+  // Full overview: the detailed tables, one click from the dashboard
+  // =====================================================================================================================
+  if (overview) {
+    return (
+      <>
+        <header className="dash-head">
+          <p>{who}</p>
+          <h1>Operational overview</h1>
+          <span><Link href="/dashboard">← Back to dashboard</Link> · {dateLine}</span>
+        </header>
         <div className="grid g2">
           {showQuotes && (
             <section className="card"><h2>Sales pipeline</h2>
@@ -283,27 +219,6 @@ export default async function Dashboard() {
               </tbody></table>
             </section>
           )}
-        </div>
-      </section>
-
-      {/* 6. your own work */}
-      <section className="dash-section" aria-label="Your own work">
-        <div className="dash-title"><p>You</p><h2>Your own work</h2></div>
-        <div className="grid g2">
-          <section className="card">
-            <h2>Your open tasks</h2>
-            {tasks.length === 0 ? <Empty>No open tasks assigned to you.</Empty> : (
-              <table><tbody>
-                {tasks.map((t) => (
-                  <tr key={t.id}>
-                    <td><Link href={`/projects/${t.project?.id}`}>{t.title}</Link><div className="muted small">{t.project?.name}</div></td>
-                    <td><Badge v={t.status} /></td>
-                    <td style={{ color: t.due_date && t.due_date < today ? 'var(--danger)' : undefined }}>{fmtDate(t.due_date)}</td>
-                  </tr>
-                ))}
-              </tbody></table>
-            )}
-          </section>
 
           {showProjects && (
             <section className="card">
@@ -348,7 +263,89 @@ export default async function Dashboard() {
             </section>
           )}
         </div>
+      </>
+    );
+  }
+
+  // =====================================================================================================================
+  // The one-screen dashboard
+  // =====================================================================================================================
+  const recent = ((audit?.data ?? []) as any[]);
+  return (
+    <div className="d1">
+      <header className="d1-head">
+        <div><p>{who}</p><h1>{greeting}, {first}</h1></div>
+        <div className="d1-head-r"><span>{dateLine}</span><Link href="/dashboard?view=overview">Full overview →</Link></div>
+      </header>
+
+      <section className="d1-kpis" aria-label="Key figures">
+        {showQuotes && kpi('Open quotes', stackMoney([...byCur].map(([currency, value]) => ({ currency, value }))), 'Not yet decided', '/quotes')}
+        {showFin && kpi('Receivables', stackMoney(outstanding), overdueMoney.length ? 'Some overdue' : 'Nothing overdue', '/invoices', overdueMoney.length > 0)}
+        {showProjects && kpi('Live projects', sum(PR.by_status), `${n(PR.overdue)} overdue`, '/projects', n(PR.overdue) > 0)}
+        {showTickets && kpi('Open tickets', sum(T.open_by_priority), slaBreached ? `${slaBreached} past target` : 'All within target', q('type:ticket'), slaBreached > 0)}
+        {showContracts && kpi('Active contracts', n(C.active), `${n(C.ending_60d)} end in 60 days`, q('type:contract status:active'))}
+        {showClients && kpi('Clients', clients?.count ?? 0, 'You can see', '/clients')}
       </section>
-    </>
+
+      <div className="d1-grid">
+        {/* left: needs attention */}
+        <section className="d1-card d1-attn" aria-label="Needs your attention">
+          <div className="d1-card-h"><h2>Needs your attention</h2><span className={`d1-count${attn.length ? '' : ' ok'}`}>{attn.length ? attn.length : 'All clear'}</span></div>
+          <div className="d1-scroll">
+            {attn.length === 0 ? (
+              <div className="d1-clear"><b>✓</b><div><strong>Nothing needs your attention</strong><span>Approvals, overdue invoices, late projects and expiring items will appear here first.</span></div></div>
+            ) : attn.map((a) => (
+              <Link className={`d1-row ${a.tone}`} key={a.text} href={a.href ?? '#'}>
+                <span className="dot" aria-hidden="true" /><span className="t">{a.text}</span><em>{a.group}</em><strong>{a.value}</strong>
+              </Link>
+            ))}
+          </div>
+        </section>
+
+        {/* middle: divisions + your tasks */}
+        <div className="d1-col">
+          <section className="d1-card" aria-label="Divisions">
+            <div className="d1-card-h"><h2>Divisions</h2><Link href="/services">Services →</Link></div>
+            <div className="d1-scroll">
+              {divisions.map((d) => (
+                <Link className="d1-div" key={d.id} href={`/services/${d.key}`}>
+                  <strong>{d.name}</strong><small>{divCount(d.id)} services · {divCount(d.id, 'published')} live{showProjects ? ` · ${activeIn(d.name)} projects` : ''}</small><b>→</b>
+                </Link>
+              ))}
+              {divisions.length === 0 && <Empty>No divisions visible to you.</Empty>}
+            </div>
+          </section>
+          <section className="d1-card" aria-label="Your tasks">
+            <div className="d1-card-h"><h2>Your open tasks</h2>{myOverdue > 0 && <span className="d1-count">{myOverdue} overdue</span>}</div>
+            <div className="d1-scroll">
+              {tasks.length === 0 ? <div className="d1-empty">No open tasks assigned to you.</div> : tasks.slice(0, 5).map((t) => (
+                <Link className="d1-task" key={t.id} href={`/projects/${t.project?.id}`}>
+                  <span><strong>{t.title}</strong><small>{t.project?.name}</small></span>
+                  <span style={{ color: t.due_date && t.due_date < today ? '#b0181e' : undefined }}>{fmtDate(t.due_date)}</span>
+                </Link>
+              ))}
+            </div>
+          </section>
+        </div>
+
+        {/* right: quick access + recent activity */}
+        <div className="d1-col">
+          <section className="d1-card" aria-label="Quick access">
+            <div className="d1-card-h"><h2>Quick access</h2></div>
+            <div className="d1-quick">{quick.map((x) => <Link key={x.href} href={x.href}>{x.t}<b>→</b></Link>)}</div>
+          </section>
+          <section className="d1-card" aria-label="Recent activity">
+            <div className="d1-card-h"><h2>{audit ? 'Recent activity' : 'Your access'}</h2>{audit && <Link href="/audit">Audit log →</Link>}</div>
+            <div className="d1-scroll">
+              {audit ? (recent.length === 0 ? <div className="d1-empty">No activity yet.</div> : recent.map((a) => (
+                <div className="d1-act" key={a.id}><span>{a.action} <em>{label(a.table_name)}</em></span><small>{fmtDateTime(a.occurred_at)}</small></div>
+              ))) : access.roles.map((r, i) => (
+                <div className="d1-act" key={i}><span>{r.name}</span><small>{r.division_name ? `Scoped to ${r.division_name}` : 'Organization-wide'}</small></div>
+              ))}
+            </div>
+          </section>
+        </div>
+      </div>
+    </div>
   );
 }
