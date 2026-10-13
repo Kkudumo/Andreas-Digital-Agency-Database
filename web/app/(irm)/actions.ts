@@ -48,17 +48,42 @@ export async function addContactAction(fd: FormData) {
 
 // --- project ---------------------------------------------------------------------------------------------------------------------------
 export async function createProjectAction(fd: FormData) {
-  const { data, error } = await call('project_create', {
-    p_client: str(fd.get('client')), p_division: str(fd.get('division')), p_name: str(fd.get('name')), p_description: str(fd.get('description')),
+  const { data, error } = await call('project_intake_create_v2', {
+    p_client: str(fd.get('client')),
+    p_division: str(fd.get('division')),
+    p_participating_divisions: fd.getAll('participating_divisions').map((v) => String(v)).filter(Boolean),
+    p_name: str(fd.get('name')),
+    p_description: str(fd.get('description')),
+    p_type: str(fd.get('project_type')),
+    p_priority: str(fd.get('priority')) ?? 'normal',
+    p_start: str(fd.get('start_date')),
+    p_due: str(fd.get('due_date')),
   });
   if (error || !data) back(where(fd), 'error', friendly(error));
-  redirect(`/projects/${data}?ok=${encodeURIComponent('Project created (status: proposed).')}`);
+  redirect(`/projects/${data}?ok=${encodeURIComponent('Project created and shared with its participating divisions (status: proposed).')}`);
+}
+export async function setProjectFinancialsAction(fd: FormData) {
+  done(await run(fd, 'project_financials_set', {
+    p_project: str(fd.get('project')),
+    p_quoted_amount: num(fd.get('quoted_amount')),
+    p_budget: num(fd.get('budget')),
+    p_notes: str(fd.get('finance_notes')),
+  }, 'Project financial record updated.'));
 }
 export async function projectTransitionAction(fd: FormData) {
   done(await run(fd, 'project_transition', { p_id: str(fd.get('project')), p_to: str(fd.get('to')), p_reason: str(fd.get('note')) }, 'Project status changed.'));
 }
 export async function addProjectServiceAction(fd: FormData) {
   done(await run(fd, 'project_add_service', { p_project: str(fd.get('project')), p_service: str(fd.get('service')), p_quantity: num(fd.get('quantity')) ?? 1 }, 'Service added at the current approved price.'));
+}
+export async function createTaskAction(fd: FormData) {
+  done(await run(fd, 'task_create', {
+    p_project: str(fd.get('project')),
+    p_title: str(fd.get('title')),
+    p_description: str(fd.get('description')),
+    p_assignee: str(fd.get('assignee')),
+    p_due: str(fd.get('due_date')),
+  }, 'Task created.'));
 }
 
 // --- quote -> approval -> contract -----------------------------------------------------------------------------------------------------

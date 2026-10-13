@@ -79,9 +79,29 @@ export default async function ClientPage({ params, searchParams }: { params: Pro
         <details style={{ marginTop: '.7rem' }}><summary>Create a project</summary>
           <form action={createProjectAction} className="stack" style={{ marginTop: '.6rem' }}>
             <Return to={here} /><input type="hidden" name="client" value={id} />
-            <label>Project name<input name="name" required /></label>
-            <label>Lead division<select name="division" defaultValue={me?.owner_division_id ?? undefined}>{divisions.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}</select></label>
-            <label>Description<input name="description" /></label>
+            <label>Project name<input name="name" required placeholder="e.g. Multi-business website development" /></label>
+            <div className="row">
+              <label>Lead division<select name="division" defaultValue={me?.owner_division_id ?? undefined}>{divisions.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}</select></label>
+              <label>Project type<input name="project_type" placeholder="Website development" /></label>
+            </div>
+            <label>Scope / description<textarea name="description" rows={4} placeholder="Describe the websites, deliverables, client requirements and boundaries of the work." /></label>
+            <div className="row">
+              <label>Priority<select name="priority" defaultValue="normal">{['low','normal','high','urgent'].map((p) => <option key={p} value={p}>{p}</option>)}</select></label>
+              <label>Start date<input name="start_date" type="date" /></label>
+              <label>Due date<input name="due_date" type="date" /></label>
+            </div>
+            <fieldset>
+              <legend>Participating divisions</legend>
+              <div className="row">
+                {divisions.filter((d) => d.id !== me?.owner_division_id).map((d) => (
+                  <label key={d.id} style={{ display: 'flex', gap: '.45rem', alignItems: 'center' }}>
+                    <input type="checkbox" name="participating_divisions" value={d.id} style={{ width: 'auto' }} />
+                    <span>{d.name}</span>
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+            <p className="muted small">Create the operational project first. Finance adds the agreed amount, budget and finance notes from Project 360 using finance permissions.</p>
             <button className="primary" type="submit">Create project</button>
           </form>
         </details>

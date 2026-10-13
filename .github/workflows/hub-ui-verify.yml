@@ -4,6 +4,7 @@ on:
     branches:
       - design/hub-mobile-ceo-redesign
       - design/hub-mobile-bottom-navigation
+      - claude/pensive-planck-k9zod1
   pull_request:
     paths:
       - 'web/**'
