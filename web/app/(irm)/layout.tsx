@@ -1,6 +1,6 @@
 import { requireAccess, canAnywhere, can } from '@/lib/access';
 import { signOut } from '../login/actions';
-import { Nav } from '@/components/nav';
+import { HubShell } from '@/components/hub-shell';
 
 export default async function IrmLayout({ children }: { children: React.ReactNode }) {
   const access = await requireAccess();
@@ -13,6 +13,9 @@ export default async function IrmLayout({ children }: { children: React.ReactNod
     { href: '/organization/reviews', label: 'Duplicates', show: canAnywhere(access, 'matching.review'), group: 'Organization' },
     { href: '/clients', label: 'Clients', show: canAnywhere(access, 'clients.view'), group: 'Operations' },
     { href: '/projects', label: 'Projects', show: canAnywhere(access, 'projects.view'), group: 'Operations' },
+    { href: '/quotes', label: 'Quotes', show: canAnywhere(access, 'quotes.view'), group: 'Commercial' },
+    { href: '/contracts', label: 'Contracts', show: canAnywhere(access, 'contracts.view'), group: 'Commercial' },
+    { href: '/invoices', label: 'Invoices', show: canAnywhere(access, 'invoices.view'), group: 'Finance' },
     { href: '/expenses', label: 'Expenses', show: canAnywhere(access, 'expenses.view'), group: 'Finance' },
     { href: '/credit-notes', label: 'Credit notes', show: canAnywhere(access, 'credit_notes.view'), group: 'Finance' },
     { href: '/billing', label: 'Billing runs', show: canAnywhere(access, 'invoices.view'), group: 'Finance' },
@@ -21,24 +24,12 @@ export default async function IrmLayout({ children }: { children: React.ReactNod
     { href: '/audit', label: 'Audit log', show: can(access, 'audit.view'), group: 'Governance' },
   ].filter((i) => i.show);
 
-  return (
-    <div className="shell">
-      <aside className="side">
-        <div className="brand">ADA IRM<small>Andreas Digital Agency</small></div>
-        <Nav items={items} />
-        <div className="who">
-          <b>{access.staff.full_name}</b>
-          <span className="id">{access.staff.ada_id}</span>
-          <div>{access.staff.position ?? 'No position set'}{access.staff.division_name ? ` · ${access.staff.division_name}` : ''}</div>
-          <form action={signOut}><button type="submit">Sign out</button></form>
-        </div>
-      </aside>
-      <main className="main">
-        <form action="/search" method="get" role="search" style={{ marginBottom: '1.2rem' }}>
-          <input name="q" placeholder="Search ADA Hub — a name, an ID, type:client Zeta, related:<id>" aria-label="Search ADA Hub" />
-        </form>
-        {children}
-      </main>
-    </div>
-  );
+  return <HubShell
+    items={items}
+    person={access.staff.full_name}
+    staffId={access.staff.ada_id}
+    position={access.staff.position ?? 'Team member'}
+    division={access.staff.division_name}
+    signout={<form action={signOut}><button type="submit">Sign out <span aria-hidden="true">↗</span></button></form>}
+  >{children}</HubShell>;
 }

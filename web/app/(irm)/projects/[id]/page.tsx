@@ -1,10 +1,10 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { requireAccess } from '@/lib/access';
+import { requireAccess, can } from '@/lib/access';
 import { call, rid, money, type Rec } from '@/lib/db';
 import { Badge, Flash, PageHead } from '@/components/ui';
 import { AttachPanel, IdLink, KV, LinkTable, Return, Section, Status, Transitions, getCatalogue, getDivisions } from '@/components/panels';
-import { addProjectServiceAction, projectTransitionAction } from '../../actions';
+import { addProjectServiceAction, createTaskAction, projectTransitionAction, setProjectFinancialsAction } from '../../actions';
 import { fmtDate } from '@/lib/format';
 
 const NEXT: Record<string, string[]> = {
@@ -13,7 +13,7 @@ const NEXT: Record<string, string[]> = {
 };
 
 export default async function ProjectPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ ok?: string; error?: string }> }) {
-  await requireAccess();
+  const access = await requireAccess();
   const { id } = await params; const sp = await searchParams;
   const { data: v } = await call<Rec>('project_360', { p_project: id });
   if (!v) notFound();
@@ -41,6 +41,36 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
           ['Lead division', o.division], ['Participating divisions', (v.divisions ?? []).join(', ') || '—'], ['Start', fmtDate(o.start_date)], ['Due', fmtDate(o.due_date)], ['Description', o.description]]} />
         <div style={{ marginTop: '.8rem' }}><Transitions action={projectTransitionAction} field="project" id={id} options={NEXT[o.status] ?? []} returnTo={here} /></div>
       </Section>
+
+      {(v.budget || can(access, 'finance.create')) && (
+        <Section title="Project financials">
+          {v.budget ? (
+            <KV rows={[
+              ['Currency', v.budget.currency ?? 'NAD'],
+              ['Agreed / quoted amount', money(v.budget.quoted_amount, v.budget.currency ?? 'NAD')],
+              ['Internal budget', money(v.budget.budget, v.budget.currency ?? 'NAD')],
+              ['Revenue to date', money(v.budget.revenue_to_date, v.budget.currency ?? 'NAD')],
+              ['Cost to date', money(v.budget.cost_to_date, v.budget.currency ?? 'NAD')],
+              ['Finance notes', v.budget.notes],
+            ]} />
+          ) : <p className="muted small">No finance record has been entered for this project yet.</p>}
+          {can(access, 'finance.create') && (
+            <details style={{ marginTop: '.8rem' }} open={!v.budget}>
+              <summary>{v.budget ? 'Update financial record' : 'Add financial record'}</summary>
+              <form action={setProjectFinancialsAction} className="stack" style={{ marginTop: '.6rem' }}>
+                <Return to={here} /><input type="hidden" name="project" value={id} />
+                <div className="row">
+                  <label>Agreed / quoted amount (NAD)<input name="quoted_amount" type="number" step="0.01" min="0" defaultValue={v.budget?.quoted_amount ?? ''} placeholder="10000.00" /></label>
+                  <label>Internal delivery budget (NAD)<input name="budget" type="number" step="0.01" min="0" defaultValue={v.budget?.budget ?? ''} /></label>
+                </div>
+                <label>Finance notes<textarea name="finance_notes" rows={3} defaultValue={v.budget?.notes ?? ''} /></label>
+                <button className="primary" type="submit">Save financial record</button>
+              </form>
+            </details>
+          )}
+          <p className="muted small">This section is protected by finance permissions and stored separately from general project data.</p>
+        </Section>
+      )}
 
       <Section title="Services" count={v.services?.length}>
         <LinkTable rows={(v.services ?? []).map((s: Rec, i: number) => ({ ...s, id: i }))} cols={[{ head: 'Service', render: (s) => <b>{s.service}</b> }, { head: 'Qty', key: 'quantity' }, { head: 'Agreed unit price', render: (s) => money(s.unit_price, s.currency) },
@@ -71,7 +101,18 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
       <div className="grid g2">
         <Section title="Contacts" count={v.contacts?.length}><LinkTable rows={(v.contacts ?? []).map((c: Rec, i: number) => ({ ...c, id: i }))} cols={[{ head: 'Name', render: (c) => <b>{c.name}</b> }, { head: 'Role', key: 'role' }, { head: 'Email', key: 'email' }]} /></Section>
         <Section title="Staff" count={v.staff?.length}><LinkTable rows={(v.staff ?? []).map((c: Rec, i: number) => ({ ...c, id: i }))} cols={[{ head: 'Name', render: (c) => <b>{c.name}</b> }, { head: 'Role', key: 'role' }]} /></Section>
-        <Section title="Tasks" count={(v.tasks?.open ?? 0) + (v.tasks?.done ?? 0)}><LinkTable rows={v.tasks?.items ?? []} cols={[{ head: 'Task', render: (t) => <b>{t.title}</b> }, { head: 'Status', render: (t) => <Status r={t} /> }, { head: 'Assignee', key: 'assignee' }, { head: 'Due', render: (t) => fmtDate(t.due_date) }]} /></Section>
+        <Section title="Tasks" count={(v.tasks?.open ?? 0) + (v.tasks?.done ?? 0)}>
+          <LinkTable rows={v.tasks?.items ?? []} cols={[{ head: 'Task', render: (t) => <b>{t.title}</b> }, { head: 'Status', render: (t) => <Status r={t} /> }, { head: 'Assignee', key: 'assignee' }, { head: 'Due', render: (t) => fmtDate(t.due_date) }]} />
+          <details style={{ marginTop: '.7rem' }}><summary>Create a task</summary>
+            <form action={createTaskAction} className="stack" style={{ marginTop: '.6rem' }}>
+              <Return to={here} /><input type="hidden" name="project" value={id} />
+              <label>Task title<input name="title" required placeholder="e.g. Build Security Services website" /></label>
+              <label>Description<textarea name="description" rows={3} /></label>
+              <label>Due date<input name="due_date" type="date" /></label>
+              <button className="primary" type="submit">Create task</button>
+            </form>
+          </details>
+        </Section>
         <Section title="Assets" count={v.assets?.length}><LinkTable rows={v.assets} cols={[{ head: 'Asset', render: (a) => <Link href={rid(a.id)}><b>{a.name}</b></Link> }, { head: 'Status', render: (a) => <Status r={a} /> }, { head: 'Condition', key: 'condition' }]} /></Section>
         <Section title="Tickets" count={v.tickets?.length}><LinkTable rows={v.tickets} cols={[{ head: 'Ticket', render: (t) => <Link href={rid(t.id)}><b>{t.title}</b></Link> }, { head: 'Status', render: (t) => <Status r={t} /> }, { head: 'Priority', key: 'priority' }]} /></Section>
         <Section title="Documents" count={v.documents?.length}><LinkTable rows={v.documents} cols={[{ head: 'Document', render: (d) => <Link href={rid(d.document)}><b>{d.title}</b></Link> }, { head: 'Type', key: 'type' }, { head: 'Status', render: (d) => <Status r={d} /> }]} /></Section>

@@ -33,6 +33,7 @@ export default async function Dashboard() {
   const D: Rec = dash ?? {};
   const showClients = canAnywhere(access, 'clients.view');
   const showProjects = canAnywhere(access, 'projects.view');
+  const isExecutive = access.roles.some((r) => r.key === 'ceo' && r.division_id === null);
 
   const [clients, activeProjects, myTasks, dueSoon, audit] = await Promise.all([
     showClients ? supabase.from('clients').select('id', { count: 'exact', head: true }).neq('status', 'archived') : null,
@@ -55,8 +56,27 @@ export default async function Dashboard() {
 
   return (
     <>
-      <PageHead title={`Welcome, ${access.staff.full_name.split(' ')[0]}`}
-        sub={`${access.staff.position ?? 'ADA'}${access.staff.division_name ? ' · ' + access.staff.division_name : ''}`} />
+      <PageHead title={isExecutive ? `Executive overview · ${access.staff.full_name.split(' ')[0]}` : `Welcome, ${access.staff.full_name.split(' ')[0]}`}
+        sub={isExecutive ? 'Organization-wide command view · ADA Core' : `${access.staff.position ?? 'ADA'}${access.staff.division_name ? ' · ' + access.staff.division_name : ''}`} />
+
+      <section className="hub-executive-hero">
+       <div><p className="hub-hero-eyebrow">{isExecutive ? 'CHIEF EXECUTIVE · ORGANIZATION-WIDE' : 'YOUR ADA WORKSPACE'}</p>
+        <h2>{isExecutive ? 'See the whole agency. Act where attention is needed.' : 'Keep the whole agency moving.'}</h2>
+        <p>{isExecutive ? 'Clients, cross-division delivery, finance, approvals and operational risk are connected here without duplicating records.' : 'Start with what needs your attention, then move straight into your teams, client work and financial records.'}</p>
+       </div><div className="hub-hero-side"><span>ADA CORE</span><strong>Connected operations</strong><small>Live data · Role-based visibility</small></div>
+      </section>
+      <section className="hub-quick-section" aria-label="Quick access">
+       <div className="hub-section-heading"><h2>Quick access</h2><span>Frequently used workspaces</span></div>
+       <div className="hub-quick-links">
+        <Link href="/search"><span className="hub-quick-icon">⌕</span><span><strong>Find a record</strong><small>Search across ADA Hub</small></span><b>→</b></Link>
+        {showClients&&<Link href="/clients"><span className="hub-quick-icon">◈</span><span><strong>Client directory</strong><small>Customers and contacts</small></span><b>→</b></Link>}
+        {canAnywhere(access,'clients.create')&&<Link href="/clients/new"><span className="hub-quick-icon">＋</span><span><strong>New client</strong><small>Create the authoritative client record</small></span><b>→</b></Link>}
+        {showProjects&&<Link href="/projects"><span className="hub-quick-icon">▣</span><span><strong>Projects</strong><small>Delivery and assignments</small></span><b>→</b></Link>}
+        {canAnywhere(access,'expenses.view')&&<Link href="/expenses"><span className="hub-quick-icon">◉</span><span><strong>Expenses</strong><small>Spending and approval</small></span><b>→</b></Link>}
+        {can(access,'roles.view')&&<Link href="/access"><span className="hub-quick-icon">◇</span><span><strong>Access control</strong><small>People and permissions</small></span><b>→</b></Link>}
+       </div>
+      </section>
+      <div className="hub-section-heading hub-overview-heading"><h2>Operational overview</h2><span>Live information from ADA Core</span></div>
 
 
       {/* ---------- Operational picture: derived live from the authoritative records, restricted to what you may see ---------- */}
