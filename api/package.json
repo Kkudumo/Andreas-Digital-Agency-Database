@@ -1,0 +1,9 @@
+{
+  "name": "ada-public-api",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": { "start": "node dist/server.js", "build": "tsc", "typecheck": "tsc --noEmit", "test": "node --test dist/core.test.js" },
+  "dependencies": { "postgres": "3.4.5" },
+  "devDependencies": { "@types/node": "22.20.5", "typescript": "5.9.3" }
+}
