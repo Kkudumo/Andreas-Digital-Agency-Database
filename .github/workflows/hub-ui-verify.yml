@@ -3,6 +3,7 @@ on:
   push:
     branches:
       - design/hub-mobile-ceo-redesign
+      - claude/pensive-planck-k9zod1
   pull_request:
     paths:
       - 'web/**'
