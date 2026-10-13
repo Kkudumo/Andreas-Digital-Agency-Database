@@ -14,6 +14,8 @@ export function HubShell({items,person,staffId,position,division,signout,childre
  const menuRef=useRef<HTMLButtonElement>(null);
  const sidebarRef=useRef<HTMLElement>(null);
  const pathname=usePathname();
+ const links=[{href:'/dashboard',label:'Home',icon:'⌂'},{href:'/search',label:'Search',icon:'⌕'},{href:'/projects',label:'Projects',icon:'▣'},{href:'/clients',label:'Clients',icon:'◈'}].filter(x=>items.some(i=>i.href===x.href));
+ const active=(href:string)=>pathname===href||pathname.startsWith(href+'/');
  useEffect(()=>{setOpen(false);},[pathname]);
  useEffect(()=>{
   if(!open)return;
@@ -47,6 +49,10 @@ export function HubShell({items,person,staffId,position,division,signout,childre
     <div className="hub-topbar-actions"><Link href="/search" aria-label="Search ADA Hub" className="hub-search-link"><span aria-hidden="true">⌕</span> <span>Search everything</span><kbd>ADA</kbd></Link><span className="hub-top-avatar" aria-label={'Signed in as '+person}>{person.trim().charAt(0).toUpperCase()||'A'}</span></div>
    </header>
    <main className="hub-main" id="main-content"><div className="hub-main-inner">{children}</div></main>
+   <nav className="hub-bottom-nav" aria-label="Mobile quick navigation">
+    {links.map(link=><Link key={link.href} href={link.href} aria-current={active(link.href)?'page':undefined}><span aria-hidden="true" className="hub-bottom-icon">{link.icon}</span><span>{link.label}</span></Link>)}
+    <button type="button" aria-label="Open all navigation" aria-controls="hub-sidebar" aria-expanded={open} onClick={()=>setOpen(true)}><span aria-hidden="true" className="hub-bottom-icon">☰</span><span>More</span></button>
+   </nav>
   </div>
  </div>;
 }
