@@ -4,7 +4,7 @@ import { requireAccess } from '@/lib/access';
 import { call, rid, money, type Rec } from '@/lib/db';
 import { Badge, Flash, PageHead } from '@/components/ui';
 import { AttachPanel, IdLink, KV, LinkTable, Return, Section, Status, Transitions, getCatalogue, getDivisions } from '@/components/panels';
-import { addProjectServiceAction, projectTransitionAction } from '../../actions';
+import { addProjectServiceAction, createTaskAction, projectTransitionAction } from '../../actions';
 import { fmtDate } from '@/lib/format';
 
 const NEXT: Record<string, string[]> = {
@@ -42,6 +42,20 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
         <div style={{ marginTop: '.8rem' }}><Transitions action={projectTransitionAction} field="project" id={id} options={NEXT[o.status] ?? []} returnTo={here} /></div>
       </Section>
 
+      {v.budget && (
+        <Section title="Project financials">
+          <KV rows={[
+            ['Currency', v.budget.currency ?? 'NAD'],
+            ['Agreed / quoted amount', money(v.budget.quoted_amount, v.budget.currency ?? 'NAD')],
+            ['Internal budget', money(v.budget.budget, v.budget.currency ?? 'NAD')],
+            ['Revenue to date', money(v.budget.revenue_to_date, v.budget.currency ?? 'NAD')],
+            ['Cost to date', money(v.budget.cost_to_date, v.budget.currency ?? 'NAD')],
+            ['Finance notes', v.budget.notes],
+          ]} />
+          <p className="muted small">Visible only when your account has finance access.</p>
+        </Section>
+      )}
+
       <Section title="Services" count={v.services?.length}>
         <LinkTable rows={(v.services ?? []).map((s: Rec, i: number) => ({ ...s, id: i }))} cols={[{ head: 'Service', render: (s) => <b>{s.service}</b> }, { head: 'Qty', key: 'quantity' }, { head: 'Agreed unit price', render: (s) => money(s.unit_price, s.currency) },
           { head: 'Line total', render: (s) => money(s.total, s.currency) }, { head: 'Catalogue price used', render: (s) => (s.catalogue_price_used ? 'yes' : 'override') }, { head: 'Quote', render: (s) => <IdLink id={s.quote} /> }]} />
@@ -71,7 +85,18 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
       <div className="grid g2">
         <Section title="Contacts" count={v.contacts?.length}><LinkTable rows={(v.contacts ?? []).map((c: Rec, i: number) => ({ ...c, id: i }))} cols={[{ head: 'Name', render: (c) => <b>{c.name}</b> }, { head: 'Role', key: 'role' }, { head: 'Email', key: 'email' }]} /></Section>
         <Section title="Staff" count={v.staff?.length}><LinkTable rows={(v.staff ?? []).map((c: Rec, i: number) => ({ ...c, id: i }))} cols={[{ head: 'Name', render: (c) => <b>{c.name}</b> }, { head: 'Role', key: 'role' }]} /></Section>
-        <Section title="Tasks" count={(v.tasks?.open ?? 0) + (v.tasks?.done ?? 0)}><LinkTable rows={v.tasks?.items ?? []} cols={[{ head: 'Task', render: (t) => <b>{t.title}</b> }, { head: 'Status', render: (t) => <Status r={t} /> }, { head: 'Assignee', key: 'assignee' }, { head: 'Due', render: (t) => fmtDate(t.due_date) }]} /></Section>
+        <Section title="Tasks" count={(v.tasks?.open ?? 0) + (v.tasks?.done ?? 0)}>
+          <LinkTable rows={v.tasks?.items ?? []} cols={[{ head: 'Task', render: (t) => <b>{t.title}</b> }, { head: 'Status', render: (t) => <Status r={t} /> }, { head: 'Assignee', key: 'assignee' }, { head: 'Due', render: (t) => fmtDate(t.due_date) }]} />
+          <details style={{ marginTop: '.7rem' }}><summary>Create a task</summary>
+            <form action={createTaskAction} className="stack" style={{ marginTop: '.6rem' }}>
+              <Return to={here} /><input type="hidden" name="project" value={id} />
+              <label>Task title<input name="title" required placeholder="e.g. Build Security Services website" /></label>
+              <label>Description<textarea name="description" rows={3} /></label>
+              <label>Due date<input name="due_date" type="date" /></label>
+              <button className="primary" type="submit">Create task</button>
+            </form>
+          </details>
+        </Section>
         <Section title="Assets" count={v.assets?.length}><LinkTable rows={v.assets} cols={[{ head: 'Asset', render: (a) => <Link href={rid(a.id)}><b>{a.name}</b></Link> }, { head: 'Status', render: (a) => <Status r={a} /> }, { head: 'Condition', key: 'condition' }]} /></Section>
         <Section title="Tickets" count={v.tickets?.length}><LinkTable rows={v.tickets} cols={[{ head: 'Ticket', render: (t) => <Link href={rid(t.id)}><b>{t.title}</b></Link> }, { head: 'Status', render: (t) => <Status r={t} /> }, { head: 'Priority', key: 'priority' }]} /></Section>
         <Section title="Documents" count={v.documents?.length}><LinkTable rows={v.documents} cols={[{ head: 'Document', render: (d) => <Link href={rid(d.document)}><b>{d.title}</b></Link> }, { head: 'Type', key: 'type' }, { head: 'Status', render: (d) => <Status r={d} /> }]} /></Section>
