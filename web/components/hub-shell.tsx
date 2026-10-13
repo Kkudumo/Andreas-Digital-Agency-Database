@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { Nav } from './nav';
+import { NavProgress } from './nav-progress';
 
 type Item={href:string;label:string;group:string};
 const officialWhiteLogo=process.env.NEXT_PUBLIC_ADA_PRIMARY_WHITE_LOGO_URL;
@@ -36,6 +37,7 @@ export function HubShell({items,person,staffId,position,division,signout,childre
   return ()=>{window.removeEventListener('keydown',onKey);document.body.style.overflow=previousOverflow;menuRef.current?.focus();};
  },[open]);
  return <div className="hub-app">
+  <NavProgress/>
   <button aria-label="Close navigation" className={'hub-scrim'+(open?' is-visible':'')} onClick={()=>setOpen(false)} tabIndex={open?0:-1}/>
   <aside ref={sidebarRef} id="hub-sidebar" className={'hub-sidebar'+(open?' is-open':'')} aria-label="Primary navigation">
    <div className="hub-brand"><span><strong><b>ADA</b>Hub / Core</strong><small>Technology. Systems. Growth.</small></span><button ref={closeRef} className="hub-close" aria-label="Close menu" onClick={()=>setOpen(false)}>×</button></div>

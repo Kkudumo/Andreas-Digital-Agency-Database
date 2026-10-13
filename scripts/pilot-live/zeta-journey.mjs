@@ -10,7 +10,7 @@ async function session(email) {
 }
 const settle = async (page) => { await page.waitForTimeout(1200); await page.waitForLoadState('networkidle'); await page.waitForTimeout(400); };
 const seen = async (page, s) => { try { await page.waitForFunction((t) => document.querySelector('main').innerText.toLowerCase().includes(t.toLowerCase()), s, { timeout: 10000 }); return true; } catch { return false; } };
-const text = async (page) => (await page.locator('main').innerText());
+const text = async (page) => { await page.waitForSelector('[data-testid=page-skeleton]', { state: 'detached', timeout: 30000 }).catch(() => {}); return page.locator('main').innerText(); };
 const flash = async (page) => (await page.locator('.flash').first().innerText().catch(() => ''));
 
 let A;
@@ -71,7 +71,7 @@ ok('contract in review', /internal review/i.test(await text(A)), await flash(A))
 ({ ctx: ctxC, page: C } = await session('ceo@ada.test'));
 await C.goto(contractUrl); await move(C, 'approved'); await ctxC.close();
 await A.goto(contractUrl); await move(A, 'sent'); await move(A, 'signed'); await move(A, 'active');
-ok('contract active and linked to the project', /active/i.test(await text(A)) && /Zeta Website/.test(await text(A)), await text(A));
+ok('contract active and linked to the project', (await seen(A, 'active')) && (await seen(A, 'Zeta Website')), await text(A));
 
 // ---------- finance bills it
 let { ctx: ctxF, page: F } = await session('fin@ada.test');
@@ -142,7 +142,7 @@ await X.goto(invoiceUrl); ok('the invoice balance is derived net of the credit: 
 await X.goto(BASE + '/expenses'); await X.fill('input[name=description]', 'Hosting for Zeta'); await X.fill('input[name=amount]', '1200');
 await X.selectOption('select[name=project]', { label: 'Zeta Website' }); await X.click('button:has-text("Record as draft")'); await X.waitForURL('**/expenses/**');
 const exUrl = X.url().split('?')[0]; ok('an expense is recorded as a draft against the project', /Expense · ADA-EXP/.test(await text(X)) && /draft/i.test(await text(X)), await text(X));
-await move(X, 'pending_approval'); ok('expense submitted', /pending approval/i.test(await text(X)), await flash(X));
+await move(X, 'pending_approval'); ok('expense submitted', await seen(X, 'pending approval'), await flash(X));
 ({ ctx: ctxC, page: C } = await session('ceo@ada.test'));
 await C.goto(exUrl); await move(C, 'approved'); ok('management approves the expense', /approved/i.test(await text(C)), await flash(C)); await ctxC.close();
 await X.goto(exUrl); await X.click('button:has-text("Record payment")'); await settle(X);

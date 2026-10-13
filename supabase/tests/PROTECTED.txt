@@ -552,3 +552,8 @@ someone without expense, credit note or schedule access sees empty spend
 the bucket is private, limited to 50 MB and to Word / Excel / PDF
 nobody can rename, overwrite or delete a stored file, not the owner and not the CEO
 a hidden document and a made-up id are refused identically (no existence leak)
+
+# database sections and indexes
+every table of the public schema belongs to a section
+every foreign key to a main record (not an actor column such as created_by) has an index to look it up by
+anonymous callers can neither read the catalogue nor run the function

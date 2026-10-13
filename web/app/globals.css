@@ -279,3 +279,22 @@ pre { background: var(--bg); border: 1px solid var(--line); padding: 10px; overf
 }
 @media (prefers-reduced-motion: reduce) { .hub-sidebar { transition: none; } html { scroll-behavior: auto; } }
 form.form button.primary { justify-self: start; }
+
+/* ---------- Loading states ---------- */
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.sk { background: linear-gradient(90deg, var(--line) 0%, color-mix(in srgb, var(--line) 45%, var(--card)) 50%, var(--line) 100%); background-size: 200% 100%; animation: sk-shimmer 1.3s linear infinite; }
+.sk-eyebrow { height: 10px; width: 150px; margin-bottom: 14px; } .sk-title { height: 46px; width: min(420px, 70%); margin-bottom: 14px; } .sk-sub { height: 14px; width: min(560px, 80%); }
+.sk-number { height: 38px; width: 90px; margin-top: 10px; } .sk-row { height: 16px; margin: 15px 0; }
+@keyframes sk-shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+.nav-progress { position: fixed; inset: 0 0 auto 0; height: 3px; z-index: 200; background: linear-gradient(90deg, transparent 0%, var(--accent) 40%, var(--accent-soft) 60%, transparent 100%); background-size: 50% 100%; background-repeat: no-repeat; animation: nav-run 1s ease-in-out infinite; }
+@keyframes nav-run { from { background-position: -50% 0; } to { background-position: 150% 0; } }
+@media (prefers-reduced-motion: reduce) { .sk, .nav-progress { animation: none; } }
+/* section index and division workspace */
+.sec-filter { max-width: 420px; margin-bottom: 14px; }
+.sec-card h2 { display: flex; gap: 10px; align-items: baseline; } .sec-card h2 .n { font: 900 10px/1 var(--label-font); letter-spacing: .12em; color: var(--accent); }
+.sec-tables { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; } .sec-tables code { border: 1px solid var(--line-2); padding: 3px 7px; background: var(--card); }
+.div-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 14px; }
+a.div-tile { display: block; background: var(--card); border: 1px solid var(--line); padding: 22px 24px; color: var(--text); }
+a.div-tile:hover { border-color: var(--accent); box-shadow: 0 10px 28px rgba(6, 20, 58, .09); text-decoration: none; }
+a.div-tile strong { display: block; font-size: 18px; letter-spacing: -.02em; margin-bottom: 6px; } a.div-tile small { color: var(--muted); display: block; margin-bottom: 14px; }
+a.div-tile .open { font: 900 10px/1 var(--label-font); letter-spacing: .06em; color: var(--accent); }

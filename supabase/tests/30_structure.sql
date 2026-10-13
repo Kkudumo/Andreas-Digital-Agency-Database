@@ -16,7 +16,7 @@ select tests.check('authenticated may DELETE only from link tables',
   'client_staff,project_contacts,project_divisions,project_members,role_permissions,staff_roles');
 select tests.check('authenticated has no write access to audit_log or service tables',
   (select coalesce(string_agg(c.relname, ','), 'none') from pg_class c
-   where c.relnamespace = 'public'::regnamespace and c.relname in ('audit_log', 'id_sequences', 'entity_registry', 'entity_types', 'permissions', 'events', 'event_deliveries', 'notifications', 'application_status_history', 'applications', 'approval_requests', 'approval_decisions', 'service_prices', 'enquiries', 'enquiry_candidates', 'matching_reviews', 'client_distinct_pairs')
+   where c.relnamespace = 'public'::regnamespace and c.relname in ('audit_log', 'id_sequences', 'entity_registry', 'entity_types', 'db_sections', 'db_section_tables', 'permissions', 'events', 'event_deliveries', 'notifications', 'application_status_history', 'applications', 'approval_requests', 'approval_decisions', 'service_prices', 'enquiries', 'enquiry_candidates', 'matching_reviews', 'client_distinct_pairs')
      and (has_table_privilege('authenticated', c.oid, 'insert') or has_table_privilege('authenticated', c.oid, 'update')
        or has_table_privilege('authenticated', c.oid, 'delete'))), 'none');
 select tests.check('every SECURITY DEFINER function pins its search_path',
@@ -88,7 +88,7 @@ select tests.check('authenticated can execute only the reviewed functions',
        'document_can_row', 'document_can', 'document_on_hold', 'document_note_denied', 'audit_document_visible', 'document_register', 'document_add_version', 'document_version_transition',
        'document_open', 'document_update', 'document_set_classification', 'document_set_retention', 'document_transfer', 'document_archive', 'document_restore', 'document_link_add',
        'document_link_remove', 'document_share', 'document_unshare', 'document_comment_add', 'document_hold_place', 'document_hold_release', 'document_record_integrity_check',
-       'document_storage_can', 'document_relocate_content', 'document_request_disposal', 'document_disposal_decide', 'document_publication_request', 'document_publication_decide', 'document_publish',
+       'document_storage_can', 'database_sections', 'document_relocate_content', 'document_request_disposal', 'document_disposal_decide', 'document_publication_request', 'document_publication_decide', 'document_publish',
        'document_unpublish', 'document_version_as_of', 'documents_of', 'document_family_ids', 'documents_for_entity', 'period_resolve', 'document_360',
        -- organizations (one identity, many roles)
        'can_view_organization_row', 'can_view_organization', 'partner_visible', 'organization_note_denied', 'organization_create', 'organization_update', 'organization_add_role',
@@ -133,7 +133,7 @@ select tests.check('every table that is not a link table has an updated_at trigg
 select tests.check('every business table is audited',
   (select coalesce(string_agg(c.relname, ','), 'none') from pg_class c
    where c.relnamespace = 'public'::regnamespace and c.relkind = 'r'
-     and c.relname not in ('audit_log', 'id_sequences', 'entity_registry', 'entity_types', 'permissions', 'events', 'event_deliveries', 'notifications', 'application_status_history', 'approval_requests', 'approval_decisions', 'contract_status_history', 'asset_history', 'expense_events', 'id_settings', 'id_codebook', 'id_counters', 'entity_location_history', 'security_events', 'security_case_events', 'search_index', 'ticket_events', 'document_events', 'organization_mirror_columns', 'domain_events', 'communication_events', 'search_sources', 'search_refresh_queue')
+     and c.relname not in ('audit_log', 'id_sequences', 'entity_registry', 'entity_types', 'db_sections', 'db_section_tables', 'permissions', 'events', 'event_deliveries', 'notifications', 'application_status_history', 'approval_requests', 'approval_decisions', 'contract_status_history', 'asset_history', 'expense_events', 'id_settings', 'id_codebook', 'id_counters', 'entity_location_history', 'security_events', 'security_case_events', 'search_index', 'ticket_events', 'document_events', 'organization_mirror_columns', 'domain_events', 'communication_events', 'search_sources', 'search_refresh_queue')
      and not exists (select 1 from pg_trigger t where t.tgrelid = c.oid and t.tgname = 'zz_audit')), 'none');
 
 -- Permission matrix: CSV (reviewed design document) must equal the database.

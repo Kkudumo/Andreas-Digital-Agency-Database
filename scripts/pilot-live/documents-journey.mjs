@@ -18,7 +18,8 @@ async function session(email) {
   await page.goto(BASE + '/login'); await page.fill('input[name=email]', email); await page.fill('input[name=password]', 'x'); await page.click('button[type=submit]');
   await page.waitForURL('**/dashboard**'); return { ctx, page };
 }
-const main = (page) => page.locator('main').innerText();
+const loaded = (page) => page.waitForSelector('[data-testid=page-skeleton]', { state: 'detached', timeout: 30000 }).catch(() => {});
+const main = async (page) => { await loaded(page); return page.locator('main').innerText(); };
 const seen = async (page, s, ms = 20000) => { try { await page.waitForFunction((t) => document.querySelector('main').innerText.toLowerCase().includes(t.toLowerCase()), s, { timeout: ms }); return true; } catch { return false; } };
 const tmp = (n, data) => { const f = path.join(os.tmpdir(), n); fs.writeFileSync(f, data); return f; };
 async function newDoc(page, { how, title, type = 'report', file }) {

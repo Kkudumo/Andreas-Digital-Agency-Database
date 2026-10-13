@@ -1,6 +1,6 @@
 # ADA Core — how the database is arranged (sections), and where the website admin data goes
 
-_Status: PROPOSAL for the owner's approval. Nothing in the database has been changed by this document. Written 13 October 2026 from the live ADA Core project (139 tables, migrations 0001–0055) and the website repository `ada-main-website` (`/admin`)._
+_Status: APPROVED by the owner on 13 October 2026 (arrangement, division workspace, sections as a catalogue). Steps 1–2 of §7 are built (migration `0056`, suite `114`): the section registry, the database index page, the Divisions and division-workspace pages, indexes and loading states. Written 13 October 2026 from the live ADA Core project (139 tables, migrations 0001–0055) and the website repository `ada-main-website` (`/admin`)._
 
 ## 1. What you asked for
 
@@ -126,10 +126,12 @@ Splitting 139 tables into several PostgreSQL schemas (or databases) would mean r
 
 Already designed and built in ADA Core (`docs/api/PUBLIC_API.md`): the websites never touch tables; they call `public_api` functions — `divisions`, `services` (with the price currently in force), `team`, `vacancies`, `statistics`, `portfolio`, `documents` — and only what is **published** is returned. A price change writes a new `service_prices` version and emits a `price.changed` event; a website subscribed to events revalidates the page, so the new price (for example the minimum price changing to 1,199.99) appears without a redeploy. Not yet built: the small HTTP layer that exposes these functions (the doc says "to be built"), the event dispatcher, and the websites actually reading from it. News/events need the new Content section first.
 
-## 7. Proposed order (nothing starts until you say so)
+## 7. Order
+
+_Done: 1 and 2. Next: 3 onward, each only when the owner says so._
 
 1. **Approve this arrangement** (sections, division workspace, catalogue-not-schemas).
-2. **Section registry**: add the registry table and generate the sectioned data dictionary; group the Hub menu by section. No existing table changes.
+2. **Section registry** (done): `db_sections` / `db_section_tables`, `database_sections()`, the Hub's **Database index** page, menu grouped by section, **Divisions** and one workspace page per division (live counts, each opening that division's records in Search), 126 foreign-key indexes plus the list sort orders (search was already indexed), loading skeletons and a top loading bar. A structure test (`114_database_sections.sql`) fails if a table has no section or a lookup foreign key has no index. No existing table changed.
 3. **Content section** (news/posts, events, testimonials, FAQs, packages, website/company settings) as new tables with the same rules (division, status, publish approval, audit, events).
 4. **Services & prices division screens** (the first thing you named): pick a division → edit a service or price → save; approvals apply.
 5. **Public API HTTP layer + event dispatcher**, then the main website reads services/prices/team/vacancies/news from ADA Core.
