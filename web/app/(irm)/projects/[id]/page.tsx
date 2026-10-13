@@ -1,10 +1,10 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { requireAccess } from '@/lib/access';
+import { requireAccess, can } from '@/lib/access';
 import { call, rid, money, type Rec } from '@/lib/db';
 import { Badge, Flash, PageHead } from '@/components/ui';
 import { AttachPanel, IdLink, KV, LinkTable, Return, Section, Status, Transitions, getCatalogue, getDivisions } from '@/components/panels';
-import { addProjectServiceAction, createTaskAction, projectTransitionAction } from '../../actions';
+import { addProjectServiceAction, createTaskAction, projectTransitionAction, setProjectFinancialsAction } from '../../actions';
 import { fmtDate } from '@/lib/format';
 
 const NEXT: Record<string, string[]> = {
@@ -13,7 +13,7 @@ const NEXT: Record<string, string[]> = {
 };
 
 export default async function ProjectPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ ok?: string; error?: string }> }) {
-  await requireAccess();
+  const access = await requireAccess();
   const { id } = await params; const sp = await searchParams;
   const { data: v } = await call<Rec>('project_360', { p_project: id });
   if (!v) notFound();
@@ -42,17 +42,33 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
         <div style={{ marginTop: '.8rem' }}><Transitions action={projectTransitionAction} field="project" id={id} options={NEXT[o.status] ?? []} returnTo={here} /></div>
       </Section>
 
-      {v.budget && (
+      {(v.budget || can(access, 'finance.create')) && (
         <Section title="Project financials">
-          <KV rows={[
-            ['Currency', v.budget.currency ?? 'NAD'],
-            ['Agreed / quoted amount', money(v.budget.quoted_amount, v.budget.currency ?? 'NAD')],
-            ['Internal budget', money(v.budget.budget, v.budget.currency ?? 'NAD')],
-            ['Revenue to date', money(v.budget.revenue_to_date, v.budget.currency ?? 'NAD')],
-            ['Cost to date', money(v.budget.cost_to_date, v.budget.currency ?? 'NAD')],
-            ['Finance notes', v.budget.notes],
-          ]} />
-          <p className="muted small">Visible only when your account has finance access.</p>
+          {v.budget ? (
+            <KV rows={[
+              ['Currency', v.budget.currency ?? 'NAD'],
+              ['Agreed / quoted amount', money(v.budget.quoted_amount, v.budget.currency ?? 'NAD')],
+              ['Internal budget', money(v.budget.budget, v.budget.currency ?? 'NAD')],
+              ['Revenue to date', money(v.budget.revenue_to_date, v.budget.currency ?? 'NAD')],
+              ['Cost to date', money(v.budget.cost_to_date, v.budget.currency ?? 'NAD')],
+              ['Finance notes', v.budget.notes],
+            ]} />
+          ) : <p className="muted small">No finance record has been entered for this project yet.</p>}
+          {can(access, 'finance.create') && (
+            <details style={{ marginTop: '.8rem' }} open={!v.budget}>
+              <summary>{v.budget ? 'Update financial record' : 'Add financial record'}</summary>
+              <form action={setProjectFinancialsAction} className="stack" style={{ marginTop: '.6rem' }}>
+                <Return to={here} /><input type="hidden" name="project" value={id} />
+                <div className="row">
+                  <label>Agreed / quoted amount (NAD)<input name="quoted_amount" type="number" step="0.01" min="0" defaultValue={v.budget?.quoted_amount ?? ''} placeholder="10000.00" /></label>
+                  <label>Internal delivery budget (NAD)<input name="budget" type="number" step="0.01" min="0" defaultValue={v.budget?.budget ?? ''} /></label>
+                </div>
+                <label>Finance notes<textarea name="finance_notes" rows={3} defaultValue={v.budget?.notes ?? ''} /></label>
+                <button className="primary" type="submit">Save financial record</button>
+              </form>
+            </details>
+          )}
+          <p className="muted small">This section is protected by finance permissions and stored separately from general project data.</p>
         </Section>
       )}
 
