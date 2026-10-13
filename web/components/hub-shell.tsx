@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Nav } from './nav';
 
 type Item={href:string;label:string;group:string};
+const officialWhiteLogo=process.env.NEXT_PUBLIC_ADA_PRIMARY_WHITE_LOGO_URL;
 export function HubShell({items,person,staffId,position,division,signout,children}:{
  items:Item[];person:string;staffId:string;position:string;division?:string|null;
  signout:React.ReactNode;children:React.ReactNode;
@@ -14,6 +15,8 @@ export function HubShell({items,person,staffId,position,division,signout,childre
  const menuRef=useRef<HTMLButtonElement>(null);
  const sidebarRef=useRef<HTMLElement>(null);
  const pathname=usePathname();
+ const links=[{href:'/dashboard',label:'Home',icon:'⌂'},{href:'/search',label:'Search',icon:'⌕'},{href:'/projects',label:'Projects',icon:'▣'},{href:'/clients',label:'Clients',icon:'◈'}].filter(x=>items.some(i=>i.href===x.href));
+ const active=(href:string)=>pathname===href||pathname.startsWith(href+'/');
  useEffect(()=>{setOpen(false);},[pathname]);
  useEffect(()=>{
   if(!open)return;
@@ -35,7 +38,7 @@ export function HubShell({items,person,staffId,position,division,signout,childre
  return <div className="hub-app">
   <button aria-label="Close navigation" className={'hub-scrim'+(open?' is-visible':'')} onClick={()=>setOpen(false)} tabIndex={open?0:-1}/>
   <aside ref={sidebarRef} id="hub-sidebar" className={'hub-sidebar'+(open?' is-open':'')} aria-label="Primary navigation">
-   <div className="hub-brand"><span className="hub-mark" aria-hidden="true">A</span><span><strong>ADA Hub</strong><small>Institutional workspace</small></span><button ref={closeRef} className="hub-close" aria-label="Close menu" onClick={()=>setOpen(false)}>×</button></div>
+   <div className="hub-brand">{officialWhiteLogo ? <img className="hub-official-logo" src={officialWhiteLogo} alt="Andreas Digital Agency official logo" /> : <span className="hub-mark" aria-hidden="true">A</span>}<span><strong>ADA Hub</strong><small>Institutional workspace</small></span><button ref={closeRef} className="hub-close" aria-label="Close menu" onClick={()=>setOpen(false)}>×</button></div>
    <div className="hub-side-caption">WORKSPACE</div>
    <Nav items={items}/>
    <div className="hub-side-footer"><div className="hub-avatar">{person.trim().charAt(0).toUpperCase()||'A'}</div><div className="hub-side-person"><strong>{person}</strong><span>{position}{division?' · '+division:''}</span><small>{staffId}</small></div><div className="hub-signout">{signout}</div></div>
@@ -47,6 +50,10 @@ export function HubShell({items,person,staffId,position,division,signout,childre
     <div className="hub-topbar-actions"><Link href="/search" aria-label="Search ADA Hub" className="hub-search-link"><span aria-hidden="true">⌕</span> <span>Search everything</span><kbd>ADA</kbd></Link><span className="hub-top-avatar" aria-label={'Signed in as '+person}>{person.trim().charAt(0).toUpperCase()||'A'}</span></div>
    </header>
    <main className="hub-main" id="main-content"><div className="hub-main-inner">{children}</div></main>
+   <nav className="hub-bottom-nav" aria-label="Mobile quick navigation">
+    {links.map(link=><Link key={link.href} href={link.href} aria-current={active(link.href)?'page':undefined}><span aria-hidden="true" className="hub-bottom-icon">{link.icon}</span><span>{link.label}</span></Link>)}
+    <button type="button" aria-label="Open all navigation" aria-controls="hub-sidebar" aria-expanded={open} onClick={()=>setOpen(true)}><span aria-hidden="true" className="hub-bottom-icon">☰</span><span>More</span></button>
+   </nav>
   </div>
  </div>;
 }

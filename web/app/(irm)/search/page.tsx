@@ -30,16 +30,37 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
 
   return (
     <>
-      <PageHead title="Search ADA Hub" sub="Everything you are authorised to see, found by name, institutional ID or relationship" />
-      <form action="/search" method="get" className="card" role="search">
-        <label>Search<input name="q" defaultValue={q} placeholder="Zeta · type:client Zeta · related:J8HTCAQF5" autoFocus /></label>
-        <div style={{ marginTop: '.6rem' }}><button className="primary" type="submit">Search</button></div>
-      </form>
-
+      <div className="ada-search-intro">
+        <p className="ada-search-kicker">ADA CORE / RECORD DISCOVERY</p>
+        <h1>Find what you need.</h1>
+        <p>Search your authorized clients, projects, documents and institutional records in one place.</p>
+      </div>
+      <section className="ada-search-panel">
+        <form action="/search" method="get" role="search">
+          <label htmlFor="ada-record-query">Search records</label>
+          <div className="ada-search-input-row">
+            <input id="ada-record-query" name="q" defaultValue={q} placeholder="Search a name, reference, or institutional ID" autoComplete="off" autoFocus />
+            <button type="submit">Search <span aria-hidden="true">→</span></button>
+          </div>
+        </form>
+        <div className="ada-search-chips" aria-label="Search examples">
+          <span>Try</span>
+          <Link href="/search?q=type%3Aclient">Clients</Link>
+          <Link href="/search?q=type%3Aproject">Projects</Link>
+          <Link href="/search?q=status%3Aactive">Active records</Link>
+        </div>
+      </section>
       {!q && (
-        <section className="card">
-          <h2>How to search</h2>
-          <dl className="kv">{HINTS.map(([k, v]) => <div key={k} style={{ display: 'contents' }}><dt><code>{k}</code></dt><dd>{v}</dd></div>)}</dl>
+        <section className="ada-search-guide" aria-labelledby="ada-search-guide-title">
+          <div className="ada-search-guide-heading">
+            <h2 id="ada-search-guide-title">Search tips</h2>
+            <p>Use a name or narrow your results with a filter.</p>
+          </div>
+          <div className="ada-search-guide-list">{HINTS.map(([k,v]) => (
+            <div className="ada-search-guide-row" key={k}>
+              <code>{k}</code><span>{v}</span>
+            </div>
+          ))}</div>
         </section>
       )}
 

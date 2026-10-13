@@ -2,11 +2,14 @@ import Link from 'next/link';
 import { signIn } from './actions';
 import { Flash } from '@/components/ui';
 
+const officialWhiteLogo=process.env.NEXT_PUBLIC_ADA_PRIMARY_WHITE_LOGO_URL;
+const officialBlueLogo=process.env.NEXT_PUBLIC_ADA_PRIMARY_BLUE_LOGO_URL;
+
 export default async function LoginPage({searchParams}:{searchParams:Promise<{error?:string}>}) {
  const {error}=await searchParams;
  return <main className="ada-login-page">
   <section className="ada-login-story" aria-label="ADA Hub overview">
-   <Link href="/login" className="ada-login-logo"><span>A</span><strong>ADA Hub</strong></Link>
+   <Link href="/login" className="ada-login-logo">{officialWhiteLogo ? <img src={officialWhiteLogo} alt="Andreas Digital Agency official white logo" className="ada-login-official-logo"/> : <span>A</span>}<strong>ADA Hub</strong></Link>
    <div className="ada-login-story-body">
     <p className="ada-eyebrow">ANDREAS DIGITAL AGENCY</p>
     <h1>One agency.<br/><em>One connected workspace.</em></h1>
@@ -16,7 +19,7 @@ export default async function LoginPage({searchParams}:{searchParams:Promise<{er
    <p className="ada-login-copyright">ADA Core Architecture · Internal institutional platform</p>
   </section>
   <section className="ada-login-panel">
-   <div className="ada-login-mobile-brand"><span>A</span><strong>ADA Hub</strong></div>
+   <div className="ada-login-mobile-brand">{officialBlueLogo ? <img src={officialBlueLogo} alt="Andreas Digital Agency official blue logo" className="ada-login-official-logo"/> : <span>A</span>}<strong>ADA Hub</strong></div>
    <div className="ada-login-form-wrap">
     <div className="ada-login-heading"><p className="ada-eyebrow">STAFF PORTAL</p><h2>Welcome back</h2><p>Sign in with your authorized agency account to continue.</p></div>
     <Flash error={error}/>
