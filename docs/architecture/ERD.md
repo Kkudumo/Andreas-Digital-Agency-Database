@@ -7,10 +7,12 @@ Lines read "parent ||--o{ child": one parent row, many child rows. Optional link
 ```mermaid
 erDiagram
   applications o|--o{ onboarding_tasks : "application_id"
+  applications ||--o{ application_files : "application_id"
   applications ||--o{ application_offers : "application_id"
   applications ||--o{ application_profiles : "application_id"
   applications ||--o{ application_reviews : "application_id"
   applications ||--o{ application_status_history : "application_id"
+  applications ||--o{ application_upload_passes : "application_id"
   approval_requests ||--o{ approval_decisions : "request_id"
   asset_categories ||--o{ assets : "category_id"
   assets o|--o{ tickets : "asset_id"

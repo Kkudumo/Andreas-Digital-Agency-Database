@@ -6,6 +6,21 @@ Each table lists its purpose and security classification (from the table comment
 Row-level security is enabled on every table; the policies are in the migrations and summarised in
 [SECURITY.md](../SECURITY.md). Types such as `data_classification` are PostgreSQL enums.
 
+## `application_files`
+
+**Purpose:** the CV and supporting document an applicant sent, stored in the private bucket applications at storage_key. Written only by the application-file Edge Function through application_upload_done(); readable exactly as the application is. [class: confidential]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | uuid | yes | gen_random_uuid() |  |
+| `application_id` | uuid | yes |  | `applications` |
+| `kind` | text | yes |  |  |
+| `storage_key` | text | yes |  |  |
+| `file_name` | text | yes |  |  |
+| `content_type` | text | yes |  |  |
+| `size_bytes` | integer | yes |  |  |
+| `uploaded_at` | timestamp with time zone | yes | now() |  |
+
 ## `application_offers`
 
 **Purpose:** terms of the offer made to an applicant (salary is confidential). [class: confidential]
@@ -74,6 +89,17 @@ Row-level security is enabled on every table; the policies are in the migrations
 | `changed_by` | uuid | no |  | `staff` |
 | `reason` | text | no |  |  |
 | `changed_at` | timestamp with time zone | yes | now() |  |
+
+## `application_upload_passes`
+
+**Purpose:** one-time upload passes for application files (SHA-256 of the pass only; the pass itself is never stored). Used by the application-file Edge Function. [class: restricted]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `token_hash` | text | yes |  |  |
+| `application_id` | uuid | yes |  | `applications` |
+| `expires_at` | timestamp with time zone | yes |  |  |
+| `created_at` | timestamp with time zone | yes | now() |  |
 
 ## `applications`
 
