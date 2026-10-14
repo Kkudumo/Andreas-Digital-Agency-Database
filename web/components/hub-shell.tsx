@@ -39,8 +39,7 @@ export function HubShell({items,person,staffId,position,division,signout,childre
   <NavProgress/>
   <button aria-label="Close navigation" className={'hub-scrim'+(open?' is-visible':'')} onClick={()=>setOpen(false)} tabIndex={open?0:-1}/>
   <aside ref={sidebarRef} id="hub-sidebar" className={'hub-sidebar'+(open?' is-open':'')} aria-label="Primary navigation">
-   <div className="hub-brand"><span><Link href="/dashboard" className="hub-brand-link"><strong><b>ADA</b>Hub / Core</strong></Link><small>Technology. Systems. Growth.</small></span><button ref={closeRef} className="hub-close" aria-label="Close menu" onClick={()=>setOpen(false)}>×</button></div>
-   <div className="hub-side-caption">WORKSPACE</div>
+   <div className="hub-brand"><div className="hub-brand-text"><Link href="/dashboard" className="hub-brand-link"><span>ADA</span><strong>Hub / Core</strong></Link><small>Technology. Systems. Growth.</small></div><button ref={closeRef} className="hub-close" aria-label="Close menu" onClick={()=>setOpen(false)}>×</button></div>
    <Nav items={items}/>
    <div className="hub-side-footer"><div className="hub-avatar">{person.trim().charAt(0).toUpperCase()||'A'}</div><div className="hub-side-person"><strong>{person}</strong><span>{position}{division?' · '+division:''}</span><small>{staffId}</small></div><div className="hub-signout">{signout}</div></div>
   </aside>
