@@ -119,6 +119,7 @@ erDiagram
   divisions ||--o{ projects : "lead_division_id"
   divisions ||--o{ quotes : "division_id"
   divisions ||--o{ services : "division_id"
+  divisions ||--o{ site_rebuilds : "division_key"
   divisions ||--o{ student_enrolments : "division_id"
   divisions ||--o{ students : "division_id"
   divisions ||--o{ tickets : "division_id"

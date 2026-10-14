@@ -2368,6 +2368,19 @@ _(no description)_
 | `created_at` | timestamp with time zone | yes | now() |  |
 | `updated_at` | timestamp with time zone | yes | now() |  |
 
+## `site_rebuilds`
+
+**Purpose:** which division website needs rebuilding after a public price or service change, and the name of the Vault secret holding its deploy hook. The hook URL itself is never stored here. [class: restricted]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `division_key` | text | yes |  | `divisions` |
+| `hook_secret` | text | yes |  |  |
+| `requested_at` | timestamp with time zone | no |  |  |
+| `sent_at` | timestamp with time zone | no |  |  |
+| `last_status` | text | no |  |  |
+| `updated_at` | timestamp with time zone | yes | now() |  |
+
 ## `staff`
 
 **Purpose:** staff directory and the link from a login (auth.users) to ADA. Directory columns only; sensitive HR data lives in staff_private. [class: internal]
