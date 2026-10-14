@@ -4,7 +4,8 @@
 // kind ("cv" or "supporting") and file (PDF or Word, at most 10 MB). The function never decides on its own: the database
 // checks the pass and names the storage path (application_upload_begin), the file is stored in the PRIVATE bucket
 // `applications`, and the database records it (application_upload_done). Runs with the project's service role, which
-// Supabase injects; no key is stored in this code.
+// Supabase injects; no key is stored in this code. JWT verification is off because the one-time pass is the authentication
+// (deployed with verify_jwt = false).
 import { createClient } from 'npm:@supabase/supabase-js@2.45.4';
 
 const ALLOWED_ORIGINS = new Set([
