@@ -13,7 +13,8 @@ end $$;
 
 -- The bucket ------------------------------------------------------------------------------------------------------------------------------------------------
 select tests.check('the bucket is private, limited to 50 MB and to Word / Excel / PDF', (select concat_ws('|', public::text, file_size_limit::text, cardinality(allowed_mime_types)::text) from storage.buckets where id = 'documents'), 'false|52428800|3');
-select tests.check('only the two policies exist (read, add): no update, no delete', (select string_agg(cmd, ',' order by cmd) from pg_policies where schemaname = 'storage' and tablename = 'objects'), 'INSERT,SELECT');
+select tests.check('only the two policies exist (read, add): no update, no delete', (select string_agg(cmd, ',' order by cmd) from pg_policies where schemaname = 'storage' and tablename = 'objects' and policyname like 'documents\_%'), 'INSERT,SELECT');
+select tests.check('no storage bucket has an update or delete policy for anyone', (select count(*)::text from pg_policies where schemaname = 'storage' and tablename = 'objects' and cmd in ('UPDATE', 'DELETE', 'ALL')), '0');
 select tests.check('anonymous callers cannot run the policy helper', has_function_privilege('anon', 'document_storage_can(text, text)', 'execute')::text || '|' || has_function_privilege('authenticated', 'document_storage_can(text, text)', 'execute')::text, 'false|true');
 
 -- A Web document, a Tech document, a restricted one --------------------------------------------------------------------------------------------------------
