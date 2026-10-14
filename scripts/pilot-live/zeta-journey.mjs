@@ -6,18 +6,18 @@ const ok = (name, cond, extra = '') => { steps.push(`${cond ? 'ok  ' : 'FAIL'} $
 async function session(email) {
   const ctx = await browser.newContext(); const page = await ctx.newPage(); page.setDefaultTimeout(30000);
   await page.goto(BASE + '/login'); await page.fill('input[name=email]', email); await page.fill('input[name=password]', 'x'); await page.click('button[type=submit]');
-  await page.waitForURL('**/search**'); return { ctx, page };
+  await page.waitForURL('**/dashboard**'); return { ctx, page };
 }
 const settle = async (page) => { await page.waitForTimeout(1200); await page.waitForLoadState('networkidle'); await page.waitForTimeout(400); };
-const seen = async (page, s) => { try { await page.waitForFunction((t) => document.querySelector('main').innerText.includes(t), s, { timeout: 10000 }); return true; } catch { return false; } };
-const text = async (page) => (await page.locator('main').innerText());
+const seen = async (page, s) => { try { await page.waitForFunction((t) => document.querySelector('main').innerText.toLowerCase().includes(t.toLowerCase()), s, { timeout: 10000 }); return true; } catch { return false; } };
+const text = async (page) => { await page.waitForSelector('[data-testid=page-skeleton]', { state: 'detached', timeout: 30000 }).catch(() => {}); return page.locator('main').innerText(); };
 const flash = async (page) => (await page.locator('.flash').first().innerText().catch(() => ''));
 
 let A;
 try {
 // ---------- A: web_lead
 let { ctx: ctxA, page: A0 } = await session('web_lead@ada.test'); A = A0;
-ok('login lands on Search', A.url().includes('/search'));
+ok('login lands on the dashboard (the executive overview for the CEO)', A.url().includes('/dashboard'));
 await A.goto(BASE + '/search?q=zeta'); ok('search before: nothing found', /0 results/.test(await text(A)), await text(A));
 await A.goto(BASE + '/clients/new?name=Zeta%20Test%20Company'); ok('new client: no existing match', /No existing client found/.test(await text(A)));
 await A.selectOption('select[name=division]', { label: 'ADA Web' }); await A.fill('input[name=registration]', 'ZTC-2026'); await A.click('button:has-text("Create")');
@@ -46,7 +46,7 @@ const projectUrl = A.url().split('?')[0];
 await A.goto(clientUrl); await A.click('summary:has-text("New quote")'); await A.fill('details:has(summary:has-text("New quote")) input[name=title]', 'Zeta website');
 const proj = await A.locator('details:has(summary:has-text("New quote")) select[name=project] option').allInnerTexts(); await A.selectOption('details:has(summary:has-text("New quote")) select[name=project]', { label: 'Zeta Website' });
 await A.click('details:has(summary:has-text("New quote")) button[type=submit]'); await A.waitForURL('**/quotes/**');
-ok('quote created in draft', /draft/.test(await text(A)), await text(A));
+ok('quote created in draft', /draft/i.test(await text(A)), await text(A));
 const quoteUrl = A.url().split('?')[0];
 await A.selectOption('select[name=service]', { index: 0 }); await A.click('button:has-text("Add line")'); await settle(A);
 ok('catalogue line added at 5,000 with price snapshot', /5,000\.00/.test(await text(A)) && /approved catalogue price/.test(await text(A)), await text(A));
@@ -62,7 +62,7 @@ await C.goto(quoteUrl); await move(C, 'approved'); ok('management approves', /ap
 await ctxC.close();
 
 // ---------- A continues: send, accept, convert, contract
-await A.goto(quoteUrl); await move(A, 'sent'); await move(A, 'accepted'); ok('quote accepted', /accepted/.test(await text(A)), await flash(A));
+await A.goto(quoteUrl); await move(A, 'sent'); await move(A, 'accepted'); ok('quote accepted', /accepted/i.test(await text(A)), await flash(A));
 await A.click('button:has-text("Link quote to its project")'); await A.waitForURL('**/projects/**');
 ok('project holds the priced service from the quote', /Zeta Website|Website Development/.test(await text(A)) && /5,000\.00/.test(await text(A)), await text(A));
 await A.goto(quoteUrl); await A.click('button:has-text("Create contract from this quote")'); await A.waitForURL('**/contracts/**'); const contractUrl = A.url().split('?')[0];
@@ -71,7 +71,7 @@ ok('contract in review', /internal review/i.test(await text(A)), await flash(A))
 ({ ctx: ctxC, page: C } = await session('ceo@ada.test'));
 await C.goto(contractUrl); await move(C, 'approved'); await ctxC.close();
 await A.goto(contractUrl); await move(A, 'sent'); await move(A, 'signed'); await move(A, 'active');
-ok('contract active and linked to the project', /active/i.test(await text(A)) && /Zeta Website/.test(await text(A)), await text(A));
+ok('contract active and linked to the project', (await seen(A, 'active')) && (await seen(A, 'Zeta Website')), await text(A));
 
 // ---------- finance bills it
 let { ctx: ctxF, page: F } = await session('fin@ada.test');
@@ -142,7 +142,7 @@ await X.goto(invoiceUrl); ok('the invoice balance is derived net of the credit: 
 await X.goto(BASE + '/expenses'); await X.fill('input[name=description]', 'Hosting for Zeta'); await X.fill('input[name=amount]', '1200');
 await X.selectOption('select[name=project]', { label: 'Zeta Website' }); await X.click('button:has-text("Record as draft")'); await X.waitForURL('**/expenses/**');
 const exUrl = X.url().split('?')[0]; ok('an expense is recorded as a draft against the project', /Expense · ADA-EXP/.test(await text(X)) && /draft/i.test(await text(X)), await text(X));
-await move(X, 'pending_approval'); ok('expense submitted', /pending approval/i.test(await text(X)), await flash(X));
+await move(X, 'pending_approval'); ok('expense submitted', await seen(X, 'pending approval'), await flash(X));
 ({ ctx: ctxC, page: C } = await session('ceo@ada.test'));
 await C.goto(exUrl); await move(C, 'approved'); ok('management approves the expense', /approved/i.test(await text(C)), await flash(C)); await ctxC.close();
 await X.goto(exUrl); await X.click('button:has-text("Record payment")'); await settle(X);

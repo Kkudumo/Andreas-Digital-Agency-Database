@@ -43,7 +43,7 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(new URL('/mfa', request.url));
     }
     if (twoStep && (isLoginPath || path === '/' || path === '/mfa')) {
-      return NextResponse.redirect(new URL('/search', request.url));
+      return NextResponse.redirect(new URL('/dashboard', request.url));
     }
   }
 

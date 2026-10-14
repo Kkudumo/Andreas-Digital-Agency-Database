@@ -8,5 +8,5 @@ export async function verifyMfa(formData: FormData) {
   const supabase = await createClient();
   const { error } = await supabase.auth.mfa.challengeAndVerify({ factorId, code });
   if (error) redirect('/mfa?error=' + encodeURIComponent('That code did not work. Check the time on your phone and try the newest code.'));
-  redirect('/search');
+  redirect('/dashboard');
 }
