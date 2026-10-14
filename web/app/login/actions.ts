@@ -11,7 +11,7 @@ export async function signIn(formData: FormData) {
   if (error) redirect('/login?error=' + encodeURIComponent('Invalid email or password.'));
   // The authenticator step comes next unless this session is already at aal2.
   const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-  redirect(aal?.currentLevel === 'aal2' ? '/search' : '/mfa');
+  redirect(aal?.currentLevel === 'aal2' ? '/dashboard' : '/mfa');
 }
 
 export async function signOut() {

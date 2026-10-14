@@ -128,6 +128,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
     { href: '/projects', t: 'Projects', show: showProjects },
     { href: '/invoices', t: 'Invoices', show: showFin },
     { href: '/expenses', t: 'Expenses', show: showExpenses },
+    { href: '/documents', t: 'Documents', show: canAnywhere(access, 'documents.view') },
     { href: '/staff', t: 'Staff', show: true },
   ].filter((x) => x.show);
 

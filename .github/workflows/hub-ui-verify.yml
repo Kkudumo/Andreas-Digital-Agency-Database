@@ -33,3 +33,11 @@ jobs:
           NEXT_TELEMETRY_DISABLED: '1'
           NEXT_PUBLIC_SUPABASE_URL: 'https://uyhwcbjfvfkqsixthxkn.supabase.co'
           NEXT_PUBLIC_SUPABASE_ANON_KEY: 'placeholder-for-build-only'
+      - name: Every link in the interface leads to a page that exists
+        working-directory: .
+        run: node scripts/check-web-links.mjs
+      - name: Word and Excel converters keep their content (round-trip)
+        working-directory: .
+        run: |
+          node --experimental-strip-types --no-warnings scripts/test-office-xlsx.mjs
+          node --experimental-strip-types --no-warnings scripts/test-office-docx.mjs

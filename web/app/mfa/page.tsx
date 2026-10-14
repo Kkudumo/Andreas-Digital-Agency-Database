@@ -14,7 +14,7 @@ export default async function MfaPage({ searchParams }: { searchParams: Promise<
   if (!auth.user) redirect('/login');
 
   const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-  if (aal?.currentLevel === 'aal2') redirect('/search');
+  if (aal?.currentLevel === 'aal2') redirect('/dashboard');
 
   const { data: factors } = await supabase.auth.mfa.listFactors();
   const verified = (factors?.totp ?? []).find((f) => f.status === 'verified');

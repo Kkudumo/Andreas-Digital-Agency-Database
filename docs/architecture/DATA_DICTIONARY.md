@@ -21,6 +21,32 @@ Row-level security is enabled on every table; the policies are in the migrations
 | `offered_by` | uuid | no |  | `staff` |
 | `offered_at` | timestamp with time zone | yes | now() |  |
 
+## `application_profiles`
+
+**Purpose:** what the applicant said about themselves on the application form (education, links, motivation ...). One row per application, written once by the website through public_api.submit_application_profile; identity (name, email, phone) stays in people. Readable exactly as the application is. [class: confidential]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `application_id` | uuid | yes |  | `applications` |
+| `application_type` | text | no |  |  |
+| `nationality` | text | no |  |  |
+| `location` | text | no |  |  |
+| `availability` | text | no |  |  |
+| `highest_qualification` | text | no |  |  |
+| `institution` | text | no |  |  |
+| `field_of_study` | text | no |  |  |
+| `completion_year` | integer | no |  |  |
+| `current_or_recent_role` | text | no |  |  |
+| `years_experience` | text | no |  |  |
+| `skills` | text | no |  |  |
+| `portfolio_url` | text | no |  |  |
+| `github_url` | text | no |  |  |
+| `linkedin_url` | text | no |  |  |
+| `motivation` | text | no |  |  |
+| `contribution` | text | no |  |  |
+| `achievement` | text | no |  |  |
+| `created_at` | timestamp with time zone | yes | now() |  |
+
 ## `application_reviews`
 
 **Purpose:** interview notes and scores. Insert-only; never public. [class: confidential]
@@ -716,6 +742,36 @@ Row-level security is enabled on every table; the policies are in the migrations
 | `is_active` | boolean | yes | true |  |
 | `sort_order` | integer | yes | 100 |  |
 
+## `content_posts`
+
+**Purpose:** posts for the websites - journal entries, news, announcements, updates - one table, optionally owned by a division (null = the whole agency). Written as drafts; published only through content_transition(); the websites read only published posts through public_api.posts. Body is a list of blocks {id, type, text}. Cover images are website paths or https URLs (the file itself is not stored here). [class: internal until published]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | uuid | yes | gen_random_uuid() |  |
+| `kind` | text | yes | 'news'::text |  |
+| `slug` | text | yes |  |  |
+| `title` | text | yes |  |  |
+| `excerpt` | text | no |  |  |
+| `category` | text | no |  |  |
+| `body` | jsonb | yes | '[]'::jsonb |  |
+| `cover_path` | text | no |  |  |
+| `external_url` | text | no |  |  |
+| `featured` | boolean | yes | false |  |
+| `tags` | text[] | yes | '{}'::text[] |  |
+| `seo_title` | text | no |  |  |
+| `seo_description` | text | no |  |  |
+| `division_id` | uuid | no |  | `divisions` |
+| `status` | publication_state | yes | 'draft'::publication_state |  |
+| `display_date` | timestamp with time zone | no |  |  |
+| `approved_by` | uuid | no |  | `staff` |
+| `approved_at` | timestamp with time zone | no |  |  |
+| `published_at` | timestamp with time zone | no |  |  |
+| `status_reason` | text | no |  |  |
+| `author_staff_id` | uuid | no |  | `staff` |
+| `created_at` | timestamp with time zone | yes | now() |  |
+| `updated_at` | timestamp with time zone | yes | now() |  |
+
 ## `contract_lines`
 
 **Purpose:** the agreed services and prices. unit_price/discount_amount are SNAPSHOTS of what was agreed (copied from the quote or stated with a reason); price_id records the catalogue version they came from. origin_line_id links a line to the same line in earlier versions so billing continues across amendments. [class: confidential]
@@ -902,6 +958,26 @@ Row-level security is enabled on every table; the policies are in the migrations
 | `created_by` | uuid | no |  | `staff` |
 | `created_at` | timestamp with time zone | yes | now() |  |
 | `updated_at` | timestamp with time zone | yes | now() |  |
+
+## `db_section_tables`
+
+**Purpose:** which section each table of the public schema belongs to (exactly one). A test fails if a table has no section. Holds table names only, no business data. [class: internal]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `table_name` | text | yes |  |  |
+| `section_key` | text | yes |  | `db_sections` |
+
+## `db_sections`
+
+**Purpose:** the sections the database is arranged into (people & careers, services & prices, finance ...). A catalogue for navigation and documentation; moves nothing. Changed only by migration. [class: internal]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `key` | text | yes |  |  |
+| `position` | integer | yes |  |  |
+| `title` | text | yes |  |  |
+| `summary` | text | yes |  |  |
 
 ## `divisions`
 
@@ -2590,6 +2666,13 @@ _(no description)_
 | `deletion_reason` | text | no |  |  |
 | `created_at` | timestamp with time zone | yes | now() |  |
 | `updated_at` | timestamp with time zone | yes | now() |  |
+| `slug` | text | no |  |  |
+| `location` | text | no |  |  |
+| `responsibilities` | text | no |  |  |
+| `qualifications` | text | no |  |  |
+| `experience` | text | no |  |  |
+| `application_instructions` | text | no |  |  |
+| `featured` | boolean | yes | false |  |
 
 ## `websites`
 

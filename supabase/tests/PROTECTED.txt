@@ -547,3 +547,25 @@ the identity is handed back after the job
 # Dashboard finance
 spend is derived by state
 someone without expense, credit note or schedule access sees empty spend
+
+# document file storage (private bucket, write-once, path-forgery and hidden-document tests)
+the bucket is private, limited to 50 MB and to Word / Excel / PDF
+nobody can rename, overwrite or delete a stored file, not the owner and not the CEO
+a hidden document and a made-up id are refused identically (no existence leak)
+
+# database sections and indexes
+every table of the public schema belongs to a section
+every foreign key to a main record (not an actor column such as created_by) has an index to look it up by
+anonymous callers can neither read the catalogue nor run the function
+the content permissions: the CEO publishes; administration, division leads and staff write; the auditor reads
+division staff write a draft for their own division
+the author cannot be forged on creation
+another division cannot write in it, and cannot see its drafts
+the same division lead, the CEO, administration and the auditor see the draft; recruiter, outsider and suspended do not
+nobody can delete a post
+status cannot be edited directly, not even by the CEO
+neither the author, nor the division lead, nor administration may approve or publish
+when its author edits a published post it goes back to draft (and leaves the website)
+when the CEO edits it, it stays published
+with the capability: exactly the published post, with only its public fields
+... even when it is published (the division is not public)

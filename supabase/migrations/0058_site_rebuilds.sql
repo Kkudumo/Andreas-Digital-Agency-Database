@@ -34,6 +34,8 @@ alter table site_rebuilds enable row level security;
 revoke all on site_rebuilds from anon, authenticated;
 grant select on site_rebuilds to authenticated;
 create policy site_rebuilds_select on site_rebuilds for select to authenticated using (has_permission('websites.view'));
+select attach_audit('site_rebuilds');
+insert into db_section_tables (table_name, section_key) values ('site_rebuilds', 'content');
 
 -- Mark a division's website as needing a rebuild. Divisions without a static website are ignored.
 create function request_site_rebuild(p_division uuid) returns void
