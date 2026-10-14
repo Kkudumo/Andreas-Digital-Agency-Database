@@ -127,3 +127,16 @@ begin
   drop policy if exists applications_files_read on storage.objects;
   create policy applications_files_read on storage.objects for select to authenticated using (bucket_id = 'applications' and application_storage_can_read(name));
 end $$;
+
+-- The careers page shows how many people a vacancy is for: add `openings` to the public vacancy (otherwise unchanged from 0057).
+create or replace function public_api.vacancy_dto(p_id uuid) returns jsonb
+language sql stable security definer set search_path = public, pg_temp as $$
+  select jsonb_strip_nulls(jsonb_build_object(
+    'id', v.ada_id, 'slug', v.slug, 'title', v.title, 'summary', v.summary, 'description', v.description, 'requirements', v.requirements,
+    'responsibilities', v.responsibilities, 'qualifications', v.qualifications, 'experience', v.experience,
+    'application_instructions', v.application_instructions, 'location', v.location, 'featured', case when v.featured then true end,
+    'employment_type', v.employment_type, 'openings', v.openings, 'closing_date', v.closing_date, 'published_at', v.published_at,
+    'division', case when d.public_state = 'published' then jsonb_build_object('code', d.key, 'name', d.name) end,
+    'salary', case when v.salary_public then jsonb_build_object('min', v.salary_min, 'max', v.salary_max, 'currency', v.salary_currency) end))
+  from vacancies v join divisions d on d.id = v.division_id where v.id = p_id
+$$;

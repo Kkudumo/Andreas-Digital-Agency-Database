@@ -70,7 +70,7 @@ select tests.scalar('ceo', $q$ select vacancy_transition((select id from tests.i
 select tests.check('published vacancy appears with no website change', (select count(*)::text from jsonb_array_elements(tests.pub('main', 'vacancies')::jsonb)), '1');
 select tests.check('vacancy DTO exposes only intended fields (no salary unless marked public)',
   (select string_agg(k, ',' order by k) from jsonb_object_keys(tests.pub('main', 'vacancies')::jsonb -> 0) k),
-  'closing_date,description,division,employment_type,id,published_at,requirements,summary,title');
+  'closing_date,description,division,employment_type,id,openings,published_at,requirements,summary,title');
 update vacancies set salary_public = true where id = tests.id('vac:v');
 select tests.check('salary appears only when marked public', (tests.pub('main', 'vacancies')::jsonb -> 0 -> 'salary' ->> 'max'), '12000.00');
 select tests.check('division filter works', tests.pub('main', 'vacancies', quote_literal('tech')), '[]');

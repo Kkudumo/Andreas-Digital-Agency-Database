@@ -440,3 +440,8 @@ a.div-tile .open { font: 900 10px/1 var(--label-font); letter-spacing: .06em; co
 .checks label { display: inline-flex; align-items: center; gap: .35rem; font-weight: 400; }
 .keybox { display: grid; gap: .5rem; padding: .75rem; border: 1px solid var(--line, #d6dbe4); background: var(--bg, #f4f7fb); max-width: 34rem; }
 .keyvalue { display: block; padding: .5rem; background: var(--card, #fff); border: 1px dashed var(--line, #c7cfdb); word-break: break-all; user-select: all; font-size: .9rem; }
+
+/* ---------- Careers ---------- */
+form.inline { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+form.inline input { flex: 1 1 220px; min-width: 0; }
+.id { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .75rem; color: var(--muted); }

@@ -16,6 +16,8 @@ const perIp = new RateLimiter(Number(process.env.RATE_PER_IP ?? 120), 60_000);
 const writeIp = new RateLimiter(Number(process.env.RATE_WRITE_PER_IP ?? 10), 60_000);
 setInterval(() => { perKey.sweep(); perIp.sweep(); writeIp.sweep(); }, 60_000).unref();
 const MAX_BODY = 32 * 1024;
+// Where browsers send application files (the application-file Edge Function in the ADA Core project).
+const UPLOAD_URL = process.env.APPLICATION_UPLOAD_URL ?? 'https://uyhwcbjfvfkqsixthxkn.supabase.co/functions/v1/application-file';
 
 function send(res: http.ServerResponse, status: number, body: unknown, headers: Record<string, string> = {}) {
   const text = JSON.stringify(body);
@@ -78,7 +80,18 @@ export async function handle(req: http.IncomingMessage, res: http.ServerResponse
         return send(res, 201, r[0].r, { 'cache-control': 'no-store' });
       }
       const r = await sql`select public_api.submit_application(${h}, ${clip(b.vacancy, 40)}, ${clip(b.name, 200)}, ${clip(b.email, 254)}, ${clip(b.phone, 40)}, ${clip(b.cover, 8000)}, ${clip(b.page, 500)}, ${clip(b.referrer, 500)}, ${sql.json(cleanUtm(b.utm))}) as r`;
-      return send(res, 201, r[0].r, { 'cache-control': 'no-store' });
+      const out: Record<string, unknown> = { ...r[0].r };
+      const reference = String(out.reference ?? '');
+      // The applicant's own answers (education, links, motivation ...) - optional, validated by the database.
+      if (b.profile && typeof b.profile === 'object' && !Array.isArray(b.profile)) {
+        await sql`select public_api.submit_application_profile(${h}, ${reference}, ${sql.json(b.profile)}) as r`;
+      }
+      // A one-time pass for the visitor's browser to send the CV straight to ADA Core (files never pass through a website server).
+      if (b.files === true) {
+        const u = await sql`select public_api.open_application_upload(${h}, ${reference}) as r`;
+        out.upload = { pass: u[0].r.upload_pass, expires_in_seconds: u[0].r.expires_in_seconds, url: UPLOAD_URL };
+      }
+      return send(res, 201, out, { 'cache-control': 'no-store' });
     }
     return send(res, 405, { error: 'method_not_allowed' });
   } catch (e: any) {
