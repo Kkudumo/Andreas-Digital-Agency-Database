@@ -9,6 +9,7 @@ export const CAPABILITIES = [
   { key: 'documents.read', label: 'Published documents' },
   { key: 'enquiries.submit', label: 'Contact and quote forms' },
   { key: 'applications.submit', label: 'Job applications' },
+  { key: 'consultations.book', label: 'Consultation booking' },
 ] as const;
 
 export type KeyState = { key?: string; site?: string; error?: string };
