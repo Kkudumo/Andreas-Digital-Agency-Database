@@ -55,3 +55,15 @@ The website sends what the visitor typed plus `page`, `referrer` and `utm` (`utm
 Changes emit rows in `events` and, for sites with an active `event_subscriptions` row matching the event type, a pending `event_deliveries` row.
 A dispatcher (to be built) POSTs a signed webhook, e.g. `vacancy.published`, and the website revalidates the affected page. No redeploy is involved.
 Event types: `vacancy.published|unpublished|closed`, `service.published|unpublished`, `price.changed`, `portfolio.published|unpublished`, `project.completed`, `application.submitted|status_changed|offer_made|accepted`, `staff.created|deactivated`, `profile.published|unpublished`, `website.registered`, `enquiry.received`, `lead.created|qualified|converted`, `quote.accepted` (identifiers and states only; the last five are internal and not meant for websites).
+
+## Consultations (`consultations.book` capability)
+
+| Request | Purpose |
+|---|---|
+| `GET /api/public/consultations?from=YYYY-MM-DD&to=YYYY-MM-DD` | Free slots (Africa/Windhoek, `+02:00`). Empty until an administrator enables booking and sets hours. Never cached. |
+| `POST /api/public/consultations` `{action:"book", start, name, email, phone, topic}` | Books a slot. Returns `reference` and a one-time `cancel_code` (only its hash is stored). `409` if the slot was taken. |
+| `POST /api/public/consultations` `{action:"cancel", reference, code, reason?}` | Cancels. |
+| `POST /api/public/consultations` `{action:"reschedule", reference, code, start}` | Moves to another free slot (at most twice). |
+| `GET /api/public/consultations/{reference}` with header `x-booking-code` | Status of one booking. |
+
+Double booking is prevented by a database exclusion constraint. No email or calendar integration is included.

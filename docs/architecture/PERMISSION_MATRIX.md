@@ -166,3 +166,6 @@ A role assignment is organization-wide or scoped to one division. **Division Lea
 | `content.update` — Edit content posts | internal | x | x |  | x | x |  |  |
 | `content.publish` — Approve, publish and unpublish content posts on the websites | restricted | x |  |  |  |  |  |  |
 | `content.archive` — Archive content posts | internal | x | x |  | x |  |  |  |
+| `consultations.view` — See booked consultations and the booking settings | confidential | x | x |  | x | x | x |  |
+| `consultations.manage` — Cancel, reschedule and close consultations | confidential | x | x |  | x |  |  |  |
+| `consultations.configure` — Switch booking on or off; set weekly hours, slot length and blocked dates | restricted | x | x |  |  |  |  |  |

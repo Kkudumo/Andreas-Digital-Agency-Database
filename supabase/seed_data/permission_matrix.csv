@@ -159,3 +159,6 @@ content.create,internal,Create content posts (journal news announcements updates
 content.update,internal,Edit content posts,x,x,,x,x,,
 content.publish,restricted,"Approve, publish and unpublish content posts on the websites",x,,,,,,
 content.archive,internal,Archive content posts,x,x,,x,,,
+consultations.view,confidential,See booked consultations and the booking settings,x,x,,x,x,x,
+consultations.manage,confidential,"Cancel, reschedule and close consultations",x,x,,x,,,
+consultations.configure,restricted,"Switch booking on or off; set weekly hours, slot length and blocked dates",x,x,,,,,

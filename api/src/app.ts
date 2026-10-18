@@ -60,6 +60,40 @@ export async function handle(req: http.IncomingMessage, res: http.ServerResponse
     if (!perIp.allow(ip) || !perKey.allow(h)) return send(res, 429, { error: 'rate_limited' }, { 'retry-after': '60' });
     const [, name, id] = m;
 
+    // Consultation booking: never cached; the cancel code travels in a header (GET) or the body (POST), not in the URL
+    if (name === 'consultations') {
+      const nocache = { 'cache-control': 'no-store' };
+      if (req.method === 'GET' && !id) {
+        const iso = (v: string | null) => (v && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null);
+        const r = await sql`select public_api.consultation_slots(${h}, ${iso(u.searchParams.get('from'))}::date, ${iso(u.searchParams.get('to'))}::date) as r`;
+        return send(res, 200, r[0].r, nocache);
+      }
+      if (req.method === 'GET' && id) {
+        const code = req.headers['x-booking-code'];
+        const r = await sql`select public_api.consultation_status(${h}, ${clip(id, 40)}, ${typeof code === 'string' ? clip(code, 40) : ''}) as r`;
+        return send(res, 200, r[0].r, nocache);
+      }
+      if (req.method === 'POST' && !id) {
+        if (!writeIp.allow(ip)) return send(res, 429, { error: 'rate_limited' }, { 'retry-after': '60' });
+        const b = await readJson(req);
+        const when = (v: unknown) => { const d = new Date(String(v ?? '')); if (isNaN(d.getTime())) throw Object.assign(new Error('invalid time'), { status: 422 }); return d.toISOString(); };
+        if (b.action === 'book') {
+          const r = await sql`select public_api.book_consultation(${h}, ${when(b.start)}::timestamptz, ${clip(b.name, 120)}, ${clip(b.email, 200)}, ${clip(b.phone, 40)}, ${clip(b.topic, 2000)}) as r`;
+          return send(res, 201, r[0].r, nocache);
+        }
+        if (b.action === 'cancel') {
+          const r = await sql`select public_api.cancel_consultation(${h}, ${clip(b.reference, 40)}, ${clip(b.code, 40)}, ${clip(b.reason, 500)}) as r`;
+          return send(res, 200, r[0].r, nocache);
+        }
+        if (b.action === 'reschedule') {
+          const r = await sql`select public_api.reschedule_consultation(${h}, ${clip(b.reference, 40)}, ${clip(b.code, 40)}, ${when(b.start)}::timestamptz) as r`;
+          return send(res, 200, r[0].r, nocache);
+        }
+        return send(res, 422, { error: 'rejected' });
+      }
+      return send(res, 405, { error: 'method_not_allowed' });
+    }
+
     if (req.method === 'GET') {
       let fn = name; if (name === 'vacancies' && id) fn = 'vacancy'; if (name === 'documents' && id) fn = 'document';
       if (!reads[fn] || (id && fn === name)) return send(res, 404, { error: 'not_found' });
