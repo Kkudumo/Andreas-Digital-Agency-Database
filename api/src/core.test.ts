@@ -4,7 +4,7 @@ import { RateLimiter, cleanUtm, clip, hashKey, statusFor } from './core.js';
 
 test('hashKey is sha-256 hex', () => assert.equal(hashKey('abc'), 'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad'));
 test('SQLSTATE maps to HTTP', () => {
-  assert.deepEqual(['42501', 'P0002', '22023', '23514', '23505', 'XX000'].map(statusFor), [403, 404, 422, 422, 409, 500]);
+  assert.deepEqual(['42501', 'P0002', '22023', '23514', '23505', 'XX000', '23P01', 'P0001', '54000'].map(statusFor), [403, 404, 422, 422, 409, 500, 409, 409, 422]);
 });
 test('rate limiter blocks then resets', () => {
   const r = new RateLimiter(2, 1000);

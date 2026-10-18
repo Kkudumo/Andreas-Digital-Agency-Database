@@ -768,6 +768,69 @@ Row-level security is enabled on every table; the policies are in the migrations
 | `is_active` | boolean | yes | true |  |
 | `sort_order` | integer | yes | 100 |  |
 
+## `consultation_blocks`
+
+**Purpose:** dates (Windhoek local, inclusive) on which no consultation can be booked. [class: internal]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | uuid | yes | gen_random_uuid() |  |
+| `starts_on` | date | yes |  |  |
+| `ends_on` | date | yes |  |  |
+| `reason` | text | no |  |  |
+| `created_by` | uuid | no |  | `staff` |
+| `created_at` | timestamp with time zone | yes | now() |  |
+
+## `consultation_hours`
+
+**Purpose:** weekly windows (Windhoek local time) in which consultations can be booked; none are preconfigured. [class: internal]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | uuid | yes | gen_random_uuid() |  |
+| `weekday` | smallint | yes |  |  |
+| `opens_at` | time without time zone | yes |  |  |
+| `closes_at` | time without time zone | yes |  |  |
+
+## `consultation_settings`
+
+**Purpose:** single-row switch and rules for public consultation booking (off by default). [class: internal]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | uuid | yes | gen_random_uuid() |  |
+| `single_row` | boolean | yes | true |  |
+| `enabled` | boolean | yes | false |  |
+| `division_id` | uuid | no |  | `divisions` |
+| `slot_minutes` | integer | yes | 30 |  |
+| `min_notice_hours` | integer | yes | 12 |  |
+| `max_days_ahead` | integer | yes | 45 |  |
+| `updated_at` | timestamp with time zone | yes | now() |  |
+
+## `consultations`
+
+**Purpose:** consultation bookings made on the websites. customer_* are SNAPSHOTS of what was typed. Customers never read this table; staff read it by permission. [class: confidential]
+
+| Column | Type | Required | Default | References |
+|---|---|---|---|---|
+| `id` | uuid | yes | gen_random_uuid() |  |
+| `reference` | text | yes |  |  |
+| `website_id` | uuid | no |  | `websites` |
+| `division_id` | uuid | no |  | `divisions` |
+| `starts_at` | timestamp with time zone | yes |  |  |
+| `ends_at` | timestamp with time zone | yes |  |  |
+| `status` | text | yes | 'booked'::text |  |
+| `customer_name` | text | yes |  |  |
+| `customer_email` | text | yes |  |  |
+| `customer_phone` | text | yes |  |  |
+| `topic` | text | yes |  |  |
+| `cancel_code_hash` | text | yes |  |  |
+| `cancelled_by` | text | no |  |  |
+| `cancel_reason` | text | no |  |  |
+| `reschedule_count` | integer | yes | 0 |  |
+| `created_at` | timestamp with time zone | yes | now() |  |
+| `updated_at` | timestamp with time zone | yes | now() |  |
+
 ## `content_posts`
 
 **Purpose:** posts for the websites - journal entries, news, announcements, updates - one table, optionally owned by a division (null = the whole agency). Written as drafts; published only through content_transition(); the websites read only published posts through public_api.posts. Body is a list of blocks {id, type, text}. Cover images are website paths or https URLs (the file itself is not stored here). [class: internal until published]

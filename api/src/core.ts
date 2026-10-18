@@ -9,7 +9,8 @@ export function statusFor(code?: string): number {
     case '42501': return 403;
     case 'P0002': return 404;
     case '22023': case '23514': return 422;
-    case '23505': return 409;
+    case '23505': case '23P01': case 'P0001': return 409;   // taken / duplicate / not allowed in the booking's current state
+    case '54000': return 422;
     default: return 500;
   }
 }
