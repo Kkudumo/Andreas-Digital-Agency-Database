@@ -21,13 +21,13 @@ const UPLOAD_URL = process.env.APPLICATION_UPLOAD_URL ?? 'https://uyhwcbjfvfkqsi
 
 function send(res: http.ServerResponse, status: number, body: unknown, headers: Record<string, string> = {}) {
   const text = JSON.stringify(body);
-  res.writeHead(status, { 'content-type': 'application/json; charset=utf-8', 'x-content-type-options': 'nosniff', ...headers });
+  res.writeHead(status, { 'content-type': 'application/json; charset=utf-8', 'x-content-type-options': 'nosniff', 'cache-control': 'no-store', ...headers });
   res.end(text);
 }
 async function readJson(req: http.IncomingMessage): Promise<any> {
   const chunks: Buffer[] = []; let size = 0;
   for await (const c of req) { size += c.length; if (size > MAX_BODY) throw Object.assign(new Error('too large'), { status: 413 }); chunks.push(c); }
-  try { return JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}'); } catch { throw Object.assign(new Error('invalid json'), { status: 400 }); }
+  try { const body=JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}'); if(!body || typeof body!=='object' || Array.isArray(body))throw new Error('invalid object'); return body; } catch { throw Object.assign(new Error('invalid json'), { status: 400 }); }
 }
 
 const reads: Record<string, (h: string, q: URLSearchParams, id?: string) => Promise<unknown>> = {
@@ -100,7 +100,7 @@ export async function handle(req: http.IncomingMessage, res: http.ServerResponse
       const data = await reads[fn](h, u.searchParams, id);
       if (data === null && id) return send(res, 404, { error: 'not_found' });
       const body = JSON.stringify(data); const etag = '"' + createHash('sha256').update(body).digest('hex').slice(0, 32) + '"';
-      const cache = { 'cache-control': 'public, max-age=60, stale-while-revalidate=300', etag };
+      const cache = { 'cache-control': 'private, no-store', etag };
       if (req.headers['if-none-match'] === etag) { res.writeHead(304, cache); return res.end(); }
       return send(res, 200, data, cache);
     }
@@ -136,3 +136,4 @@ export async function handle(req: http.IncomingMessage, res: http.ServerResponse
     send(res, status, { error: status === 403 ? 'forbidden' : status === 500 ? 'server_error' : 'rejected' });
   }
 }
+
